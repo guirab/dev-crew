@@ -18,7 +18,7 @@ from typing import Any
 
 import structlog
 from claude_agent_sdk import HookContext, HookInput, HookMatcher
-from claude_agent_sdk.types import PreToolUseHookSpecificOutput, SyncHookJSONOutput
+from claude_agent_sdk.types import HookEvent, PreToolUseHookSpecificOutput, SyncHookJSONOutput
 
 from ..contracts import AgentJob
 from .pathjail import PathJail, expand_braces, is_unresolvable, matches_any_glob
@@ -1018,7 +1018,7 @@ BlockCallback = Callable[[str], Awaitable[None]]
 
 def for_agent(
     spec: AgentSpec[Any], job: AgentJob, workspace: str, on_block: BlockCallback | None = None
-) -> dict[str, list[HookMatcher]]:
+) -> dict[HookEvent, list[HookMatcher]]:
     """``hooks`` option value: one ``PreToolUse`` hook (all tools) that denies by policy.
 
     Fails closed: any error inside the guard denies the call. Every denial is reported through
