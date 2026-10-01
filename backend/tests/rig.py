@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import socket
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,7 +18,8 @@ from crew.azure.fake import FakeAzureBackend
 from crew.azure.service import AzureService
 from crew.bus import Bus
 from crew.bus import subjects as s
-from crew.config import CrewConfig, LimitsCfg, RepoCfg, WorkspaceCfg
+from crew.config import CrewConfig, GatewayCfg, LimitsCfg, RepoCfg, WorkspaceCfg
+from crew.gateway.app import Gateway
 from crew.orchestrator.devfakes import FakeCrew
 from crew.orchestrator.service import OrchestratorService
 from crew.orchestrator.store import Store
@@ -29,9 +31,18 @@ VIEW_OR_NONE = TypeAdapter(c.TaskView | None)
 WAIT_S = 30.0
 
 
-def make_config(tmp_path: Path, repo_path: Path | None = None, **limits: Any) -> CrewConfig:
+def free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def make_config(
+    tmp_path: Path, repo_path: Path | None = None, port: int | None = None, **limits: Any
+) -> CrewConfig:
     repo = repo_path or make_git_repo(tmp_path / "repos")
     return CrewConfig(
+        gateway=GatewayCfg(port=port or free_port()),
         workspace=WorkspaceCfg(root=tmp_path / "worktrees"),
         limits=LimitsCfg(**limits),
         repos=[RepoCfg(name="sample-repo", path=repo, base_branch="main", test_cmd="pytest -q")],
@@ -50,6 +61,11 @@ class Rig:
     _changed: asyncio.Condition = field(default_factory=asyncio.Condition)
     svc: OrchestratorService | None = None
     fake: FakeCrew | None = None
+    gateway: Gateway | None = None
+
+    @property
+    def base_url(self) -> str:
+        return f"http://127.0.0.1:{self.cfg.gateway.port}"
 
     # ------------------------------------------------------------------ observation
 
@@ -134,6 +150,9 @@ async def start_rig(
     escalate: bool = False,
     agents: bool = True,
     azure: bool = True,
+    gateway: bool = False,
+    dist: Path | None = None,
+    orchestrator: bool = True,
     store: Store | None = None,
     cfg: CrewConfig | None = None,
     clean: bool = True,
@@ -154,8 +173,26 @@ async def start_rig(
     if agents:
         rig.fake = FakeCrew(bus, speed=speed, escalate=escalate)
         rig.spawn(rig.fake.run(rig.stop), "fake-agents")
-    await start_orchestrator(rig)
+    if orchestrator:
+        await start_orchestrator(rig)
+    if gateway:
+        rig.gateway = Gateway(bus, cfg, dist=dist)
+        rig.spawn(rig.gateway.run(rig.stop), "gateway")
+        await _wait_port(cfg.gateway.port)
     return rig
+
+
+async def _wait_port(port: int, timeout: float = 10.0) -> None:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            _, writer = await asyncio.open_connection("127.0.0.1", port)
+        except OSError:
+            await asyncio.sleep(0.05)
+            continue
+        writer.close()
+        return
+    raise RuntimeError(f"port {port} never opened")
 
 
 async def start_orchestrator(rig: Rig, stop: asyncio.Event | None = None) -> asyncio.Task[None]:

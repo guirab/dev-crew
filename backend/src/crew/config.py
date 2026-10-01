@@ -43,8 +43,8 @@ class GatewayCfg(_Section):
     @classmethod
     def _loopback_only(cls, v: str) -> str:
         # the gateway has no auth: it must never listen on a public interface
-        if v not in {"127.0.0.1", "localhost", "::1"}:
-            raise ValueError("gateway só pode escutar em loopback (127.0.0.1, localhost ou ::1)")
+        if v not in {"127.0.0.1", "localhost"}:
+            raise ValueError("gateway só pode escutar em loopback (127.0.0.1 ou localhost)")
         return v
 
 
