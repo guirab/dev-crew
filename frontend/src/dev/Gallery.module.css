@@ -1,0 +1,45 @@
+.wrap {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 24px 56px 140px;
+}
+
+.title {
+  font: 700 15px var(--mono);
+  margin: 0 0 24px;
+}
+
+.prompt {
+  color: var(--green);
+}
+
+.h2 {
+  font: 600 11px var(--mono);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 36px 0 12px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-around;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    padding: 16px 16px 120px 54px;
+  }
+}

@@ -1,0 +1,55 @@
+.list {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin: 0 0 8px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wi {
+  display: grid;
+  grid-template-columns: 62px 92px 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+
+.wi:hover {
+  background: var(--surface-2);
+}
+
+.wi:has(input:focus-visible) {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
+.on {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.wi:hover.on {
+  background: var(--green-soft);
+}
+
+@media (max-width: 640px) {
+  .wi {
+    grid-template-columns: 56px 1fr;
+  }
+
+  /* filhos: input (sr-only), #id, tipo, título */
+  .wi > :nth-child(4) {
+    grid-column: 1 / -1;
+  }
+}
