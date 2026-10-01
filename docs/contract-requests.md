@@ -26,3 +26,36 @@ Formato:
 - `RepoInfo{name, base_branch}` pra `GET /api/repos`.
 - Fixtures: `planning` no lugar de `idle` (sem tarefa = `view: null`).
 - `bus/client.py` + `bus/worker.py` + `crew streams init` entregues no M0 (Streams A e B dependem só do M0).
+
+---
+
+## 2026-10-01 · front · Pedidos do Stream C (nenhum bloqueante; o front já segue com workaround)
+
+### 1. Documentar a unidade de `TestResult.coverage`
+- O quê: `coverage: float | None` não diz se é fração (0.87) ou percentual (87). As fixtures usam fração.
+- Por quê: o front formata `Math.round(coverage * 100)%`. Se o orquestrador mandar 87, a UI mostra 8700%.
+- Proposta: docstring/`Field(ge=0, le=1, description="fração 0..1")` em `TestResult.coverage`.
+- Workaround atual: front assume fração (como nas fixtures).
+
+### 2. Confirmar o protocolo de "Nova tarefa" depois de `done`/`cancelled`
+- O quê: o front trata "Nova tarefa" como ação só de UI (dispensa o `task_id` terminal e mostra os cards de origem). Pressupõe que `start_task` é aceito quando a tarefa atual está em fase terminal (`done`/`cancelled`/`failed`), e que `GET /api/task` e o WS continuam devolvendo a última tarefa até uma nova começar.
+- Por quê: o contrato só cita 409 "se já existe task ativa"; não diz se terminal conta como ativa.
+- Proposta: documentar no gateway/orquestrador que fase terminal não bloqueia `start_task`. Alternativa: publicar `view: null` após o usuário dispensar (exigiria um comando novo; não pedido).
+- Workaround atual: `dismissedTaskId` no store do front. Recarregar a página mostra a tarefa terminal de novo.
+
+### 3. Snapshot inicial no WS
+- O quê: o front aceita os dois comportamentos (gateway manda `{type:"view"}` ao conectar ou não). Ao abrir/reabrir o WS ele também faz `GET /api/task`; o resultado só vale se nenhum snapshot do WS chegou no meio.
+- Proposta: documentar a escolha. Mandar o snapshot ao conectar economiza o GET.
+
+### 4. Semântica de `Counters.test_attempt`
+- O quê: o front mostra `tester n/max` quando `test_attempt > 0`. A fixture `done` tem `test_attempt: 0` (falhas consecutivas zeradas após passar), então o tag do Tester some em `done`. O mockup mostrava o contador também depois de passar.
+- Proposta: se quiser o contador visível no fim, expor um `test_runs` count (já existe `len(test_runs)`) e o front passa a usar isso. Sem urgência.
+
+### 5. Tipagem de `TaskView.edges` e `Escalation.stage`
+- O quê: o gerador produziu `edges: {[k: string]: "on"|"active"}` (perde `EdgeKey`) e `Escalation.stage` com os 5 agentes (o plano dizia 3).
+- Proposta: `dict[EdgeKey, EdgeStatus]` com chaves opcionais e `Literal["tester","reviewer","developer"]` em `Escalation.stage`; ou ajustar o gerador de tipos.
+- Workaround atual: aliases derivados em `frontend/src/contracts/aliases.ts`.
+
+### 6. Rótulo "+2 tentativas"
+- O quê: o botão da escalada diz "+2 tentativas" (texto do mockup), mas o valor real é decisão do orquestrador (`more_attempts` não carrega número).
+- Proposta: se o incremento for configurável, expor em `Escalation` (ex.: `extra_attempts: int`) pro front rotular sem hardcode.
