@@ -1,0 +1,25 @@
+/* Tokens portados de mockup/index.html (v3). Só dark. */
+:root {
+  color-scheme: dark;
+
+  --bg: #050807;
+  --surface: #0a0f0d;
+  --surface-2: #0e1512;
+  --line: #16211c;
+  --line-2: #22322b;
+  --fg: #ddf3e7;
+  --muted: #7a9187;
+
+  --green: #2bee86;
+  --green-2: #17b862;
+  --green-soft: #2bee8614;
+  --green-glow: #2bee863d;
+
+  --warn: #f4b544;
+  --warn-soft: #f4b5441c;
+  --err: #ff5d5d;
+  --err-soft: #ff5d5d1c;
+
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
