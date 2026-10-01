@@ -1,0 +1,87 @@
+{
+  "task_id": "T-107",
+  "title": "Filtro por intervalo de datas no relatório de vendas",
+  "description": "User Story importada do Azure DevOps.",
+  "source": "azure",
+  "ref": "AB#4821",
+  "repo": "sample-repo",
+  "phase": "planning",
+  "stages": {
+    "azure": {
+      "status": "done",
+      "now": "AB#4821 · Filtro por intervalo de datas",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:00Z",
+          "text": "AB#4821 lido via MCP"
+        }
+      ]
+    },
+    "manual": {
+      "status": "skipped",
+      "now": null,
+      "logs": []
+    },
+    "interviewer": {
+      "status": "skipped",
+      "now": null,
+      "logs": []
+    },
+    "planner": {
+      "status": "active",
+      "now": "Explorando repo (Grep/Read nos módulos afetados)",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:05Z",
+          "text": "Lendo tarefa"
+        }
+      ]
+    },
+    "approval": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "developer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "tester": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "reviewer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "done": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    }
+  },
+  "edges": {
+    "az-pl": "active"
+  },
+  "active_edge": "az-pl",
+  "counters": {
+    "dev_round": 0,
+    "test_attempt": 0,
+    "max_test_attempts": 3,
+    "review_round": 0,
+    "max_review_rounds": 2
+  },
+  "interview": null,
+  "plan": null,
+  "dev_rounds": [],
+  "test_runs": [],
+  "review": null,
+  "escalation": null,
+  "final": null,
+  "started_at": "2026-10-01T12:00:00Z",
+  "ended_at": null,
+  "cost_usd": 0.0
+}

@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Crew</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --panel-2:#eef0f3; --border:#e0e3e8; --text:#14171c; --muted:#5d6572;
+  --accent:#3b6ef5; --accent-weak:#e5ecff;
+  --ok:#1a8f4c; --ok-weak:#e2f5ea; --warn:#b26f00; --warn-weak:#fcf1dc; --err:#cf3b3b; --err-weak:#fce6e6;
+  --a-int:#8b5cf6; --a-plan:#3b82f6; --a-dev:#10b981; --a-test:#e59a0b; --a-rev:#ec4899; --a-orch:#64748b;
+  --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --bg:#0d1015; --panel:#141920; --panel-2:#1a2029; --border:#252d38; --text:#e5e8ed; --muted:#8a94a2;
+  --accent:#6d8dff; --accent-weak:#1b2341;
+  --ok:#3ccf78; --ok-weak:#11281b; --warn:#f0b04a; --warn-weak:#2c2211; --err:#f06a6a; --err-weak:#2d1616;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.mono{font-family:var(--mono)} .muted{color:var(--muted)} .small{font-size:12px}
+h1{font-size:20px;margin:6px 0 4px;letter-spacing:-.2px}
+h2{font-size:15px;margin:0 0 10px}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+
+/* topbar */
+.top{display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--panel)}
+.logo{font-weight:700;display:flex;align-items:center;gap:8px;margin-right:6px}
+.logo-mark{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--a-int),var(--a-plan) 50%,var(--a-dev))}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--muted);background:var(--panel-2);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+.spacer{flex:1}
+.btn{border:1px solid var(--border);background:var(--panel-2);color:var(--text);padding:6px 12px;border-radius:8px;font:inherit;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.ghost{background:none}
+.btn.sm{padding:3px 9px;font-size:12px}
+
+/* columns */
+.cols{display:grid;grid-template-columns:290px 1fr 320px;min-height:0}
+.side,.main,.rail{overflow:auto;min-height:0}
+.side{border-right:1px solid var(--border);background:var(--panel);padding:12px}
+.rail{border-left:1px solid var(--border);background:var(--panel);padding:14px 16px}
+.main{padding:20px 26px 40px}
+
+/* sidebar */
+.search{width:100%;margin-bottom:10px}
+.filters{display:flex;gap:6px;margin-bottom:10px}
+.titem{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;color:inherit;font:inherit;padding:10px;border-radius:10px;cursor:pointer;margin-bottom:4px}
+.titem:hover{background:var(--panel-2)}
+.titem.on{background:var(--panel-2);border-color:var(--border)}
+.titem .row{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.titem .ttl{font-weight:600;font-size:13.5px;line-height:1.3}
+.titem .meta{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+/* badges */
+.badge{font-size:11px;padding:2px 7px;border-radius:999px;font-weight:600;white-space:nowrap;display:inline-block}
+.b-azure{background:color-mix(in srgb,#0078d4 16%,transparent);color:#2f8fe0}
+.b-manual{background:color-mix(in srgb,var(--a-int) 16%,transparent);color:var(--a-int)}
+.s-info{background:var(--accent-weak);color:var(--accent)}
+.s-warn{background:var(--warn-weak);color:var(--warn)}
+.s-err{background:var(--err-weak);color:var(--err)}
+.s-ok{background:var(--ok-weak);color:var(--ok)}
+.s-int{background:color-mix(in srgb,var(--a-int) 16%,transparent);color:var(--a-int)}
+
+/* task header */
+.th-top{display:flex;gap:8px;align-items:center}
+.meta-line{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.meta-line b{color:var(--text);font-weight:600}
+
+/* stepper */
+.stepper{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:18px 0 0}
+.step{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--panel);min-width:0}
+.step .lbl{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step .sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step.done .lbl::before{content:"✓ ";color:var(--ok)}
+.step.cur{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
+.step.err{border-color:var(--err);background:var(--err-weak)}
+.step.gate{border-style:dashed}
+.step.pending{opacity:.6}
+.loop{grid-column:4/7;height:16px;border:1.5px dashed var(--muted);border-top:none;border-radius:0 0 12px 12px;position:relative;margin:0 28px;opacity:.7}
+.loop span{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);background:var(--bg);padding:0 8px;font-size:11px;color:var(--muted);white-space:nowrap}
+
+.banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px;padding:12px 14px;border:1px solid var(--err);background:var(--err-weak);border-radius:10px}
+.banner.warn{border-color:var(--warn);background:var(--warn-weak)}
+.banner .txt{flex:1;min-width:220px}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:22px 0 16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.tab{padding:8px 12px;border:none;background:none;color:var(--muted);font:inherit;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.on{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+.cnt{font-size:11px;background:var(--panel-2);border-radius:999px;padding:1px 6px;margin-left:4px;color:var(--muted)}
+
+/* timeline */
+.tl{display:flex;flex-direction:column;gap:8px}
+.ev{display:grid;grid-template-columns:42px 28px 1fr;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);cursor:pointer}
+.ev:hover{border-color:var(--muted)}
+.ev time{font-family:var(--mono);font-size:12px;color:var(--muted);padding-top:5px}
+.ev .head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ev .who{font-weight:600}
+.ev .subj{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.ev .text{margin-top:2px}
+.ev pre{margin:8px 0 0;padding:10px;background:var(--panel-2);border-radius:8px;font:12px/1.5 var(--mono);overflow:auto;display:none}
+.ev.open pre{display:block}
+.ev.working{border-style:dashed}
+.av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff;flex:none}
+.working .av{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+
+/* cards / forms */
+.card{border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:16px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field>label,.lab{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+input,select,textarea{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-weak);border-color:var(--accent)}
+textarea{resize:vertical;min-height:90px}
+input[type=checkbox],input[type=radio]{width:auto;accent-color:var(--accent)}
+.check{display:flex;gap:8px;align-items:center;margin:6px 0;cursor:pointer}
+.hint{font-size:12px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--panel-2);margin:8px 0 16px}
+.seg button{border:none;background:none;padding:8px 18px;border-radius:7px;color:var(--muted);font:inherit;cursor:pointer;font-weight:600}
+.seg button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 3px #0002}
+.wi{display:grid;grid-template-columns:18px 56px 96px 1fr auto;gap:10px;align-items:center;padding:9px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.wi:hover{background:var(--panel-2)}
+.wi.sel{background:var(--accent-weak);border-color:var(--accent)}
+.wi.dis{opacity:.5;cursor:not-allowed}
+.drop{border:1.5px dashed var(--border);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+details summary{cursor:pointer;font-weight:600}
+.modelrow{display:grid;grid-template-columns:28px 1fr 160px;gap:10px;align-items:center;margin-top:8px}
+
+/* plan */
+.steps{margin:0;padding-left:20px}
+.steps li{margin-bottom:8px}
+.files{display:flex;flex-wrap:wrap;gap:6px}
+.file{font:12px var(--mono);padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel-2)}
+
+/* code */
+.code{font:12.5px/1.6 var(--mono);border:1px solid var(--border);border-radius:10px;overflow:auto;background:var(--panel);margin-bottom:14px}
+.code .fh{padding:8px 12px;background:var(--panel-2);border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center}
+.ln{display:block;padding:0 12px;white-space:pre;min-width:max-content}
+.ln.add{background:var(--ok-weak)} .ln.del{background:var(--err-weak)} .ln.hunk{color:var(--muted);background:var(--panel-2)}
+.ln.flag{box-shadow:inset 3px 0 0 var(--a-rev)}
+
+/* tests / review */
+.run{border:1px solid var(--border);border-radius:10px;background:var(--panel);margin-bottom:10px;overflow:hidden}
+.run .rh{display:flex;gap:10px;align-items:center;padding:10px 12px;flex-wrap:wrap}
+.fail{padding:8px 12px;border-top:1px solid var(--border);font-size:12.5px}
+.fail .n{font-family:var(--mono);color:var(--err)}
+.cmt{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);margin-bottom:8px}
+.sev{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;text-transform:uppercase}
+.sev.major{background:var(--err-weak);color:var(--err)} .sev.minor{background:var(--warn-weak);color:var(--warn)} .sev.nit{background:var(--panel-2);color:var(--muted)}
+
+/* interview */
+.iv{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px}
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--panel)}
+.msg.me{align-self:flex-end;background:var(--accent-weak);border-color:transparent}
+.msg .from{font-size:11.5px;font-weight:600;color:var(--a-int);margin-bottom:3px}
+.rec{margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--panel-2);border-left:3px solid var(--a-int);font-size:13px}
+.rec b{color:var(--a-int)}
+.msg .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.composer{display:flex;gap:8px;margin-top:14px;align-items:flex-end}
+.composer textarea{min-height:44px;height:44px}
+.spec{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--panel);align-self:start;position:sticky;top:0}
+.spec ul{margin:4px 0 12px;padding-left:18px;font-size:13px}
+.spec li{margin-bottom:4px}
+.progress{height:6px;background:var(--panel-2);border-radius:99px;overflow:hidden;margin:6px 0 12px}
+.progress i{display:block;height:100%;background:var(--a-int)}
+
+/* rail */
+.rail h3{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:6px 0 10px}
+.rail section{margin-bottom:22px}
+.agent{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:6px 0}
+.agent .nm{font-weight:600;font-size:13px}
+.agent .st{font-size:11.5px;color:var(--muted)}
+.chip{font:10.5px var(--mono);padding:2px 6px;border:1px solid var(--border);border-radius:6px;color:var(--muted);white-space:nowrap}
+.pend{display:flex;gap:8px;align-items:center;width:100%;text-align:left;border:1px solid var(--border);background:var(--panel-2);color:inherit;font:inherit;padding:9px 10px;border-radius:9px;cursor:pointer;margin-bottom:6px;font-size:13px}
+.pend:hover{border-color:var(--muted)}
+.pend>*{flex:none;white-space:nowrap}
+.pend>.small.muted{flex:1;min-width:0}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1.5px dashed var(--border);border-radius:12px}
+
+@media (max-width:1180px){
+  .cols{grid-template-columns:260px 1fr}
+  .rail{display:none}
+  .iv{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .cols{grid-template-columns:1fr}
+  .side{display:none}
+  .main{padding:16px}
+  .stepper{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .loop{display:none}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .top .pill{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo"><div class="logo-mark"></div>Dev Crew</div>
+    <span class="pill"><span class="dot"></span>NATS · nats://localhost:4222</span>
+    <span class="pill" id="agentsOnline"></span>
+    <span class="pill">Custo hoje · <b id="costToday" style="color:var(--text)"></b></span>
+    <div class="spacer"></div>
+    <span class="small muted">mockup estático · dados fictícios</span>
+    <button class="btn ghost sm" onclick="toggleTheme()" id="themeBtn">Tema</button>
+    <button class="btn primary" onclick="openNew()">+ Nova task</button>
+  </header>
+  <div class="cols">
+    <aside class="side" id="side"></aside>
+    <main class="main" id="main"></main>
+    <aside class="rail" id="rail"></aside>
+  </div>
+</div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const AGENTS = {
+  interviewer:  {name:'Entrevistador', short:'E', color:'var(--a-int)',  model:'Sonnet 5.5', role:'grill da task manual'},
+  planner:      {name:'Planner',       short:'P', color:'var(--a-plan)', model:'Opus 5.5',   role:'lê task, monta plano'},
+  developer:    {name:'Developer',     short:'D', color:'var(--a-dev)',  model:'Sonnet 5.5', role:'implementa no worktree'},
+  tester:       {name:'Tester',        short:'T', color:'var(--a-test)', model:'Sonnet 5.5', role:'escreve e roda testes'},
+  reviewer:     {name:'Reviewer',      short:'R', color:'var(--a-rev)',  model:'Opus 5.5',   role:'code review do diff'},
+  orchestrator: {name:'Orchestrator',  short:'O', color:'var(--a-orch)', model:'sem LLM',    role:'state machine + limites'},
+  human:        {name:'Você',          short:'G', color:'var(--accent)', model:'',           role:''},
+};
+
+const STATUS = {
+  interview:     {label:'Entrevista',           cls:'s-int',  agent:'interviewer', you:true},
+  planning:      {label:'Planejando',           cls:'s-info', agent:'planner'},
+  plan_approval: {label:'Aprovar plano',        cls:'s-warn', you:true},
+  developing:    {label:'Desenvolvendo',        cls:'s-info', agent:'developer'},
+  testing:       {label:'Testando',             cls:'s-info', agent:'tester'},
+  review:        {label:'Em review',            cls:'s-info', agent:'reviewer'},
+  pr_approval:   {label:'Aprovar PR',           cls:'s-warn', you:true},
+  escalated:     {label:'Escalada',             cls:'s-err',  you:true},
+  done:          {label:'Concluída',            cls:'s-ok'},
+};
+const STAGE_IDX = {interview:0, planning:1, plan_approval:2, developing:3, testing:4, review:5, pr_approval:6, done:7};
+
+const GENERIC_QUEUE = [
+  {q:'Qual problema essa task resolve e pra quem? Tem algum usuário/fluxo específico em mente?', rec:'Descrever o fluxo atual e o resultado esperado em 1–2 frases — vira o objetivo da spec.', short:'Objetivo'},
+  {q:'O que fica explicitamente FORA do escopo desta entrega?', rec:'Listar 1–3 coisas tentadoras que ficam pra depois, evita o Developer expandir escopo.', short:'Fora de escopo'},
+  {q:'Como a gente sabe que está pronto? Quais critérios de aceite o Tester deve validar?', rec:'3 critérios verificáveis por teste automatizado (entrada → saída esperada).', short:'Critérios de aceite'},
+  {q:'Alguma restrição técnica? (lib proibida, padrão do repo, performance, compatibilidade)', rec:'Seguir padrões existentes do repo; sem nova dependência sem aprovação.', short:'Restrições'},
+];
+
+const tasks = [
+  {
+    id:'T-105', title:'Exportar pedidos filtrados em CSV', source:'manual', repo:'api-pedidos', base:'main', branch:'crew/T-105-export-csv',
+    status:'interview', testIter:0, maxTest:3, reviewIter:0, maxReview:2, cost:0.12, updated:'10:02',
+    description:'Usuário precisa exportar os pedidos da listagem em CSV pra mandar pro financeiro.',
+    interview:{
+      msgs:[
+        {from:'agent', text:'Li a descrição e o módulo <span class="mono">orders/</span> do repo. Vou te fazer perguntas uma de cada vez — cada uma com minha recomendação. Pode aceitar ou responder diferente.'},
+        {from:'agent', text:'O export respeita os filtros ativos da listagem ou exporta tudo?', rec:'Respeitar os filtros atuais — é o que o usuário espera ao clicar "Exportar" numa tela filtrada.', short:'Escopo do export', answered:true},
+        {from:'me', text:'✓ Aceito a recomendação.'},
+        {from:'agent', text:'Volume esperado: pode passar de 100 mil linhas?', rec:'Usar streaming (StreamingResponse) desde já, sem carregar tudo em memória.', short:'Volume', answered:true},
+        {from:'me', text:'Pode passar, sim. Vai de streaming.'},
+        {from:'agent', text:'Quais colunas e qual formato? Sugiro: id, data, cliente, status, total, qtd_itens.', rec:'Separador ";" e decimal "," com UTF-8 + BOM — abre direto no Excel pt-BR sem quebrar acento nem coluna.', short:'Formato'},
+      ],
+      queue:[
+        {q:'Precisa de permissão específica pra exportar (ex.: só financeiro/admin)?', rec:'Reusar a permissão orders:read; sem role nova por enquanto.', short:'Permissão'},
+        {q:'Critério de pronto: teste de integração validando cabeçalho, encoding e 1 linha de dado. Ok?', rec:'Sim, + teste de filtro aplicado (exporta só o que a listagem mostra).', short:'Critérios de aceite'},
+      ],
+      decisions:['Escopo do export: respeita filtros ativos','Volume: streaming, sem carregar em memória'],
+      outOfScope:['Export XLSX/PDF','Agendamento de export por e-mail'],
+      total:6, done:false,
+    },
+    timeline:[
+      {time:'09:58', agent:'human', subj:'crew.task.submitted', text:'Task manual criada · entrevista ativada (profundidade: completa)'},
+      {time:'09:58', agent:'interviewer', subj:'crew.interview.started', text:'Entrevista iniciada · contexto: descrição + módulo orders/'},
+    ],
+  },
+  {
+    id:'T-104', title:'Filtro por intervalo de datas no relatório de vendas', source:'azure', ref:'AB#4821', repo:'portal-vendas', base:'main', branch:'crew/T-104-filtro-datas',
+    status:'review', testIter:2, maxTest:3, reviewIter:1, maxReview:2, cost:1.84, updated:'09:36',
+    timeline:[
+      {time:'09:12', agent:'orchestrator', subj:'crew.task.created', text:'Work item AB#4821 importado do Azure DevOps (User Story · Sprint 42)'},
+      {time:'09:14', agent:'planner', subj:'crew.plan.ready', text:'Plano com 4 passos, 5 arquivos, 3 critérios de aceite'},
+      {time:'09:20', agent:'human', subj:'crew.plan.approved', text:'Plano aprovado por você'},
+      {time:'09:21', agent:'developer', subj:'crew.code.ready', text:'Commit a3f9c21 · endpoint com start/end + DateRangeFilter', sha:'a3f9c21', iter:1},
+      {time:'09:26', agent:'tester', subj:'crew.test.result', text:'FALHOU · 46/48 · test_range_inclusive_end, test_invalid_range_returns_400', status:'fail', iter:1},
+      {time:'09:27', agent:'orchestrator', subj:'crew.loop.test', text:'Loop de teste 1/3 → devolvendo pro Developer com as falhas'},
+      {time:'09:31', agent:'developer', subj:'crew.code.ready', text:'Commit 7be04d2 · fim do intervalo inclusivo + valida start ≤ end', sha:'7be04d2', iter:2},
+      {time:'09:35', agent:'tester', subj:'crew.test.result', text:'PASSOU · 48/48 · cobertura 87%', status:'pass', iter:2},
+      {time:'09:36', agent:'reviewer', subj:'crew.review.started', text:'Revisando diff 7be04d2…', status:'working', iter:1},
+    ],
+    plan:{
+      summary:'Adicionar filtro start_date/end_date no endpoint de relatório e componente de intervalo no front, sincronizado com a query string.',
+      steps:[
+        'Backend: aceitar <span class="mono">start_date</span>/<span class="mono">end_date</span> em <span class="mono">GET /reports/sales</span>; validar start ≤ end (400).',
+        'Service: filtro inclusivo em <span class="mono">created_at</span> com bind params.',
+        'Front: componente <span class="mono">DateRangeFilter</span> + sync com query string.',
+        'Testes: unit no service, integração no endpoint, teste do componente.',
+      ],
+      files:['src/api/sales.py','src/services/report_service.py','web/components/DateRangeFilter.tsx','web/pages/reports/sales.tsx','tests/test_sales_report.py'],
+      criteria:['Intervalo inclusivo nas duas pontas','start > end retorna 400 com mensagem','Filtro persiste ao recarregar a página (query string)'],
+      risks:['Timezone: datas do front em local, banco em UTC'],
+    },
+    tests:[
+      {iter:1, sha:'a3f9c21', result:'fail', passed:46, total:48, dur:'38s', failures:[
+        {name:'tests/test_sales_report.py::test_range_inclusive_end', msg:'AssertionError: esperado 12 pedidos, obtido 9 (pedidos de 31/08 ausentes)'},
+        {name:'tests/test_sales_report.py::test_invalid_range_returns_400', msg:'assert 200 == 400'},
+      ]},
+      {iter:2, sha:'7be04d2', result:'pass', passed:48, total:48, dur:'41s', coverage:'87%', failures:[]},
+    ],
+    review:{verdict:'em andamento', comments:[
+      {sev:'major', file:'src/services/report_service.py', line:42, text:'Filtro montado com f-string na query. Usar bind params (risco de SQL injection).', status:'aberto'},
+      {sev:'minor', file:'web/components/DateRangeFilter.tsx', line:9, text:'Converter pra UTC antes de mandar pra API — senão o risco de timezone do plano volta.', status:'aberto'},
+      {sev:'nit', file:'web/components/DateRangeFilter.tsx', line:2, text:'Nome "dr" pouco descritivo → "range".', status:'aberto'},
+    ]},
+    diff:[
+      {file:'src/api/sales.py', add:9, del:2, lines:[
+        ['hunk','@@ -18,9 +18,16 @@ router = APIRouter(prefix="/reports")'],
+        ['', ' @router.get("/sales")'],
+        ['del','-async def sales_report(db: Session = Depends(get_db)):'],
+        ['del','-    return report_service.sales(db)'],
+        ['add','+async def sales_report('],
+        ['add','+    start_date: date | None = None,'],
+        ['add','+    end_date: date | None = None,'],
+        ['add','+    db: Session = Depends(get_db),'],
+        ['add','+):'],
+        ['add','+    if start_date and end_date and start_date > end_date:'],
+        ['add','+        raise HTTPException(400, "start_date deve ser <= end_date")'],
+        ['add','+    return report_service.sales(db, start_date, end_date)'],
+      ]},
+      {file:'src/services/report_service.py', add:4, del:1, lines:[
+        ['hunk','@@ -38,7 +38,10 @@ def sales(db, start=None, end=None):'],
+        ['', '     q = "SELECT * FROM orders WHERE 1=1"'],
+        ['del','-    return db.execute(q).all()'],
+        ['add flag','+    if start: q += f" AND created_at >= \'{start}\'"'],
+        ['add','+    if end: q += f" AND created_at < \'{end + timedelta(days=1)}\'"'],
+        ['add','+    return db.execute(q).all()'],
+      ]},
+      {file:'web/components/DateRangeFilter.tsx', add:14, del:0, lines:[
+        ['hunk','@@ -0,0 +1,14 @@'],
+        ['add','+export function DateRangeFilter({ value, onChange }: Props) {'],
+        ['add flag','+  const [dr, setDr] = useState<DateRange>(value);'],
+        ['add','+  const apply = () => onChange(dr);'],
+        ['add','+  return ('],
+        ['add','+    <div className="flex gap-2">'],
+        ['add','+      <DateInput value={dr.start} onChange={(start) => setDr({ ...dr, start })} />'],
+        ['add','+      <DateInput value={dr.end} onChange={(end) => setDr({ ...dr, end })} />'],
+        ['add','+      <Button onClick={apply}>Aplicar</Button>'],
+        ['add','+    </div>'],
+        ['add','+  );'],
+        ['add','+}'],
+      ]},
+    ],
+  },
+  {
+    id:'T-103', title:'Corrigir race condition no refresh do token', source:'azure', ref:'AB#4790', repo:'portal-vendas', base:'main', branch:'crew/T-103-refresh-race',
+    status:'escalated', escStage:4, testIter:3, maxTest:3, reviewIter:0, maxReview:2, cost:2.41, updated:'08:51',
+    timeline:[
+      {time:'08:02', agent:'orchestrator', subj:'crew.task.created', text:'Work item AB#4790 importado (Bug · prioridade 1)'},
+      {time:'08:05', agent:'planner', subj:'crew.plan.ready', text:'Plano: mutex de refresh compartilhado + fila de requests pendentes'},
+      {time:'08:09', agent:'human', subj:'crew.plan.approved', text:'Plano aprovado por você'},
+      {time:'08:15', agent:'developer', subj:'crew.code.ready', text:'Commit 19ac0e3 · refreshPromise singleton', sha:'19ac0e3', iter:1},
+      {time:'08:21', agent:'tester', subj:'crew.test.result', text:'FALHOU · test_concurrent_refresh_single_request', status:'fail', iter:1},
+      {time:'08:33', agent:'tester', subj:'crew.test.result', text:'FALHOU · mesmo teste (iteração 2)', status:'fail', iter:2},
+      {time:'08:50', agent:'tester', subj:'crew.test.result', text:'FALHOU · mesmo teste (iteração 3)', status:'fail', iter:3},
+      {time:'08:51', agent:'orchestrator', subj:'crew.task.escalated', text:'Limite de loop de teste atingido (3/3) → aguardando decisão humana'},
+    ],
+    plan:{summary:'Garantir 1 único refresh concorrente; requests pendentes esperam o novo token.', steps:['Criar refreshPromise singleton no interceptor','Enfileirar requests 401 enquanto refresh roda','Teste com 5 requests concorrentes'], files:['web/lib/http.ts','web/lib/auth.ts','web/lib/http.test.ts'], criteria:['5 requests 401 simultâneos geram 1 chamada a /auth/refresh'], risks:['Teste depende de timing']},
+    tests:[1,2,3].map(i => ({iter:i, sha:['19ac0e3','5d2f871','c08e4b9'][i-1], result:'fail', passed:61, total:62, dur:'22s', failures:[
+      {name:'web/lib/http.test.ts › test_concurrent_refresh_single_request', msg:'Expected 1 call to /auth/refresh, received 2'},
+    ]})),
+    review:{verdict:'não iniciado', comments:[]},
+  },
+  {
+    id:'T-102', title:'Migrar formulário de cadastro pra react-hook-form + zod', source:'manual', repo:'portal-vendas', base:'main', branch:'crew/T-102-rhf-zod',
+    status:'plan_approval', testIter:0, maxTest:3, reviewIter:0, maxReview:2, cost:0.38, updated:'09:47',
+    description:'Formulário de cadastro de cliente usa state manual e validação espalhada. Migrar pra RHF + zod.',
+    interview:{msgs:[{from:'agent', text:'Entrevista encerrada — 5 decisões registradas e enviadas pro Planner.'}], queue:[], decisions:['Schema zod compartilhado com o backend? Não, só front','Manter layout atual','Mensagens de erro em pt-BR no schema','Sem mudar API','Teste: casos de validação do schema + submit'], outOfScope:['Redesign visual'], total:5, done:true},
+    timeline:[
+      {time:'09:30', agent:'human', subj:'crew.task.submitted', text:'Task manual criada'},
+      {time:'09:41', agent:'interviewer', subj:'crew.interview.done', text:'Spec gerada · 5 decisões, 1 fora de escopo'},
+      {time:'09:47', agent:'planner', subj:'crew.plan.ready', text:'Plano com 5 passos, 4 arquivos · aguardando sua aprovação'},
+    ],
+    plan:{
+      summary:'Substituir state manual por react-hook-form com resolver zod, mantendo layout e API.',
+      steps:['Criar <span class="mono">customerSchema</span> (zod) com mensagens pt-BR','Trocar useState por useForm + zodResolver','Migrar campos pra Controller onde houver máscara (CPF, telefone)','Remover validações antigas espalhadas','Testes do schema + teste de submit válido/inválido'],
+      files:['web/features/customers/CustomerForm.tsx','web/features/customers/schema.ts','web/features/customers/CustomerForm.test.tsx','web/lib/masks.ts'],
+      criteria:['Mesmo layout visual','Erros aparecem por campo em pt-BR','Submit inválido não chama a API'],
+      risks:['Máscaras de input com Controller podem quebrar cursor'],
+    },
+  },
+  {
+    id:'T-101', title:'Paginação na listagem de clientes', source:'azure', ref:'AB#4755', repo:'portal-vendas', base:'main', branch:'crew/T-101-paginacao',
+    status:'done', testIter:1, maxTest:3, reviewIter:2, maxReview:2, cost:1.12, updated:'ontem', pr:'PR !318 (draft)',
+    timeline:[
+      {time:'16:10', agent:'orchestrator', subj:'crew.task.created', text:'Work item AB#4755 importado'},
+      {time:'16:58', agent:'reviewer', subj:'crew.review.result', text:'APROVADO na 2ª rodada'},
+      {time:'17:02', agent:'human', subj:'crew.pr.approved', text:'PR aprovado por você'},
+      {time:'17:02', agent:'orchestrator', subj:'crew.task.done', text:'PR !318 aberto no Azure Repos + comentário no AB#4755'},
+    ],
+  },
+];
+
+const WORK_ITEMS = [
+  {id:4830, type:'Bug', title:'Erro 500 ao salvar cliente sem CPF', state:'New'},
+  {id:4827, type:'User Story', title:'Dashboard de metas por vendedor', state:'Active'},
+  {id:4821, type:'User Story', title:'Filtro por intervalo de datas no relatório de vendas', state:'Active', inCrew:'T-104'},
+  {id:4819, type:'Task', title:'Atualizar SDK de pagamentos pra v5', state:'New'},
+];
+
+const state = {selected:'T-104', view:'task', tab:null, filter:'all', newSource:'manual', wi:null};
+const byId = id => tasks.find(t => t.id === id);
+const money = v => 'US$ ' + v.toFixed(2).replace('.', ',');
+const av = key => `<div class="av" style="background:${AGENTS[key].color}">${AGENTS[key].short}</div>`;
+const srcBadge = t => t.source === 'azure' ? `<span class="badge b-azure">Azure ${esc(t.ref)}</span>` : `<span class="badge b-manual">Manual</span>`;
+const stBadge = t => `<span class="badge ${STATUS[t.status].cls}">${STATUS[t.status].label}</span>`;
+const now = () => new Date().toTimeString().slice(0, 5);
+
+/* ---------- sidebar ---------- */
+function renderSide() {
+  const f = state.filter;
+  const list = tasks.filter(t => f === 'all' || (f === 'you' ? STATUS[t.status].you : f === 'done' ? t.status === 'done' : t.status !== 'done'));
+  $('#side').innerHTML = `
+    <input class="search" placeholder="Buscar task…">
+    <div class="filters">
+      ${[['all','Todas'],['active','Ativas'],['you','Aguardando você'],['done','Concluídas']].map(([k,l]) =>
+        `<button class="btn sm ${f===k?'primary':'ghost'}" onclick="setFilter('${k}')">${l}</button>`).join('')}
+    </div>
+    ${list.map(t => `
+      <button class="titem ${state.view==='task' && state.selected===t.id ? 'on' : ''}" onclick="openTask('${t.id}')">
+        <div class="row"><span class="mono small muted">${t.id}</span>${srcBadge(t)}<span class="spacer"></span>${stBadge(t)}</div>
+        <div class="ttl">${esc(t.title)}</div>
+        <div class="meta">${esc(t.repo)} · testes ${t.testIter}/${t.maxTest} · review ${t.reviewIter}/${t.maxReview} · ${t.updated}</div>
+      </button>`).join('') || '<div class="empty">Nada aqui.</div>'}
+  `;
+}
+
+/* ---------- main: task ---------- */
+function stages(t) {
+  return [
+    {label: t.source === 'manual' ? 'Entrevista' : 'Intake Azure', sub: t.source === 'manual' ? 'Entrevistador' : 'MCP Azure DevOps'},
+    {label:'Plano', sub:'Planner'},
+    {label:'Aprovação', sub:'você', gate:true},
+    {label:'Dev', sub:'Developer'},
+    {label:'Testes', sub:`Tester · ${t.testIter}/${t.maxTest}`},
+    {label:'Review', sub:`Reviewer · ${t.reviewIter}/${t.maxReview}`},
+    {label:'PR', sub:'você → Azure Repos', gate:true},
+  ];
+}
+function stepper(t) {
+  const cur = t.status === 'escalated' ? t.escStage : STAGE_IDX[t.status];
+  return `<div class="stepper">
+    ${stages(t).map((s, i) => {
+      let cls = i < cur ? 'done' : i === cur ? (t.status === 'escalated' ? 'err' : 'cur') : 'pending';
+      return `<div class="step ${cls} ${s.gate ? 'gate' : ''}"><div class="lbl">${s.label}</div><div class="sub">${s.sub}</div></div>`;
+    }).join('')}
+    <div class="loop"><span>↺ loop de correção: teste falhou ou changes requested → volta pro Dev</span></div>
+  </div>`;
+}
+function banner(t) {
+  if (t.status === 'escalated') return `<div class="banner"><div class="txt"><b>Loop de testes estourou (3/3).</b> Mesmo teste falhando nas 3 iterações — provável teste dependente de timing ou abordagem errada.</div>
+    <button class="btn sm" onclick="escalate('${t.id}','more')">+2 iterações</button>
+    <button class="btn sm" onclick="setTab('chat')">Instruir Developer</button>
+    <button class="btn sm" onclick="escalate('${t.id}','replan')">Voltar pro Planner</button>
+    <button class="btn sm" onclick="escalate('${t.id}','manual')">Assumir manualmente</button></div>`;
+  if (t.status === 'plan_approval') return `<div class="banner warn"><div class="txt"><b>Plano aguardando sua aprovação.</b> Developer só começa depois do OK.</div><button class="btn sm" onclick="setTab('plan')">Ver plano</button></div>`;
+  if (t.status === 'interview') return `<div class="banner warn"><div class="txt"><b>Entrevista em andamento.</b> Responda as perguntas pra fechar a spec antes do Planner.</div><button class="btn sm" onclick="setTab('interview')">Responder</button></div>`;
+  if (t.status === 'done') return `<div class="banner" style="border-color:var(--ok);background:var(--ok-weak)"><div class="txt"><b>Concluída.</b> ${esc(t.pr)} aberto no Azure Repos e work item comentado.</div></div>`;
+  return '';
+}
+function tabsFor(t) {
+  const tabs = [];
+  if (t.source === 'manual') tabs.push(['interview','Entrevista']);
+  tabs.push(['timeline','Timeline', t.timeline.length], ['plan','Plano'], ['diff','Diff'], ['tests','Testes', t.tests?.length], ['review','Review', t.review?.comments.length]);
+  return tabs;
+}
+function defaultTab(t) {
+  return {interview:'interview', plan_approval:'plan', review:'review', escalated:'tests'}[t.status] || 'timeline';
+}
+function renderTask() {
+  const t = byId(state.selected);
+  const tab = state.tab || defaultTab(t);
+  $('#main').innerHTML = `
+    <div class="th-top"><span class="mono muted">${t.id}</span>${srcBadge(t)}${stBadge(t)}</div>
+    <h1>${esc(t.title)}</h1>
+    <div class="meta-line">
+      <span>repo <b>${esc(t.repo)}</b></span><span class="mono">${esc(t.base)} → ${esc(t.branch)}</span>
+      <span>custo <b>${money(t.cost)}</b></span><span>atualizado ${t.updated}</span>
+    </div>
+    ${stepper(t)}
+    ${banner(t)}
+    <nav class="tabs">${tabsFor(t).map(([k, l, c]) => `<button class="tab ${tab===k?'on':''}" onclick="setTab('${k}')">${l}${c ? `<span class="cnt">${c}</span>` : ''}</button>`).join('')}</nav>
+    <div id="tabBody">${TABS[tab === 'chat' ? 'timeline' : tab](t)}</div>
+  `;
+  if (tab === 'chat') { state.tab = 'timeline'; $('#railMsg')?.focus(); }
+}
+
+const TABS = {
+  timeline(t) {
+    return `<div class="tl">${t.timeline.map((e, i) => `
+      <div class="ev ${e.status === 'working' ? 'working' : ''}" onclick="this.classList.toggle('open')">
+        <time>${e.time}</time>${av(e.agent)}
+        <div>
+          <div class="head"><span class="who">${AGENTS[e.agent].name}</span><span class="subj">${esc(e.subj)}</span>
+            ${e.status === 'fail' ? '<span class="badge s-err">fail</span>' : e.status === 'pass' ? '<span class="badge s-ok">pass</span>' : ''}
+            ${e.iter ? `<span class="badge s-info">iter ${e.iter}</span>` : ''}</div>
+          <div class="text">${esc(e.text)}</div>
+          <pre>${esc(JSON.stringify({subject:e.subj, task_id:t.id, agent:e.agent, iteration:e.iter ?? null, ...(e.sha ? {branch:t.branch, commit_sha:e.sha} : {}), summary:e.text, ts:`2026-09-30T${e.time}:00-03:00`}, null, 2))}</pre>
+        </div>
+      </div>`).join('')}</div>
+      <p class="hint" style="margin-top:12px">Clique num evento pra ver o envelope da mensagem NATS.</p>`;
+  },
+  plan(t) {
+    const p = t.plan;
+    if (!p) return `<div class="empty">Plano ainda não gerado — ${t.status === 'interview' ? 'termine a entrevista primeiro.' : 'Planner trabalhando.'}</div>`;
+    const approve = t.status === 'plan_approval';
+    return `
+      <div class="card"><h2>Resumo</h2><div>${esc(p.summary)}</div></div>
+      <div class="card"><h2>Passos</h2><ol class="steps">${p.steps.map(s => `<li>${s}</li>`).join('')}</ol></div>
+      <div class="grid2">
+        <div class="card"><h2>Arquivos afetados</h2><div class="files">${p.files.map(f => `<span class="file">${esc(f)}</span>`).join('')}</div></div>
+        <div class="card"><h2>Critérios de aceite</h2><ul class="steps">${p.criteria.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>
+      </div>
+      <div class="card"><h2>Riscos</h2><ul class="steps">${p.risks.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+      ${approve ? `<div class="card">
+        <div class="field"><label>Ajuste pro Planner (opcional)</label><textarea id="planFeedback" placeholder="Ex.: não mexer em masks.ts, usar o Controller só no CPF"></textarea></div>
+        <div class="actions"><button class="btn" onclick="planAction('${t.id}','adjust')">Pedir ajuste</button><button class="btn ok" onclick="planAction('${t.id}','approve')">Aprovar plano</button></div>
+      </div>` : ''}`;
+  },
+  diff(t) {
+    if (!t.diff) return `<div class="empty">Sem diff ainda.</div>`;
+    return t.diff.map(f => `<div class="code">
+      <div class="fh"><b>${esc(f.file)}</b><span style="color:var(--ok)">+${f.add}</span><span style="color:var(--err)">−${f.del}</span><span class="spacer"></span><span class="small muted">7be04d2</span></div>
+      ${f.lines.map(([c, l]) => `<span class="ln ${c}">${esc(l)}</span>`).join('')}
+    </div>`).join('') + `<p class="hint">Linhas com marca rosa têm comentário do Reviewer.</p>`;
+  },
+  tests(t) {
+    if (!t.tests?.length) return `<div class="empty">Nenhuma execução ainda.</div>`;
+    return t.tests.slice().reverse().map(r => `<div class="run">
+      <div class="rh"><span class="badge ${r.result === 'pass' ? 's-ok' : 's-err'}">${r.result === 'pass' ? 'PASSOU' : 'FALHOU'}</span>
+        <b>Iteração ${r.iter}</b><span class="mono small muted">${r.sha}</span><span class="spacer"></span>
+        <span class="small">${r.passed}/${r.total} · ${r.dur}${r.coverage ? ' · cobertura ' + r.coverage : ''}</span></div>
+      ${r.failures.map(f => `<div class="fail"><div class="n">${esc(f.name)}</div><div class="muted">${esc(f.msg)}</div></div>`).join('')}
+    </div>`).join('') + `<p class="hint">Tester manda pro Developer só o teste que falhou + trecho do erro, não o log inteiro.</p>`;
+  },
+  review(t) {
+    const r = t.review;
+    if (!r || !r.comments.length) return `<div class="empty">Review ${r ? r.verdict : 'não iniciado'}.</div>`;
+    return `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <b>Rodada ${t.reviewIter}/${t.maxReview}</b><span class="badge s-info">${r.verdict}</span><span class="spacer"></span>
+        <span class="small muted">${r.comments.filter(c => c.sev === 'major').length} major · ${r.comments.filter(c => c.sev === 'minor').length} minor · ${r.comments.filter(c => c.sev === 'nit').length} nit</span>
+      </div>
+      ${r.comments.map(c => `<div class="cmt"><span class="sev ${c.sev}">${c.sev}</span>
+        <div><div class="mono small muted">${esc(c.file)}:${c.line}</div><div>${esc(c.text)}</div></div>
+        <span class="badge s-warn">${c.status}</span></div>`).join('')}
+      <p class="hint">Major bloqueia aprovação → changes_requested volta pro Developer (rodada ${t.reviewIter + 1}/${t.maxReview}).</p>`;
+  },
+  interview(t) {
+    const iv = t.interview;
+    const answered = iv.decisions.length;
+    const pending = !iv.done && iv.msgs.length && iv.msgs[iv.msgs.length - 1].from === 'agent' && iv.msgs[iv.msgs.length - 1].rec;
+    return `<div class="iv">
+      <div>
+        <div class="card" style="margin-bottom:12px"><div class="lab">Descrição original</div><div style="margin-top:4px">${esc(t.description)}</div></div>
+        <div class="chat">
+          ${iv.msgs.map((m, i) => m.from === 'me'
+            ? `<div class="msg me">${esc(m.text)}</div>`
+            : `<div class="msg"><div class="from">Entrevistador</div><div>${m.text}</div>
+                ${m.rec ? `<div class="rec"><b>Recomendação:</b> ${esc(m.rec)}</div>` : ''}
+                ${pending && i === iv.msgs.length - 1 ? `<div class="acts"><button class="btn sm ok" onclick="ivAccept('${t.id}')">Aceitar recomendação</button><button class="btn sm" onclick="$('#ivInput').focus()">Responder diferente</button><button class="btn sm ghost" onclick="ivAnswer('${t.id}','Pular — decidir depois')">Pular</button></div>` : ''}
+              </div>`).join('')}
+        </div>
+        ${!iv.done ? `<div class="composer">
+          <textarea id="ivInput" placeholder="Sua resposta… (Ctrl+Enter envia)" onkeydown="if(event.key==='Enter'&&event.ctrlKey){ivAnswer('${t.id}',this.value)}"></textarea>
+          <button class="btn primary" onclick="ivAnswer('${t.id}',$('#ivInput').value)">Enviar</button>
+        </div>` : ''}
+      </div>
+      <aside class="spec">
+        <div class="lab">Spec em construção</div>
+        <div class="progress"><i style="width:${Math.min(100, Math.round(answered / iv.total * 100))}%"></i></div>
+        <div class="small muted" style="margin-bottom:10px">${answered} de ~${iv.total} decisões</div>
+        <div class="lab">Decisões</div>
+        <ul>${iv.decisions.map(d => `<li>${esc(d)}</li>`).join('') || '<li class="muted">—</li>'}</ul>
+        <div class="lab">Fora de escopo</div>
+        <ul>${iv.outOfScope.map(d => `<li>${esc(d)}</li>`).join('') || '<li class="muted">—</li>'}</ul>
+        ${t.status === 'interview' ? `<button class="btn primary" style="width:100%" onclick="ivFinish('${t.id}')">Encerrar e gerar spec → Planner</button>
+        <p class="hint">Pode encerrar antes; perguntas abertas vão como "a decidir" pro Planner.</p>` : '<span class="badge s-ok">Spec enviada pro Planner</span>'}
+      </aside>
+    </div>`;
+  },
+};
+
+/* ---------- main: nova task ---------- */
+function renderNew() {
+  const s = state.newSource;
+  $('#main').innerHTML = `
+    <h1>Nova task</h1>
+    <div class="hint">Escolha de onde vem a task. Manual passa por entrevista antes do Planner.</div>
+    <div class="seg"><button class="${s==='azure'?'on':''}" onclick="setSource('azure')">Azure DevOps</button><button class="${s==='manual'?'on':''}" onclick="setSource('manual')">Eu descrevo</button></div>
+
+    ${s === 'azure' ? `<div class="card">
+      <div class="grid3">
+        <div class="field"><label>Organização</label><select><option>minha-org</option></select></div>
+        <div class="field"><label>Projeto</label><select><option>Portal Vendas</option><option>API Pedidos</option></select></div>
+        <div class="field"><label>Query</label><select><option>Sprint atual · atribuídos a mim</option><option>Backlog · New</option></select></div>
+      </div>
+      <div class="field"><label>Buscar work item</label><input placeholder="ID (ex.: 4830) ou texto"></div>
+      ${WORK_ITEMS.map(w => `<div class="wi ${state.wi===w.id?'sel':''} ${w.inCrew?'dis':''}" onclick="${w.inCrew ? '' : `pickWi(${w.id})`}">
+        <input type="radio" ${state.wi===w.id?'checked':''} ${w.inCrew?'disabled':''}>
+        <span class="mono">#${w.id}</span><span class="badge ${w.type==='Bug'?'s-err':'s-info'}">${w.type}</span>
+        <span>${esc(w.title)}</span><span class="small muted">${w.inCrew ? 'já em ' + w.inCrew : w.state}</span></div>`).join('')}
+      <p class="hint">Via MCP Azure DevOps (wit_get_work_item). Descrição, critérios de aceite e anexos vão pro Planner. Entrevista opcional se o work item estiver raso.</p>
+      <label class="check"><input type="checkbox" id="azInterview"> Rodar entrevista mesmo assim</label>
+    </div>` : `<div class="card">
+      <div class="field"><label>Título</label><input id="nTitle" placeholder="Ex.: Exportar pedidos filtrados em CSV"></div>
+      <div class="field"><label>Descrição</label><textarea id="nDesc" placeholder="Descreva do seu jeito. Pode ser vago — o Entrevistador vai perguntar o resto."></textarea></div>
+      <div class="drop">Arraste prints, logs ou specs aqui</div>
+      <div class="grid2" style="margin-top:14px">
+        <div>
+          <label class="check"><input type="checkbox" id="nInterview" checked> Entrevista antes do plano (grill-me)</label>
+          <div class="hint">Uma pergunta por vez, sempre com recomendação. Fecha quando não sobrar ambiguidade.</div>
+        </div>
+        <div class="field"><label>Profundidade</label><select><option>Completa · até esgotar dúvidas</option><option>Rápida · ~5 perguntas</option></select></div>
+      </div>
+    </div>`}
+
+    <div class="card">
+      <h2>Execução</h2>
+      <div class="grid3">
+        <div class="field"><label>Repositório</label><select id="nRepo"><option>portal-vendas</option><option>api-pedidos</option></select></div>
+        <div class="field"><label>Branch base</label><input value="main"></div>
+        <div class="field"><label>Sandbox</label><select><option>Container Docker por task</option><option>Worktree local (sem container)</option></select></div>
+      </div>
+      <div class="grid2">
+        <div>
+          <div class="lab">Aprovações humanas</div>
+          <label class="check"><input type="checkbox" checked> Aprovar plano antes do Dev</label>
+          <label class="check"><input type="checkbox" checked> Aprovar antes de abrir PR</label>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Máx. loop teste</label><input type="number" value="3" min="1"></div>
+          <div class="field"><label>Máx. loop review</label><input type="number" value="2" min="1"></div>
+        </div>
+      </div>
+      <details>
+        <summary>Modelo por agente</summary>
+        ${['interviewer','planner','developer','tester','reviewer'].map(k => `<div class="modelrow">${av(k)}<span>${AGENTS[k].name} <span class="small muted">· ${AGENTS[k].role}</span></span>
+          <select>${['Opus 5.5','Sonnet 5.5','Haiku 4.5'].map(m => `<option ${m===AGENTS[k].model?'selected':''}>${m}</option>`).join('')}</select></div>`).join('')}
+      </details>
+    </div>
+    <div class="actions"><button class="btn ghost" onclick="openTask(state.selected)">Cancelar</button><button class="btn primary" onclick="createTask()">Iniciar task</button></div>
+  `;
+}
+
+/* ---------- rail ---------- */
+function renderRail() {
+  const busy = {};
+  tasks.forEach(t => { const a = STATUS[t.status].agent; if (a) (busy[a] ||= []).push(t.id); });
+  const pend = tasks.filter(t => STATUS[t.status].you);
+  const t = byId(state.selected);
+  $('#agentsOnline').innerHTML = `<span class="dot"></span>6 agentes online`;
+  $('#costToday').textContent = money(tasks.reduce((s, t) => s + t.cost, 0));
+  $('#rail').innerHTML = `
+    <section><h3>Aguardando você · ${pend.length}</h3>
+      ${pend.map(p => `<button class="pend" onclick="openTask('${p.id}')"><span class="badge ${STATUS[p.status].cls}">${STATUS[p.status].label}</span><span class="mono small">${p.id}</span><span class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.title)}</span></button>`).join('') || '<div class="hint">Nada pendente.</div>'}
+    </section>
+    <section><h3>Agentes</h3>
+      ${['interviewer','planner','developer','tester','reviewer','orchestrator'].map(k => `<div class="agent ${busy[k] ? 'working' : ''}">${av(k)}
+        <div><div class="nm">${AGENTS[k].name}</div><div class="st">${busy[k] ? 'trabalhando · ' + busy[k].join(', ') : k === 'orchestrator' ? 'escutando crew.>' : 'ocioso'}</div></div>
+        <span class="chip">${AGENTS[k].model}</span></div>`).join('')}
+    </section>
+    ${state.view === 'task' && t.status !== 'done' ? `<section><h3>Falar com agente · ${t.id}</h3>
+      <div class="field"><select id="railAgent">${['developer','planner','tester','reviewer','interviewer'].map(k => `<option value="${k}" ${k===(STATUS[t.status].agent||'developer')?'selected':''}>${AGENTS[k].name}</option>`).join('')}</select></div>
+      <div class="field"><textarea id="railMsg" placeholder="Ex.: usa jest fake timers no teste de concorrência"></textarea></div>
+      <button class="btn primary" style="width:100%" onclick="sendToAgent('${t.id}')">Enviar</button>
+      <p class="hint">Publica em <span class="mono">crew.human.input.${t.id}</span>; agente recebe no próximo turno.</p>
+    </section>` : ''}
+  `;
+}
+
+/* ---------- actions ---------- */
+function render() { renderSide(); state.view === 'new' ? renderNew() : renderTask(); renderRail(); }
+function openTask(id) { state.view = 'task'; state.selected = id; state.tab = null; render(); $('#main').scrollTop = 0; }
+function openNew() { state.view = 'new'; state.wi = null; render(); }
+function setTab(k) { state.tab = k; renderTask(); }
+function setFilter(k) { state.filter = k; renderSide(); }
+function setSource(s) { state.newSource = s; renderNew(); }
+function pickWi(id) { state.wi = id; renderNew(); }
+function log(t, agent, subj, text, extra = {}) { t.timeline.push({time: now(), agent, subj, text, ...extra}); t.updated = now(); }
+
+function planAction(id, kind) {
+  const t = byId(id);
+  if (kind === 'approve') { t.status = 'developing'; log(t, 'human', 'crew.plan.approved', 'Plano aprovado por você'); log(t, 'developer', 'crew.dev.started', 'Implementando passo 1…', {status:'working', iter:1}); state.tab = 'timeline'; }
+  else { const fb = $('#planFeedback').value.trim() || 'Ajustes solicitados'; t.status = 'planning'; log(t, 'human', 'crew.plan.rejected', fb); state.tab = 'timeline'; }
+  render();
+}
+function escalate(id, kind) {
+  const t = byId(id);
+  if (kind === 'more') { t.maxTest += 2; t.status = 'developing'; log(t, 'human', 'crew.loop.extended', `Limite de teste aumentado pra ${t.maxTest}`); }
+  if (kind === 'replan') { t.status = 'planning'; t.testIter = 0; log(t, 'human', 'crew.task.replan', 'Voltando pro Planner com histórico das 3 falhas'); }
+  if (kind === 'manual') { t.status = 'done'; t.pr = 'Branch ' + t.branch; log(t, 'human', 'crew.task.taken_over', 'Assumido manualmente — agentes liberados'); }
+  state.tab = 'timeline'; render();
+}
+function sendToAgent(id) {
+  const t = byId(id), msg = $('#railMsg').value.trim(), a = $('#railAgent').value;
+  if (!msg) return;
+  log(t, 'human', `crew.human.input.${id}`, `→ ${AGENTS[a].name}: ${msg}`);
+  state.tab = 'timeline'; render();
+}
+
+function ivNext(t) {
+  const iv = t.interview, n = iv.queue.shift();
+  if (n) iv.msgs.push({from:'agent', text:esc(n.q), rec:n.rec, short:n.short});
+  else { iv.msgs.push({from:'agent', text:'Tenho o suficiente. Pode encerrar e mandar a spec pro Planner.'}); }
+  iv.total = Math.max(iv.total, iv.decisions.length + iv.queue.length + (n ? 1 : 0));
+}
+function ivCurrent(t) { const m = t.interview.msgs; return m[m.length - 1]; }
+function ivAccept(id) {
+  const t = byId(id), q = ivCurrent(t);
+  q.answered = true; t.interview.msgs.push({from:'me', text:'✓ Aceito a recomendação.'});
+  t.interview.decisions.push(`${q.short}: ${q.rec}`); ivNext(t); renderTask();
+}
+function ivAnswer(id, text) {
+  text = (text || '').trim(); if (!text) return;
+  const t = byId(id), q = ivCurrent(t);
+  t.interview.msgs.push({from:'me', text});
+  if (q && q.rec) { q.answered = true; t.interview.decisions.push(`${q.short}: ${text}`); ivNext(t); }
+  renderTask(); $('#ivInput')?.focus();
+}
+function ivFinish(id) {
+  const t = byId(id), iv = t.interview;
+  iv.done = true; t.status = 'planning';
+  log(t, 'interviewer', 'crew.interview.done', `Spec gerada · ${iv.decisions.length} decisões, ${iv.outOfScope.length} fora de escopo`);
+  log(t, 'orchestrator', 'crew.task.created', 'Spec publicada → Planner');
+  log(t, 'planner', 'crew.plan.started', 'Lendo spec e repo…', {status:'working'});
+  state.tab = 'timeline'; render();
+}
+
+function createTask() {
+  const n = tasks.length + 101, id = 'T-' + n, repo = $('#nRepo').value;
+  let t;
+  if (state.newSource === 'azure') {
+    const w = WORK_ITEMS.find(w => w.id === state.wi);
+    if (!w) { alert('Escolha um work item.'); return; }
+    w.inCrew = id;
+    t = {id, title:w.title, source:'azure', ref:'AB#' + w.id, repo, base:'main', branch:`crew/${id}`, status:'planning', testIter:0, maxTest:3, reviewIter:0, maxReview:2, cost:0, updated:now(), timeline:[]};
+    log(t, 'orchestrator', 'crew.task.created', `Work item AB#${w.id} importado do Azure DevOps`);
+    log(t, 'planner', 'crew.plan.started', 'Lendo work item e repo…', {status:'working'});
+  } else {
+    const title = $('#nTitle').value.trim() || 'Nova task manual', desc = $('#nDesc').value.trim() || '(sem descrição)';
+    const interview = $('#nInterview').checked;
+    t = {id, title, source:'manual', repo, base:'main', branch:`crew/${id}`, status: interview ? 'interview' : 'planning', testIter:0, maxTest:3, reviewIter:0, maxReview:2, cost:0, updated:now(), description:desc, timeline:[],
+      interview:{msgs:[{from:'agent', text:'Li a descrição. Vou perguntar uma coisa de cada vez, sempre com minha recomendação.'}], queue:GENERIC_QUEUE.map(q => ({...q})), decisions:[], outOfScope:[], total:GENERIC_QUEUE.length, done:!interview}};
+    log(t, 'human', 'crew.task.submitted', interview ? 'Task manual criada · entrevista ativada' : 'Task manual criada · sem entrevista');
+    if (interview) { log(t, 'interviewer', 'crew.interview.started', 'Entrevista iniciada'); ivNext(t); }
+    else log(t, 'planner', 'crew.plan.started', 'Lendo descrição e repo…', {status:'working'});
+  }
+  tasks.unshift(t); openTask(id);
+}
+
+function toggleTheme() {
+  const r = document.documentElement, d = r.dataset.theme === 'dark' ? 'light' : 'dark';
+  r.dataset.theme = d; try { localStorage.setItem('devcrew-theme', d); } catch (e) {}
+}
+(function init() {
+  let th = null; try { th = localStorage.getItem('devcrew-theme'); } catch (e) {}
+  document.documentElement.dataset.theme = th || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  render();
+})();
+</script>
+</body>
+</html>

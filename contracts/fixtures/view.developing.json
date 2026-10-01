@@ -1,0 +1,134 @@
+{
+  "task_id": "T-107",
+  "title": "Filtro por intervalo de datas no relatório de vendas",
+  "description": "User Story importada do Azure DevOps.",
+  "source": "azure",
+  "ref": "AB#4821",
+  "repo": "sample-repo",
+  "phase": "developing",
+  "stages": {
+    "azure": {
+      "status": "done",
+      "now": "AB#4821 · Filtro por intervalo de datas",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:00Z",
+          "text": "AB#4821 lido via MCP"
+        }
+      ]
+    },
+    "manual": {
+      "status": "skipped",
+      "now": null,
+      "logs": []
+    },
+    "interviewer": {
+      "status": "skipped",
+      "now": null,
+      "logs": []
+    },
+    "planner": {
+      "status": "done",
+      "now": "Plano pronto · 4 passos, 3 arquivos",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:05Z",
+          "text": "Lendo tarefa"
+        },
+        {
+          "ts": "2026-10-01T12:00:20Z",
+          "text": "Plano pronto"
+        }
+      ]
+    },
+    "approval": {
+      "status": "done",
+      "now": "Plano aprovado",
+      "logs": []
+    },
+    "developer": {
+      "status": "active",
+      "now": "Editando shop/report.py",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:40Z",
+          "text": "Preparando worktree"
+        },
+        {
+          "ts": "2026-10-01T12:00:45Z",
+          "text": "Editando shop/report.py"
+        }
+      ]
+    },
+    "tester": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "reviewer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "done": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    }
+  },
+  "edges": {
+    "az-pl": "on",
+    "pl-ap": "on",
+    "ap-dv": "active"
+  },
+  "active_edge": "ap-dv",
+  "counters": {
+    "dev_round": 1,
+    "test_attempt": 0,
+    "max_test_attempts": 3,
+    "review_round": 0,
+    "max_review_rounds": 2
+  },
+  "interview": null,
+  "plan": {
+    "type": "plan",
+    "summary": "Adicionar filtro start_date/end_date no relatório de vendas, com validação e testes.",
+    "steps": [
+      "Mapear módulo de relatório e pontos de extensão",
+      "Backend: aceitar start_date/end_date e validar start <= end",
+      "Filtro inclusivo em created_at com bind params",
+      "Testes: unit no serviço + integração no endpoint"
+    ],
+    "files": [
+      {
+        "path": "shop/report.py",
+        "change": "M"
+      },
+      {
+        "path": "shop/api.py",
+        "change": "M"
+      },
+      {
+        "path": "tests/test_report_dates.py",
+        "change": "A"
+      }
+    ],
+    "acceptance_criteria": [
+      "Intervalo inclusivo nas duas pontas",
+      "start_date > end_date retorna erro de validação",
+      "Sem regressão na suíte existente"
+    ],
+    "risks": [
+      "Timezone: datas locais vs UTC no banco"
+    ],
+    "test_strategy": "Testes de integração cobrindo bordas do intervalo e entrada inválida."
+  },
+  "dev_rounds": [],
+  "test_runs": [],
+  "review": null,
+  "escalation": null,
+  "final": null,
+  "started_at": "2026-10-01T12:00:00Z",
+  "ended_at": null,
+  "cost_usd": 0.0
+}

@@ -1,0 +1,44 @@
+# Copie para crew.toml (não versionado) e ajuste.
+
+[nats]
+url = "nats://127.0.0.1:4222"
+
+[gateway]
+host = "127.0.0.1"
+port = 8787
+
+[workspace]
+root = "C:/Users/guilh/.dev-crew/worktrees"
+mode = "worktree"            # "worktree" | "inplace"
+
+[limits]
+max_test_attempts = 3        # falhas consecutivas de teste antes de escalar
+max_review_rounds = 2
+budget_usd_per_task = 5.00
+job_timeout_min = 20
+
+[models]
+interviewer = "claude-sonnet-5-5"
+planner     = "claude-opus-5-5"
+developer   = "claude-sonnet-5-5"
+tester      = "claude-sonnet-5-5"
+reviewer    = "claude-opus-5-5"
+
+[commit]
+language = "pt-BR"
+style = "conventional"
+
+[azure]
+organization = "minha-org"   # só o nome, não a URL
+project = "Meu Projeto"
+team = "Meu Projeto Team"
+auth = "pat"                 # "pat" | "azcli"
+mcp_version = "2.10.0"
+
+[[repos]]
+name = "sample-repo"
+path = "C:/Users/guilh/Documents/dev-crew/fixtures/sample-repo"
+base_branch = "main"
+test_cmd = "python -m pytest -q"
+lint_cmd = ""
+test_globs = ["tests/**", "**/test_*.py"]
