@@ -117,3 +117,26 @@ async def test_request_reply(bus: Bus) -> None:
     await bus.serve(s.CMD, handler)
     reply = await bus.request(s.CMD, c.ApprovePlan(), c.CommandReply)
     assert reply.ok
+
+
+async def test_job_loop_survives_idle_timeouts(bus: Bus) -> None:
+    done = asyncio.Event()
+
+    async def handler(j: c.AgentJob, ctl: JobControl) -> None:
+        done.set()
+
+    stop = asyncio.Event()
+    task = asyncio.create_task(job_loop(bus, "interviewer", handler, stop=stop, fetch_timeout=0.1))
+    await asyncio.sleep(1.0)  # ~10 empty fetches
+    assert not task.done(), "job_loop died while idle"
+    await bus.publish_job(_job("interviewer"))
+    await asyncio.wait_for(done.wait(), timeout=10)
+    stop.set()
+    await asyncio.wait_for(task, timeout=5)
+
+
+async def test_request_without_responders_raises_bus_error(bus: Bus) -> None:
+    from crew.bus import BusError
+
+    with pytest.raises(BusError):
+        await bus.request("crew.nobody.home", c.ApprovePlan(), c.CommandReply, timeout=1)

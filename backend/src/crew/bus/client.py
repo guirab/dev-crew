@@ -12,6 +12,7 @@ import nats
 import structlog
 from nats.aio.client import Client as NATS
 from nats.aio.msg import Msg
+from nats.errors import NoRespondersError
 from nats.errors import TimeoutError as NatsTimeoutError
 from nats.js import JetStreamContext
 from nats.js.api import AckPolicy, ConsumerConfig, DeliverPolicy, RetentionPolicy, StreamConfig
@@ -133,15 +134,19 @@ class Bus:
         data = req.model_dump_json().encode() if req is not None else b"{}"
         try:
             msg = await self.nc.request(subject, data, timeout=timeout)
-        except NatsTimeoutError as e:
+        except (NatsTimeoutError, TimeoutError) as e:
             raise BusError(f"no reply on {subject} within {timeout}s") from e
+        except NoRespondersError as e:
+            raise BusError(f"no responders on {subject}") from e
         return reply_model.model_validate_json(msg.data)
 
     async def request_raw(self, subject: str, data: bytes = b"{}", timeout: float = 5.0) -> bytes:
         try:
             msg = await self.nc.request(subject, data, timeout=timeout)
-        except NatsTimeoutError as e:
+        except (NatsTimeoutError, TimeoutError) as e:
             raise BusError(f"no reply on {subject} within {timeout}s") from e
+        except NoRespondersError as e:
+            raise BusError(f"no responders on {subject}") from e
         return bytes(msg.data)
 
     async def serve(
@@ -190,7 +195,7 @@ class Bus:
             while stop is None or not stop.is_set():
                 try:
                     msgs = await psub.fetch(batch, timeout=fetch_timeout)
-                except NatsTimeoutError:
+                except (NatsTimeoutError, TimeoutError):
                     continue
                 for m in msgs:
                     try:

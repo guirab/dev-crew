@@ -110,7 +110,7 @@ async def job_loop(
         while stop is None or not stop.is_set():
             try:
                 msgs = await psub.fetch(1, timeout=fetch_timeout)
-            except NatsTimeoutError:
+            except (NatsTimeoutError, TimeoutError):  # nats-py may raise a bare asyncio.TimeoutError
                 continue
             for m in msgs:
                 await handle_job_message(bus, agent, m, handler, heartbeat_s)
