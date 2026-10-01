@@ -1,0 +1,9 @@
+dist
+coverage
+node_modules
+playwright-report
+test-results
+public/mockServiceWorker.js
+src/contracts/generated.ts
+package-lock.json
+.shots
