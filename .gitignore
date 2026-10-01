@@ -25,3 +25,6 @@ test-results/
 .idea/
 .DS_Store
 Thumbs.db
+
+# claude code worktrees / local settings
+.claude/
