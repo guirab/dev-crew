@@ -76,6 +76,19 @@ LINE_COMMENT = {**dict.fromkeys(HASH_COMMENT, "#"), **dict.fromkeys(SLASH_COMMEN
 BLOCK_COMMENT = {".md": ("<!--", "-->"), ".html": ("<!--", "-->")}
 
 
+SAMPLE_PLAN_FILES: tuple[PlanFile, ...] = (
+    PlanFile(path="shop/report.py", change="M"),
+    PlanFile(path="tests/test_report.py", change="M"),
+)
+
+
+def _plan_files(job: AgentJob) -> list[PlanFile]:
+    """Plan files that exist in the worktree when it is the sample repo; the mockup's otherwise."""
+    if job.workspace_path and (Path(job.workspace_path) / "shop" / "report.py").is_file():
+        return list(SAMPLE_PLAN_FILES)
+    return list(DEFAULT_PLAN_FILES)
+
+
 def lower_first(text: str) -> str:
     return text[:1].lower() + text[1:] if text else text
 
@@ -154,7 +167,7 @@ class ScriptedRunner:
                 "Front: componente + estado na query string",
                 "Testes: unit no serviço + integração no endpoint",
             ],
-            files=list(DEFAULT_PLAN_FILES),
+            files=_plan_files(job),
             acceptance_criteria=criteria,
             risks=["Mudança de contrato da API pode afetar clientes existentes"],
             test_strategy="Unit no serviço (bordas do intervalo, entrada inválida) e integração no endpoint.",
