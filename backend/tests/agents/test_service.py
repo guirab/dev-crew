@@ -310,7 +310,7 @@ async def test_standalone_module_worker_serves_a_job(bus: Bus, nats_url: str) ->
     job = make_job("planner", task_id="T-proc")
     env = {**os.environ, "CREW_NATS_URL": nats_url, "CREW_FAKE_AGENTS": "1", "CREW_FAKE_SPEED": "1000"}
     events = await bus.js.subscribe("crew.evt.T-proc.>", ordered_consumer=True)
-    proc = subprocess.Popen(  # noqa: ASYNC220
+    proc = subprocess.Popen(
         [sys.executable, "-m", "crew.agents", "planner"],
         env=env,
         stdout=subprocess.DEVNULL,

@@ -74,7 +74,7 @@ async def test_reviewer_reviews_an_edit_and_stays_read_only(sample: Path) -> Non
     outcome = await runner("reviewer").run(job, emit)
     assert isinstance(outcome.output, ReviewResult)
     assert outcome.output.verdict == "changes_requested"
-    status = subprocess.run(  # noqa: ASYNC221
+    status = subprocess.run(
         ["git", "status", "--porcelain"], cwd=sample, capture_output=True, text=True, check=True
     )
     assert status.stdout.strip() == "M shop/report.py"  # the reviewer changed nothing
@@ -93,7 +93,7 @@ async def test_developer_cannot_commit(sample: Path) -> None:
             blocked.append(line.text)
 
     await runner("developer").run(job, emit)
-    count = subprocess.run(  # noqa: ASYNC221
+    count = subprocess.run(
         ["git", "rev-list", "--count", "HEAD"], cwd=sample, capture_output=True, text=True, check=True
     )
     assert count.stdout.strip() == "1"  # still only the initial commit
