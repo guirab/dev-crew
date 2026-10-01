@@ -43,3 +43,16 @@ Nenhum contrato foi alterado. Itens abaixo são decisões que o Stream A / sess�
 6. **Cancelamento** (`crew.ctl.<task>.cancel`) é core pub/sub, não durável: se o cancel for publicado antes do worker assinar (job ainda na fila), ele não vale. O orquestrador deve republicar ou não despachar jobs de tarefa cancelada.
 7. **Tester só escreve testes** é garantido pelas guardas nas tools `Write`/`Edit` e nos comandos Bash que escrevem, mas um programa (`python script.py`) pode escrever onde quiser dentro do worktree. Proposta para o M2: o workspace service compara o diff pós-Tester e reporta arquivos de produção alterados.
 8. **Isolamento real** (Docker / `sandbox` do SDK) segue como item do M5: as guardas são filtro de política, não sandbox (ver `docs/spikes/agent-sdk.md`).
+
+## 2026-10-01 · core · `Bus.consume` e `job_loop` morrem com `asyncio.TimeoutError` solto do `fetch`
+
+- O quê: `psub.fetch()` do nats-py 2.16 pode levantar `asyncio.TimeoutError` puro (ex.: `raise asyncio.TimeoutError` quando o deadline já passou, ou re-raise do `next_msg`), não só `nats.errors.TimeoutError`. `Bus.consume` e `job_loop` só capturam `nats.errors.TimeoutError`, então o loop morre depois de ~1s ocioso. Reproduzido no stream A: o consumer do orquestrador morreu em ~1s sem mensagens (task terminou com `TimeoutError()`).
+- Por quê: afeta todo worker de agente (Stream B) que usa `job_loop`: o worker some em silêncio quando fica ocioso.
+- Proposta (código): em `bus/client.py` (`consume`) e `bus/worker.py` (`job_loop`) trocar `except NatsTimeoutError:` por `except (NatsTimeoutError, TimeoutError):` (em py3.11+ `asyncio.TimeoutError is TimeoutError`).
+- Workaround atual: o orquestrador usa um pull loop próprio (`OrchestratorService._consume_results`) e os fakes (`devfakes.FakeCrew._loop`) reiniciam o `job_loop` quando ele sai com `TimeoutError`. No `crew up`, cada agente roda sob um supervisor que reinicia o worker se ele cair (`stack.supervise`). Stream B deve aplicar o mesmo supervisor até o `bus` ser corrigido.
+
+## 2026-10-01 · core · `Bus.request` não trata `NoRespondersError`
+
+- O quê: `Bus.request`/`request_raw` só convertem `TimeoutError` em `BusError`. Sem ninguém escutando o subject, o NATS responde 503 e o nats-py levanta `nats.errors.NoRespondersError` (não é `BusError`).
+- Proposta: capturar `NoRespondersError` e levantar `BusError("no responders on <subject>")`.
+- Workaround atual: o gateway captura `BusError` e `NoRespondersError` e responde 503.

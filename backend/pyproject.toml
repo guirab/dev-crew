@@ -55,6 +55,9 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP", "ASYNC", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003", "RUF012", "B008", "ASYNC109"]  # RUF012: pydantic copies defaults; B008: typer options
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ASYNC220", "ASYNC221", "ASYNC230", "ASYNC240"]  # sync pathlib/open in async tests is fine
+
 [tool.mypy]
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
