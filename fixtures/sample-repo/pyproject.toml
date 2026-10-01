@@ -1,0 +1,9 @@
+[project]
+name = "shop"
+version = "0.1.0"
+description = "Repositório de exemplo do dev-crew: relatório de vendas em memória."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
