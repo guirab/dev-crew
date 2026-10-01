@@ -33,6 +33,26 @@ nats-server -js -sd %USERPROFILE%/.dev-crew/nats -m 8222
 
 Copie `crew.toml.example` → `crew.toml` e `.env.example` → `.env` e preencha.
 
+## Rodar
+
+Tudo num terminal (sobe NATS se não estiver rodando, cria streams e roda `crew up`):
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
+```
+
+- sem flags: agentes e Azure **fake** (zero tokens) — abra `http://127.0.0.1:8787`
+- `-Real`: agentes reais (precisa `ANTHROPIC_API_KEY` no `.env` e `claude.exe` nativo)
+- `-Escalate`: fakes forçam a escalada no Tester · `-Speed 3`: velocidade dos fakes
+
+Antes do primeiro uso real:
+
+```bash
+cd backend && uv run crew doctor
+```
+
+Config local: `~/.dev-crew/crew.toml` (ou `CREW_CONFIG`). Worktrees das tarefas: `~/.dev-crew/worktrees/<repo>/<task>` — revise, commite com a mensagem sugerida e depois `uv run crew cleanup <task>`.
+
 ## Comandos
 
 | Onde | Comando |
