@@ -31,6 +31,8 @@ Formato:
 
 ## 2026-10-01 · Stream B (agents) · Pedidos e pontos de atenção para o núcleo / M2
 
+> **Status M2 (sessão principal):** 1 ✅ `crew doctor` checa `claude.exe` (aceita `CREW_CLAUDE_CLI`, recusa shim `.cmd`) · 2 ✅ orquestrador já preenche `workspace_path` (worktree criado no início) pra todos · 3 ✅ `sessions` por agente → `resume_session_id` · 4/5 ok · 6 ✅ cancel publica `crew.ctl` **e** faz purge dos jobs enfileirados · 7/8 → M5.
+
 Nenhum contrato foi alterado. Itens abaixo são decisões que o Stream A / sessão principal precisa conhecer.
 
 1. **Windows: o wheel do `claude-agent-sdk` não traz a CLI.** O PyPI não tem wheel `win_amd64` nas versões 0.2.157 e 0.2.160-0.2.163 (existe até a 0.2.159); o `uv.lock` só lista wheels de macOS/Linux, então no Windows o uv instala o wheel puro sem `_bundled/claude.exe`. O SDK cai para o `claude.exe` nativo (`~/.local/bin/claude.exe` ou PATH). O runner aceita `CREW_CLAUDE_CLI=<caminho>`.
@@ -59,19 +61,19 @@ Nenhum contrato foi alterado. Itens abaixo são decisões que o Stream A / sess�
 
 ## 2026-10-01 · front · Pedidos do Stream C (nenhum bloqueante; o front já segue com workaround)
 
-### 1. Documentar a unidade de `TestResult.coverage`
+### 1. Documentar a unidade de `TestResult.coverage` — ✅ `Field(ge=0, le=1)` fração 0..1
 - O quê: `coverage: float | None` não diz se é fração (0.87) ou percentual (87). As fixtures usam fração.
 - Por quê: o front formata `Math.round(coverage * 100)%`. Se o orquestrador mandar 87, a UI mostra 8700%.
 - Proposta: docstring/`Field(ge=0, le=1, description="fração 0..1")` em `TestResult.coverage`.
 - Workaround atual: front assume fração (como nas fixtures).
 
-### 2. Confirmar o protocolo de "Nova tarefa" depois de `done`/`cancelled`
+### 2. Confirmar o protocolo de "Nova tarefa" depois de `done`/`cancelled` — ✅ confirmado no M2: fase terminal não bloqueia `start_task` (testado via gateway real)
 - O quê: o front trata "Nova tarefa" como ação só de UI (dispensa o `task_id` terminal e mostra os cards de origem). Pressupõe que `start_task` é aceito quando a tarefa atual está em fase terminal (`done`/`cancelled`/`failed`), e que `GET /api/task` e o WS continuam devolvendo a última tarefa até uma nova começar.
 - Por quê: o contrato só cita 409 "se já existe task ativa"; não diz se terminal conta como ativa.
 - Proposta: documentar no gateway/orquestrador que fase terminal não bloqueia `start_task`. Alternativa: publicar `view: null` após o usuário dispensar (exigiria um comando novo; não pedido).
 - Workaround atual: `dismissedTaskId` no store do front. Recarregar a página mostra a tarefa terminal de novo.
 
-### 3. Snapshot inicial no WS
+### 3. Snapshot inicial no WS — ✅ gateway manda `{type:"view"}` ao conectar
 - O quê: o front aceita os dois comportamentos (gateway manda `{type:"view"}` ao conectar ou não). Ao abrir/reabrir o WS ele também faz `GET /api/task`; o resultado só vale se nenhum snapshot do WS chegou no meio.
 - Proposta: documentar a escolha. Mandar o snapshot ao conectar economiza o GET.
 

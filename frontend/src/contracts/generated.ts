@@ -240,6 +240,9 @@ export interface TestResult {
   passed: number;
   total: number;
   failures: TestFailure[];
+  /**
+   * fração 0..1 (0.87 = 87%)
+   */
   coverage: number | null;
   command: string;
   tests_written: string[];

@@ -1085,13 +1085,16 @@
         "coverage": {
           "anyOf": [
             {
+              "maximum": 1,
+              "minimum": 0,
               "type": "number"
             },
             {
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "fração 0..1 (0.87 = 87%)"
         },
         "command": {
           "type": "string"

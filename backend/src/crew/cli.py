@@ -184,8 +184,14 @@ def doctor(
     skip_azure: bool = typer.Option(False, "--skip-azure", help="Não consulta o Azure DevOps"),
 ) -> None:
     """Checa NATS, chaves, git, Node, repos, test_cmd e Azure; diz o que falta e como resolver."""
+    import sys
+
     from . import doctor as d
 
+    for stream in (sys.stdout, sys.stderr):  # Windows consoles default to a legacy code page
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
     checks = asyncio.run(d.run_checks(config, run_tests=not skip_tests, check_azure_too=not skip_azure))
     colors = {"ok": typer.colors.GREEN, "warn": typer.colors.YELLOW, "fail": typer.colors.RED}
     for line in d.render(checks, lambda text, status: typer.style(text, fg=colors[status], bold=True)):

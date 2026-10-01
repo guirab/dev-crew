@@ -87,6 +87,38 @@ def check_git_bash() -> Check:
     return ok("git-bash", found)
 
 
+def find_claude_cli() -> str | None:
+    """Same lookup order the Agent SDK uses when the wheel has no bundled CLI (Windows)."""
+    override = os.environ.get("CREW_CLAUDE_CLI")
+    if override:
+        return override if Path(override).is_file() else None
+    exe = "claude.exe" if sys.platform == "win32" else "claude"
+    local = Path.home() / ".local" / "bin" / exe
+    if local.is_file():
+        return str(local)
+    found = shutil.which(exe)
+    # the SDK refuses the npm shim (claude.cmd), so only a real executable counts
+    return found if found and not found.lower().endswith(".cmd") else None
+
+
+async def check_claude_cli() -> Check:
+    exe = find_claude_cli()
+    if exe is None:
+        return fail(
+            "claude-cli",
+            "claude.exe (Claude Code nativo) não encontrado",
+            "o wheel do claude-agent-sdk no Windows não traz a CLI: instale o Claude Code nativo "
+            "ou aponte CREW_CLAUDE_CLI=<caminho do claude.exe>",
+        )
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run, [exe, "--version"], capture_output=True, timeout=30, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return fail("claude-cli", f"{exe} falhou: {e}", "reinstale o Claude Code nativo")
+    return ok("claude-cli", f"{exe} {proc.stdout.decode(errors='replace').strip()}")
+
+
 async def check_node() -> Check:
     npx = "npx.cmd" if sys.platform == "win32" else "npx"
     exe = shutil.which(npx)
@@ -281,6 +313,7 @@ async def run_checks(
     results.append(cfg_check)
     results.append(await check_git())
     results.append(check_git_bash())
+    results.append(await check_claude_cli())
     results.append(await check_node())
     results.append(check_data_dir())
     results.append(check_anthropic_key(secrets))

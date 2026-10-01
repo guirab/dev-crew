@@ -69,7 +69,7 @@ class TestResult(Contract):
     passed: int
     total: int
     failures: list[TestFailure] = []
-    coverage: float | None = None
+    coverage: float | None = Field(default=None, ge=0, le=1, description="fração 0..1 (0.87 = 87%)")
     command: str
     tests_written: list[str] = []
 
