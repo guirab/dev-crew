@@ -139,6 +139,18 @@ MINOR = ReviewComment(severity="minor", file="a.py", text="nit")
         (ReviewResult(verdict="approved", commit_message="feat!: muda API\n\n- detalhe"), True),
         (ReviewResult(verdict="changes_requested", comments=[MAJOR]), True),
         (ReviewResult(verdict="changes_requested", comments=[MAJOR, MINOR]), True),
+        (
+            ReviewResult(
+                verdict="approved",
+                comments=[MAJOR.model_copy(update={"resolved": True}), MINOR],
+                commit_message="feat: x",
+            ),
+            True,
+        ),
+        (
+            ReviewResult(verdict="changes_requested", comments=[MAJOR.model_copy(update={"resolved": True})]),
+            False,
+        ),
         (ReviewResult(verdict="approved"), False),
         (ReviewResult(verdict="approved", commit_message="  "), False),
         (ReviewResult(verdict="approved", comments=[MAJOR], commit_message="feat: x"), False),

@@ -103,10 +103,11 @@ def check_test(r: TestResult) -> str | None:
 
 
 def check_review(r: ReviewResult) -> str | None:
-    has_major = any(c.severity == "major" for c in r.comments)
+    # a major that was fixed in a later round stays in the list as ``resolved`` and no longer blocks
+    has_major = any(c.severity == "major" and not c.resolved for c in r.comments)
     if r.verdict == "approved":
         if has_major:
-            return "há comentário major: o verdict deve ser changes_requested."
+            return "há comentário major não resolvido: o verdict deve ser changes_requested."
         if not r.commit_message or not r.commit_message.strip():
             return "verdict=approved exige commit_message."
         subject = r.commit_message.strip().splitlines()[0]
