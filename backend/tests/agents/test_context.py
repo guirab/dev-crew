@@ -203,7 +203,7 @@ exportar os pedidos em CSV
 - Rodada 1 deste agente na tarefa T-1.
 - Orçamento restante da tarefa: US$ 5.00.
 - Termine chamando `submit_interview`.
-- Perguntas já respondidas: 0 (alvo: 3 a 8 no total).
+- Perguntas já respondidas: 0. Pare só quando não restar decisão em aberto na árvore.
 """
 
 

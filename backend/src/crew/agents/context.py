@@ -172,7 +172,10 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
             if job.spec.work_item is not None:
                 lines.append("- O orquestrador acrescenta o rodapé `Refs: AB#<id>`; não o escreva.")
         case "interviewer":
-            lines.append(f"- Perguntas já respondidas: {len(job.interview_history)} (alvo: 3 a 8 no total).")
+            lines.append(
+                f"- Perguntas já respondidas: {len(job.interview_history)}. "
+                "Pare só quando não restar decisão em aberto na árvore."
+            )
         case _:
             pass
     return "\n".join(lines)
