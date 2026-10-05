@@ -330,3 +330,39 @@ async def test_standalone_module_worker_serves_a_job(bus: Bus, nats_url: str) ->
         proc.terminate()
         await asyncio.to_thread(proc.wait, 10)
         await events.unsubscribe()
+
+
+# ------------------------------------------------------------------ diff after the Tester (D42)
+class TouchRunner:
+    """A tester that edits ``rel`` (a test file or production code) and reports a passing run."""
+
+    def __init__(self, rel: str) -> None:
+        self.rel = rel
+
+    async def run(self, job: Any, emit: ProgressSink) -> RunOutcome:
+        from pathlib import Path
+
+        target = Path(job.workspace_path) / self.rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("changed by the tester\n", "utf-8")
+        return RunOutcome(
+            output=TestResult(ok=True, passed=1, total=1, command="pytest"), cost_usd=0.0, session_id=None
+        )
+
+
+@pytest.mark.parametrize(("rel", "expected"), [("tests/test_new.py", "result"), ("src/app.py", "failed")])
+async def test_tester_touching_production_code_fails_the_job(
+    bus: Bus, tmp_path: Any, rel: str, expected: str
+) -> None:
+    from ..git_helpers import make_git_repo
+
+    repo = make_git_repo(tmp_path / "repo")
+    job = make_job("tester", task_id=f"T-pg{len(rel)}", workspace=repo)
+    async with started(bus, "tester", job.task_id, runner=TouchRunner(rel)) as worker:
+        await bus.publish_job(job)
+        env = await worker.until("failed", "result")
+    assert env.type == expected
+    if expected == "failed":
+        payload = env.decode_payload()
+        assert isinstance(payload, AgentFailedEvt)
+        assert "alterou código de produção: src/app.py" in payload.error and not payload.retryable

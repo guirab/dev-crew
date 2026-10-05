@@ -5,15 +5,18 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+from pathlib import Path
 
 import structlog
 
 from ..bus import Bus, FatalJobError, JobControl, job_loop
 from ..bus.subjects import cancel_subject
 from ..contracts import AgentJob, AgentName, AgentProgress, AgentResultEvt
+from . import prodguard
 from .progress import ProgressLine, ProgressSink
 from .runner import Runner, SdkRunner
 from .settings import AgentRuntimeSettings
+from .specs import effective_test_globs
 
 log = structlog.get_logger(__name__)
 
@@ -65,6 +68,8 @@ async def _handle_job(bus: Bus, agent: AgentName, runner: Runner, job: AgentJob)
     async def on_cancel(_msg: object) -> None:
         cancelled.set()
 
+    guarded = _production_guard(job)
+    before = await asyncio.to_thread(prodguard.snapshot, *guarded) if guarded else None
     sub = await bus.subscribe_core(cancel_subject(job.task_id), on_cancel)
     run_task = asyncio.create_task(runner.run(job, sink))
     cancel_task = asyncio.create_task(cancelled.wait())
@@ -86,6 +91,11 @@ async def _handle_job(bus: Bus, agent: AgentName, runner: Runner, job: AgentJob)
         with contextlib.suppress(Exception):
             await sub.unsubscribe()
 
+    if guarded and before is not None:
+        touched = prodguard.changed(before, await asyncio.to_thread(prodguard.snapshot, *guarded))
+        if touched:
+            raise FatalJobError(prodguard.describe(touched))
+
     result = AgentResultEvt(
         agent=agent,
         job_id=job.job_id,
@@ -95,3 +105,10 @@ async def _handle_job(bus: Bus, agent: AgentName, runner: Runner, job: AgentJob)
         duration_s=round(time.monotonic() - started, 3),
     )
     await bus.publish_event(job.task_id, "result", result, source=agent)
+
+
+def _production_guard(job: AgentJob) -> tuple[Path, tuple[str, ...]] | None:
+    """Tester jobs only (D42): worktree + test globs for the before/after production snapshot."""
+    if job.agent != "tester" or not job.workspace_path:
+        return None
+    return Path(job.workspace_path), effective_test_globs(job)
