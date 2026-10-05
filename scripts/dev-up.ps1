@@ -50,8 +50,9 @@ if (-not $natsUp -and (Get-Command docker -ErrorAction SilentlyContinue)) {
 
 try {
     Push-Location (Join-Path $root 'backend')
-    uv run crew streams init
-    $crewArgs = @('run', 'crew', 'up')
+    # python -m em vez do crew.exe: o Smart App Control bloqueia o lançador não assinado que o uv gera
+    uv run python -m crew.cli streams init
+    $crewArgs = @('run', 'python', '-m', 'crew.cli', 'up')
     if (-not $Real) { $crewArgs += @('--fake-agents', '--fake-speed', "$Speed") }
     if ($Escalate) { $crewArgs += '--fake-escalate' }
     & uv @crewArgs

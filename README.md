@@ -48,15 +48,15 @@ powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
 Antes do primeiro uso real:
 
 ```bash
-cd backend && uv run crew doctor
+cd backend && uv run python -m crew.cli doctor
 ```
 
-Config local: `~/.dev-crew/crew.toml` (ou `CREW_CONFIG`). Worktrees das tarefas: `~/.dev-crew/worktrees/<repo>/<task>` — revise, commite com a mensagem sugerida e depois `uv run crew cleanup <task>`.
+Config local: `~/.dev-crew/crew.toml` (ou `CREW_CONFIG`). Worktrees das tarefas: `~/.dev-crew/worktrees/<repo>/<task>` — revise, commite com a mensagem sugerida e depois `uv run python -m crew.cli cleanup <task>`.
 
 ## Comandos
 
 | Onde | Comando |
 |---|---|
 | backend | `uv run pytest` · `uv run ruff check .` · `uv run mypy src` |
-| backend | `uv run crew streams init` · `uv run crew gen-schema` |
+| backend | `uv run python -m crew.cli streams init` · `uv run python -m crew.cli gen-schema` |
 | frontend | `npm run gen:types` · `npm run typecheck` · `npm test` |

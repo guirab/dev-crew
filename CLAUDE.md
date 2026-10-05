@@ -51,8 +51,8 @@ Estrutura planejada:
 ## Comandos (após o M0)
 
 - Back: `uv run pytest` · `uv run ruff check .` · `uv run mypy src`
-- CLI: `uv run crew doctor` · `uv run crew streams init` · `uv run crew up --fake-agents`
-- Contratos: `uv run crew gen-schema` e depois `npm run gen:types`
+- CLI: `uv run python -m crew.cli doctor` · `uv run python -m crew.cli streams init` · `uv run python -m crew.cli up --fake-agents`
+- Contratos: `uv run python -m crew.cli gen-schema` e depois `npm run gen:types`
 - Front: `npm run dev:mock` · `npm run typecheck` · `npm run lint` · `npm test`
 - NATS: `docker compose -f infra/docker-compose.yml up -d`
 
