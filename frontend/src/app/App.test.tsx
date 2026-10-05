@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +7,7 @@ import { createRestHandlers } from '../mocks/handlers'
 import { ScenarioBackend } from '../mocks/scenario'
 import { useCrewStore } from '../store/crew'
 import { stageButton, stageCard } from '../test/dom'
+import { fixture } from '../test/fixtures'
 import { server } from '../test/server'
 import { renderWithClient } from '../test/render'
 import { App } from './App'
@@ -58,6 +59,36 @@ describe('App (UI + cenário mock, sem WS)', () => {
     renderWithClient(<App />)
     expect(screen.getByText('conectando…')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Manual/ })).not.toBeInTheDocument()
+  })
+
+  it('título da aba e favicon acompanham o snapshot e voltam ao base ao dispensar', () => {
+    const icon = () => document.querySelector('link[rel="icon"]')?.getAttribute('href')
+    renderWithClient(<App />)
+    expect(document.title).toBe('Dev Crew')
+    expect(icon()).toBe('/favicon.svg')
+
+    const base = fixture('interviewing')
+    act(() => {
+      useCrewStore.getState().applyView({
+        ...base,
+        phase: 'interviewing',
+        stages: { ...base.stages, interviewer: { ...base.stages.interviewer, status: 'waiting' } },
+      })
+    })
+    expect(document.title).toBe(`● Precisa de você: responda a entrevista · ${base.title.trim()} · Dev Crew`)
+    expect(icon()).toBe('/favicon-attention.svg')
+
+    act(() => {
+      useCrewStore.getState().applyView({ ...base, phase: 'done' })
+    })
+    expect(document.title).toBe(`✓ Concluída · ${base.title.trim()} · Dev Crew`)
+    expect(icon()).toBe('/favicon-done.svg')
+
+    act(() => {
+      useCrewStore.getState().dismissTask()
+    })
+    expect(document.title).toBe('Dev Crew')
+    expect(icon()).toBe('/favicon.svg')
   })
 
   it('mostra a faixa "reconectando…" quando o WS cai, e mostra os cards mesmo sem snapshot', () => {
