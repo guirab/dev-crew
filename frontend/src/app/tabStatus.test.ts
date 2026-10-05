@@ -5,7 +5,9 @@ import type { TaskView } from '../contracts/generated'
 import { fixture } from '../test/fixtures'
 import { FAVICON_HREF, tabStatus, truncate, type FaviconKind } from './tabStatus'
 
-function view(overrides: Partial<TaskView> & { interviewer?: TaskView['stages']['interviewer']['status'] }): TaskView {
+function view(
+  overrides: Partial<TaskView> & { interviewer?: TaskView['stages']['interviewer']['status'] },
+): TaskView {
   const { interviewer, ...rest } = overrides
   const base = { ...fixture('interviewing'), title: 'Exportar CSV', escalation: null, ...rest }
   if (!interviewer) return base
@@ -96,18 +98,18 @@ describe('tabStatus', () => {
 
 describe('assets do favicon', () => {
   const root = resolve(__dirname, '../..')
-  const colors: Record<FaviconKind, string> = {
-    base: '#2bee86',
-    attention: '#f4b544',
-    working: '#2bee86',
-    done: '#2bee86',
-    error: '#ff5d5d',
-  }
+  const colors: [FaviconKind, string][] = [
+    ['base', '#2bee86'],
+    ['attention', '#f4b544'],
+    ['working', '#2bee86'],
+    ['done', '#2bee86'],
+    ['error', '#ff5d5d'],
+  ]
 
-  it.each(Object.keys(FAVICON_HREF) as FaviconKind[])('SVG estático de %s existe com a cor do token', (kind) => {
+  it.each(colors)('SVG estático de %s existe com a cor do token', (kind, color) => {
     const svg = readFileSync(resolve(root, 'public', FAVICON_HREF[kind].slice(1)), 'utf8')
     expect(svg).toContain('viewBox="0 0 32 32"')
-    expect(svg.toLowerCase()).toContain(colors[kind])
+    expect(svg.toLowerCase()).toContain(color)
   })
 
   it('index.html referencia o ícone base num <link rel="icon"> estático', () => {
