@@ -1,10 +1,4 @@
-import type {
-  Command,
-  CommandReply,
-  RepoInfo,
-  TaskView,
-  WsMessage,
-} from '../contracts/generated'
+import type { Command, CommandReply, RepoInfo, TaskView, WsMessage } from '../contracts/generated'
 
 export interface CommandOutcome {
   /** Status HTTP que o gateway devolveria. */

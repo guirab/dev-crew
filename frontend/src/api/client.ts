@@ -1,9 +1,4 @@
-import type {
-  Command,
-  CommandReply,
-  RepoInfo,
-  TaskView,
-} from '../contracts/generated'
+import type { Command, CommandReply, RepoInfo, TaskView } from '../contracts/generated'
 import { isCommandReply, isNullableTaskView, isRepoList } from './guards'
 
 /** Erro de chamada ao gateway. `status` 0 = sem resposta (rede/servidor fora). */

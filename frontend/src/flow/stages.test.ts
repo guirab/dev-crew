@@ -35,7 +35,9 @@ describe('connectorState (mapa conector → arestas, igual ao mockup)', () => {
   })
 
   it('é "active" quando qualquer aresta do conector está ativa (active vence on)', () => {
-    expect(connectorState({ 'iv-pl': 'on', 'pl-ap': 'active' }, CONNECTOR_EDGES.plan)).toBe('active')
+    expect(connectorState({ 'iv-pl': 'on', 'pl-ap': 'active' }, CONNECTOR_EDGES.plan)).toBe(
+      'active',
+    )
     expect(connectorState({ 'ts-dv': 'on', 'rv-dv': 'active' }, CONNECTOR_EDGES.loopAdjust)).toBe(
       'active',
     )

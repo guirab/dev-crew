@@ -2,13 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { server } from '../test/server'
 import { fixture } from '../test/fixtures'
-import {
-  ApiError,
-  CommandError,
-  fetchCurrentTask,
-  fetchRepos,
-  postCommand,
-} from './client'
+import { ApiError, CommandError, fetchCurrentTask, fetchRepos, postCommand } from './client'
 
 describe('GETs tipados', () => {
   it('lista repos', async () => {

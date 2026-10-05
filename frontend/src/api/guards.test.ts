@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fixture, fixtures } from '../test/fixtures'
-import {
-  isCommandReply,
-  isNullableTaskView,
-  isRepoList,
-  isTaskView,
-  isWsMessage,
-} from './guards'
+import { isCommandReply, isNullableTaskView, isRepoList, isTaskView, isWsMessage } from './guards'
 
 describe('isTaskView', () => {
   it('aceita as 8 fixtures do contrato', () => {

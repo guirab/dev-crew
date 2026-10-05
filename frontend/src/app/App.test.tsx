@@ -75,7 +75,9 @@ describe('App (UI + cenário mock, sem WS)', () => {
         stages: { ...base.stages, interviewer: { ...base.stages.interviewer, status: 'waiting' } },
       })
     })
-    expect(document.title).toBe(`● Precisa de você: responda a entrevista · ${base.title.trim()} · Dev Crew`)
+    expect(document.title).toBe(
+      `● Precisa de você: responda a entrevista · ${base.title.trim()} · Dev Crew`,
+    )
     expect(icon()).toBe('/favicon-attention.svg')
 
     act(() => {

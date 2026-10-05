@@ -1,9 +1,4 @@
-import type {
-  CommandReply,
-  RepoInfo,
-  TaskView,
-  WsMessage,
-} from '../contracts/generated'
+import type { CommandReply, RepoInfo, TaskView, WsMessage } from '../contracts/generated'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 
 /**
