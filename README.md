@@ -69,7 +69,7 @@ Cria o atalho "Dev Crew" no menu Iniciar (`--desktop` também na Área de Trabal
 cd backend && uv run python -m crew.cli install-app
 ```
 
-Clicar no atalho abre o Docker Desktop se precisar, sobe o NATS e o crew escondidos (agentes reais) e abre a UI numa janela própria do Edge. O ícone perto do relógio mostra o estado (amarelo iniciando, verde pronto, vermelho erro) e tem **Abrir Dev Crew**, **Ver logs** e **Encerrar**. Fechar a janela não para o crew: só o **Encerrar** para. Clicar no atalho de novo com o app aberto só abre outra janela.
+Clicar no atalho abre o Docker Desktop se precisar, sobe o NATS e o crew escondidos (agentes reais) e abre a UI numa janela própria do Edge. O ícone perto do relógio mostra o estado (amarelo iniciando, verde pronto, vermelho erro) e tem **Abrir Dev Crew**, **Ver logs** e **Encerrar**. Fechar a janela não para o crew: só o **Encerrar** para. O **Encerrar** desfaz só o que aquela abertura fez: para o container do NATS se foi o app que o subiu, e fecha o Docker Desktop (`docker desktop stop`) se foi o app que o abriu. Docker que já estava aberto antes continua aberto. Clicar no atalho de novo com o app aberto só abre outra janela.
 
 - O atalho roda o `pythonw.exe` do venv (assinado pela PSF, passa no Smart App Control) com `-m crew.cli app`.
 - Logs em `~/.dev-crew/logs/` (`app.log` do launcher, `backend.log` e `crew.log` do crew).

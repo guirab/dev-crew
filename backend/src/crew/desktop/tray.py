@@ -91,6 +91,7 @@ class Tray:
 
     def _quit(self, icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         self._stopping.set()
-        self.set_status(Status.STARTING, "encerrando…")
-        self.launcher.stop()
+        detail = "encerrando e fechando o Docker…" if self.launcher.opened_docker else "encerrando…"
+        self.set_status(Status.STARTING, detail)
+        self.launcher.shutdown()
         icon.stop()

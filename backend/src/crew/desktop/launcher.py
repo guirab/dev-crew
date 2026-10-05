@@ -4,6 +4,9 @@ Order: Docker engine (opens Docker Desktop when closed) → NATS (``infra/docker
 JetStream streams → ``crew up`` as a hidden child process → wait for the gateway → open the window.
 If a gateway already answers on the configured port (e.g. ``dev-up.ps1`` is running) the launcher
 attaches to it and never stops it.
+
+``shutdown`` ("Encerrar" in the tray) undoes only what this launch did: it stops the NATS container
+if the launcher started it, and quits Docker Desktop if the launcher opened it.
 """
 
 from __future__ import annotations
@@ -102,6 +105,8 @@ class Launcher:
         self.proc: subprocess.Popen[bytes] | None = None
         self.attached = False
         self.ready = False
+        self.opened_docker = False  # this launch opened Docker Desktop: shutdown quits it
+        self.started_nats = False  # this launch started the NATS container: shutdown stops it
         self._log_file: IO[Any] | None = None
 
     # ------------------------------------------------------------------ paths
@@ -159,6 +164,27 @@ class Launcher:
             self._log_file.close()
             self._log_file = None
 
+    def shutdown(self) -> None:
+        """Stop the crew and whatever infrastructure this launch brought up; leave the rest alone."""
+        self.stop()
+        if self.attached:
+            return
+        if self.started_nats or self.opened_docker:
+            self._best_effort("nats_stop", ["docker", "compose", "-f", str(COMPOSE_FILE), "stop"], 60)
+            self.started_nats = False
+        if self.opened_docker:
+            self._best_effort("docker_desktop_stop", ["docker", "desktop", "stop"], 180)
+            self.opened_docker = False
+
+    def _best_effort(self, event: str, args: list[str], timeout: float) -> None:
+        """Shutdown steps never raise: the user is quitting, a leftover container is not worth a dialog."""
+        try:
+            done = winproc.run_hidden(args, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            log.warning(event, ok=False, error=str(e))
+            return
+        log.info(event, ok=done.returncode == 0, stderr=done.stderr.strip()[-300:])
+
     # ------------------------------------------------------------------ steps
 
     def gateway_ready(self) -> bool:
@@ -183,6 +209,7 @@ class Launcher:
             return
         log.info("docker_desktop_opening")
         subprocess.Popen([str(winproc.DOCKER_DESKTOP)])
+        self.opened_docker = True
         deadline = self._clock() + DOCKER_START_TIMEOUT_S
         while self._clock() < deadline:
             self._sleep(3.0)
@@ -203,6 +230,7 @@ class Launcher:
         if done.returncode != 0:
             detail = (done.stderr or done.stdout).strip().splitlines()[-3:]
             raise LauncherError("Não consegui subir o NATS no Docker:\n" + "\n".join(detail))
+        self.started_nats = True
         host, port = nats_address(self.cfg.nats.url)
         deadline = self._clock() + NATS_START_TIMEOUT_S
         while not port_open(host, port):

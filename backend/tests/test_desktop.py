@@ -207,6 +207,24 @@ def test_ensure_docker_opens_docker_desktop_and_waits(
     monkeypatch.setattr(launcher.subprocess, "Popen", lambda args, **kw: started.append(args))
     lau.ensure_docker(required=True)
     assert started == [[str(desktop)]] and clock.now == 6.0
+    assert lau.opened_docker
+
+
+def test_ensure_docker_leaves_a_running_engine_alone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    monkeypatch.setattr(launcher.shutil, "which", lambda name: "docker")
+    monkeypatch.setattr(lau, "_docker_engine_up", lambda: True)
+    lau.ensure_docker(required=True)
+    assert not lau.opened_docker
+
+
+def test_start_nats_marks_it_as_ours(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    ok = subprocess.CompletedProcess(["docker"], 0, "", "")
+    monkeypatch.setattr(winproc, "run_hidden", lambda args, **kw: ok)
+    monkeypatch.setattr(launcher, "port_open", lambda host, port, timeout=1.0: True)
+    lau.start_nats()
+    assert lau.started_nats
 
 
 def test_start_nats_surfaces_compose_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -232,6 +250,56 @@ def test_stop_kills_the_whole_tree_once(tmp_path: Path, monkeypatch: pytest.Monk
     lau.stop()
     lau.stop()
     assert killed == [77] and not lau.ready and lau.backend_exit_code() == 1
+
+
+@pytest.mark.parametrize(
+    ("opened_docker", "started_nats", "expected"),
+    [
+        (True, True, ["compose stop", "desktop stop"]),
+        (True, False, ["compose stop", "desktop stop"]),  # NATS came back with Docker: ours too
+        (False, True, ["compose stop"]),  # Docker was already open: it stays
+        (False, False, []),  # nothing was ours
+    ],
+)
+def test_shutdown_undoes_only_what_this_launch_did(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    opened_docker: bool,
+    started_nats: bool,
+    expected: list[str],
+) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    lau.proc = FakeProc(code=0)  # type: ignore[assignment]
+    lau.opened_docker, lau.started_nats = opened_docker, started_nats
+    ran: list[str] = []
+
+    def run_hidden(args: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
+        ran.append(" ".join(args[1:2] + args[-1:]))
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(winproc, "run_hidden", run_hidden)
+    lau.shutdown()
+    lau.shutdown()  # idempotent: a second "Encerrar" does nothing more
+    assert ran == expected
+
+
+def test_shutdown_never_touches_an_attached_crew(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    lau.attached, lau.opened_docker, lau.started_nats = True, True, True
+    monkeypatch.setattr(winproc, "run_hidden", lambda args, **kw: pytest.fail("attached: hands off"))
+    lau.shutdown()
+
+
+def test_shutdown_survives_docker_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    lau.opened_docker = True
+
+    def boom(args: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(args, 1)
+
+    monkeypatch.setattr(winproc, "run_hidden", boom)
+    lau.shutdown()
+    assert not lau.opened_docker
 
 
 # ----------------------------------------------------------------------------------- tray / shortcut
