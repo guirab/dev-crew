@@ -13,6 +13,8 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "sqlmodel>=0.0.22",
     "claude-agent-sdk>=0.1",
+    "pystray>=0.19",
+    "pillow>=11",
 ]
 
 [project.scripts]
@@ -67,5 +69,5 @@ module = ["crew.contracts.*", "crew.bus.*", "crew.orchestrator.*"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["nats.*"]
+module = ["nats.*", "pystray.*"]
 ignore_missing_imports = true

@@ -1,4 +1,7 @@
-"""`crew` command line: up, svc, doctor, cleanup, streams, gen-schema (`agent` is Stream B's)."""
+"""`crew` command line: up, svc, doctor, cleanup, app, install-app, streams, gen-schema.
+
+`agent` is Stream B's.
+"""
 
 from __future__ import annotations
 
@@ -223,6 +226,46 @@ def cleanup(
 
         asyncio.run(_run())
     except (ConfigError, WorkspaceError) as e:
+        typer.secho(str(e), fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from e
+
+
+# ------------------------------------------------------------------------------------ desktop app
+
+
+@app.command("app")
+def desktop_app(
+    config: Path | None = ConfigOpt,
+    fake_agents: bool = typer.Option(False, "--fake-agents", help="Agentes roteirizados, zero tokens"),
+    fake_speed: float = typer.Option(3.0, "--fake-speed", min=0.01),
+    no_window: bool = typer.Option(False, "--no-window", help="Só sobe o crew, sem abrir a janela"),
+) -> None:
+    """App desktop: sobe Docker, NATS e o crew escondidos, com ícone na bandeja, e abre a janela."""
+    from .desktop.app import run
+    from .desktop.launcher import LaunchOptions
+
+    opts = LaunchOptions(fake_agents=fake_agents, fake_speed=fake_speed, open_window=not no_window)
+    raise typer.Exit(run(config, opts))
+
+
+@app.command("install-app")
+def install_app(
+    config: Path | None = typer.Option(None, "--config", "-c", help="crew.toml fixo no atalho"),
+    desktop: bool = typer.Option(False, "--desktop", help="Também cria o atalho na Área de Trabalho"),
+    fake_agents: bool = typer.Option(False, "--fake-agents", help="Atalho abre com agentes fake"),
+) -> None:
+    """Cria o atalho "Dev Crew" no menu Iniciar (e na Área de Trabalho com --desktop)."""
+    from .desktop import shortcut
+
+    try:
+        folders = [shortcut.start_menu_dir()]
+        if desktop:
+            folders.append(shortcut.desktop_dir())
+        resolved = config.resolve() if config is not None else None
+        for folder in folders:
+            path = shortcut.create(shortcut.build(folder, fake_agents=fake_agents, config_path=resolved))
+            typer.echo(f"atalho criado: {path}")
+    except shortcut.ShortcutError as e:
         typer.secho(str(e), fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from e
 

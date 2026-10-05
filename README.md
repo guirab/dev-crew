@@ -61,7 +61,22 @@ Checagem (config, git, Git Bash, CLI, login, NATS, Docker, repos):
 cd backend && uv run python -m crew.cli doctor
 ```
 
-## Rodar
+## App desktop
+
+Cria o atalho "Dev Crew" no menu Iniciar (`--desktop` também na Área de Trabalho):
+
+```bash
+cd backend && uv run python -m crew.cli install-app
+```
+
+Clicar no atalho abre o Docker Desktop se precisar, sobe o NATS e o crew escondidos (agentes reais) e abre a UI numa janela própria do Edge. O ícone perto do relógio mostra o estado (amarelo iniciando, verde pronto, vermelho erro) e tem **Abrir Dev Crew**, **Ver logs** e **Encerrar**. Fechar a janela não para o crew: só o **Encerrar** para. Clicar no atalho de novo com o app aberto só abre outra janela.
+
+- O atalho roda o `pythonw.exe` do venv (assinado pela PSF, passa no Smart App Control) com `-m crew.cli app`.
+- Logs em `~/.dev-crew/logs/` (`app.log` do launcher, `backend.log` e `crew.log` do crew).
+- `crew app --fake-agents` (zero tokens) e `--no-window` (só sobe, sem janela) existem para testes e automação.
+- Se um `dev-up.ps1` já estiver rodando na mesma porta, o app só abre a janela e não o encerra.
+
+## Rodar no terminal
 
 Tudo num terminal (abre o Docker Desktop se precisar, sobe o NATS, cria os streams e roda `crew up`):
 

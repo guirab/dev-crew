@@ -38,8 +38,8 @@ UI React ─REST/WS─▶ Gateway FastAPI (127.0.0.1:8787) ─▶ NATS JetStream
 - O worker compara os arquivos de produção antes/depois do Tester: mudou = job falha e escala (D42).
 
 Estrutura:
-- `backend/src/crew/{contracts,bus,orchestrator,agents,workspace,gateway}` + `sandbox.py`, `doctor.py`, `gitbash.py`, `stack.py`, `cli.py`
-- `backend/scripts/` (spike do SDK, geradores de fixtures)
+- `backend/src/crew/{contracts,bus,orchestrator,agents,workspace,gateway}` + `desktop/` (app: launcher, bandeja, atalho) + `sandbox.py`, `doctor.py`, `gitbash.py`, `stack.py`, `cli.py`
+- `backend/scripts/` (spike do SDK, geradores de fixtures, `make_icons.py`)
 - `frontend/src/{api,app,bodies,flow,store,mocks,ui,lib,styles}`
 - `contracts/` (schema + fixtures) · `fixtures/` (jobs + `sample-repo/`)
 - `infra/docker-compose.yml` (NATS)
@@ -55,12 +55,12 @@ Estrutura:
 - **Agentes:** `claude.exe` nativo logado na assinatura Pro, sem `ANTHROPIC_API_KEY` (D27). Modelos: Opus no Planner/Reviewer, Sonnet no resto (D36).
 - **SO:** Windows 11. Use `pathlib` e `npx.cmd` em subprocess.
   - Smart App Control bloqueia binário sem assinatura: CLI via `uv run python -m crew.cli`, nunca `crew.exe` (D47).
-  - Com WSL, `System32ash.exe` é o WSL: a CLI fixa o Git Bash em `CLAUDE_CODE_GIT_BASH_PATH` (D33).
+  - Com WSL, `System32\bash.exe` é o WSL: a CLI fixa o Git Bash em `CLAUDE_CODE_GIT_BASH_PATH` (D33).
 
 ## Comandos
 
-- Tudo: `powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1` (fake) · `-Real` (agentes reais)
-
+- App: `uv run python -m crew.cli install-app` (atalho no menu Iniciar) · `uv run python -m crew.cli app [--fake-agents] [--no-window]`
+- Terminal: `powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1` (fake) · `-Real` (agentes reais)
 - Back: `uv run pytest` · `uv run ruff check .` · `uv run mypy src`
 - CLI: `uv run python -m crew.cli doctor` · `uv run python -m crew.cli streams init` · `uv run python -m crew.cli up --fake-agents` · `uv run python -m crew.cli cleanup <task>`
 - Contratos: `uv run python -m crew.cli gen-schema` e depois `npm run gen:types`
