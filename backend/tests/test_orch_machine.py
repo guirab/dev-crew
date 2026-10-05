@@ -892,3 +892,28 @@ def test_decide_never_mutates_input_state() -> None:
     evt = c.AgentResultEvt(agent="tester", job_id=state.current_job_id or uuid4(), output=fail_run())
     decide(state, ev.AgentResult(task_id="T-107", evt=evt, at=T0 + timedelta(hours=1)))
     assert state.model_dump() == snapshot
+
+
+def test_job_stopped_by_its_cap_escalates_as_budget_and_more_attempts_raises_the_budget() -> None:
+    from crew.bus import JOB_BUDGET_EXCEEDED
+
+    d = Driver(limits=Limits(budget_usd=2.0))
+    d.to_developing()
+    d.failed(JOB_BUDGET_EXCEEDED)
+    s = d.s
+    assert s.escalation is not None and (s.escalation.kind, s.escalation.stage) == ("budget", "developer")
+    assert s.dev_round == 0, "the round that did not finish is given back"
+    d.command(c.EscalationAction(action="more_attempts"))
+    assert d.s.limits.budget_usd == pytest.approx(3.0)
+    assert d.job.agent == "developer" and d.job.budget_usd > 2.0
+
+
+def test_legacy_agent_failed_with_the_budget_error_also_boosts() -> None:
+    from crew.bus import JOB_BUDGET_EXCEEDED
+
+    d = Driver(limits=Limits(budget_usd=2.0))
+    d.to_developing()
+    m._fail_job(d.state, d.tick(), "developer", JOB_BUDGET_EXCEEDED, d.s.inflight)  # type: ignore[arg-type]
+    assert d.s.escalation is not None and d.s.escalation.kind == "agent_failed"
+    d.command(c.EscalationAction(action="more_attempts"))
+    assert d.s.limits.budget_usd == pytest.approx(3.0)

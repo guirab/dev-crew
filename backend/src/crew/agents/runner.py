@@ -30,7 +30,7 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import SystemPromptPreset
 
-from ..bus import FatalJobError, RetryableJobError
+from ..bus import JOB_BUDGET_EXCEEDED, FatalJobError, RetryableJobError
 from ..contracts import AgentJob, AgentOutput
 from ..gitbash import find_git_bash
 from . import guards
@@ -154,7 +154,7 @@ def failure_for(
     detail = "; ".join(result.errors or []) or (result.result or "") or result.subtype
     status = result.api_error_status
     if result.subtype == "error_max_budget_usd":
-        return FatalJobError("orçamento máximo do job excedido")
+        return FatalJobError(JOB_BUDGET_EXCEEDED)
     if result.subtype == "error_max_turns":
         return FatalJobError("limite de turnos do agente excedido")
     if assistant_error == "authentication_failed" or status in (401, 403):

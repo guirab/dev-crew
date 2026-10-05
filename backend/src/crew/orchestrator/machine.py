@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Final
 from uuid import NAMESPACE_URL, uuid5
 
+from ..bus import JOB_BUDGET_EXCEEDED
 from ..contracts import (
     AdjustPlan,
     AgentJob,
@@ -75,6 +76,7 @@ ERR_UNKNOWN_REPO: Final = "repositório desconhecido"
 ERR_TITLE_REQUIRED: Final = "título é obrigatório"
 ERR_TEXT_REQUIRED: Final = "texto obrigatório"
 ERR_ANSWERS_MISMATCH: Final = "responda todas as perguntas da rodada (uma resposta por pergunta)"
+_BUDGET_NOW: Final = "Orçamento estourado — expanda pra decidir"
 ERR_REPLAN_UNAVAILABLE: Final = "replanejar não se aplica: a spec ainda não foi fechada"
 
 _PHASE: Final[dict[AgentName, TaskPhase]] = {
@@ -201,9 +203,7 @@ def _advance(
     pending = PendingJob(agent=agent, feedback=feedback, edge=edge, now=now)
     if budget.exhausted(s.cost_usd, s.limits.budget_usd):
         reason = f"orçamento estourado (US$ {s.cost_usd:.2f} de {s.limits.budget_usd:.2f})"
-        _escalate(
-            s, at, "budget", agent, reason, pending=pending, now="Orçamento estourado — expanda pra decidir"
-        )
+        _escalate(s, at, "budget", agent, reason, pending=pending, now=_BUDGET_NOW)
         return []
 
     if edge is not None:
@@ -245,11 +245,7 @@ def _escalate(
 
 def _fail_job(s: TaskState, at: datetime, agent: AgentName, error: str, pending: PendingJob | None) -> None:
     """The in-flight job of ``agent`` died: escalate keeping the job so it can be retried."""
-    # the round did not happen: give the counter back so a retry reuses the number
-    if agent == "developer":
-        s.dev_round = max(0, s.dev_round - 1)
-    elif agent == "reviewer":
-        s.review_round = max(0, s.review_round - 1)
+    _undo_round(s, agent)
     _escalate(
         s,
         at,
@@ -259,6 +255,14 @@ def _fail_job(s: TaskState, at: datetime, agent: AgentName, error: str, pending:
         pending=pending,
         now=f"Falhou: {error}"[:160],
     )
+
+
+def _undo_round(s: TaskState, agent: AgentName) -> None:
+    """The round did not happen: give the counter back so a retry reuses the number."""
+    if agent == "developer":
+        s.dev_round = max(0, s.dev_round - 1)
+    elif agent == "reviewer":
+        s.review_round = max(0, s.review_round - 1)
 
 
 # ============================================================ helpers for texts
@@ -447,7 +451,9 @@ def _escalation_action(
         return _commit(s, *_replan(s, at))
 
     if cmd.action == "more_attempts":
-        if budget.exhausted(s.cost_usd, s.limits.budget_usd):
+        # a job stopped by its cap leaves the task budget nearly (not fully) spent: boost it anyway
+        capped = esc.kind == "budget" or JOB_BUDGET_EXCEEDED in esc.reason
+        if capped or budget.exhausted(s.cost_usd, s.limits.budget_usd):
             s.limits.budget_usd = budget.boosted(s.cost_usd, s.limits.budget_usd)
         return _commit(s, *_more_attempts(s, esc, at))
 
@@ -627,6 +633,11 @@ def _on_agent_event(
             if ev.evt.retryable:  # the bus will redeliver; just surface it
                 _log(s, ev.evt.agent, f"Tentando de novo: {ev.evt.error}"[:160], ev.at)
                 return s, []
+            if ev.evt.error == JOB_BUDGET_EXCEEDED:  # the job hit its cap = what was left of the task
+                _undo_round(s, ev.evt.agent)
+                reason = f"{ev.evt.agent} parou no teto do job: orçamento restante da tarefa acabou"
+                _escalate(s, ev.at, "budget", ev.evt.agent, reason, pending=s.inflight, now=_BUDGET_NOW)
+                return _commit(s)
             _fail_job(s, ev.at, ev.evt.agent, ev.evt.error, s.inflight)
             return _commit(s)
         case JobTimedOut():

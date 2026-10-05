@@ -31,6 +31,11 @@ class FatalJobError(Exception):
     """Permanent failure. A ``failed`` event is published and the job is terminated."""
 
 
+JOB_BUDGET_EXCEEDED = "orçamento máximo do job excedido"
+"""``failed`` error of a job stopped by its budget cap (the remaining task budget): the orchestrator
+escalates it as ``budget`` so ``more_attempts`` can raise the task budget."""
+
+
 @dataclass(frozen=True)
 class JobControl:
     msg: Msg
