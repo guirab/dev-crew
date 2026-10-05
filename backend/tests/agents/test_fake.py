@@ -73,16 +73,18 @@ def turns(n: int) -> list[InterviewTurn]:
     ]
 
 
-@pytest.mark.parametrize("asked", [0, 1, 2])
-async def test_interviewer_asks_the_mockup_questions_in_order(asked: int) -> None:
+@pytest.mark.parametrize(("asked", "expected"), [(0, QUESTIONS[:2]), (2, QUESTIONS[2:])])
+async def test_interviewer_asks_the_mockup_questions_in_rounds(
+    asked: int, expected: tuple[object, ...]
+) -> None:
     rec = Recorder()
     job = make_job("interviewer", history=turns(asked))
     out = (await runner(rec).run(job, rec.emit)).output
     assert isinstance(out, InterviewResult)
     assert out.kind == "question"
     assert out.spec is None
-    assert out.question == QUESTIONS[asked]
-    assert out.question.recommendation
+    assert out.questions == list(expected)
+    assert all(q.recommendation for q in out.questions)
 
 
 async def test_interviewer_is_done_after_three_answers_with_a_consolidated_spec() -> None:
@@ -91,7 +93,7 @@ async def test_interviewer_is_done_after_three_answers_with_a_consolidated_spec(
     out = (await runner(rec).run(job, rec.emit)).output
     assert isinstance(out, InterviewResult)
     assert out.kind == "done"
-    assert out.question is None
+    assert out.questions == []
     assert out.spec is not None
     assert out.spec.decisions == [
         "Fora de escopo: resposta 0",

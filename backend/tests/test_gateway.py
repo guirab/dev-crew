@@ -82,9 +82,7 @@ async def test_commands_status_mapping(rig: Rig) -> None:
             "view": None,
         }
         await http.post("/api/commands", json={"type": "cancel_task"})
-        unknown = await http.post(
-            "/api/commands", json={"type": "start_task", "repo": "nope", "title": "x"}
-        )
+        unknown = await http.post("/api/commands", json={"type": "start_task", "repo": "nope", "title": "x"})
         assert unknown.status_code == 422 and unknown.json()["error"] == m.ERR_UNKNOWN_REPO
         no_task = await http.post("/api/commands", json={"type": "approve_plan"})
         assert no_task.status_code == 409 and no_task.json()["error"] == m.ERR_NO_TASK
@@ -189,9 +187,10 @@ async def test_ws_snapshot_then_live_views_and_progress_until_done(nats_url: str
                     msgs.append(msg)
                     if isinstance(msg, c.WsView) and msg.data is not None:
                         iv = msg.data.interview
-                        if iv is not None and iv.pending is not None and len(iv.turns) == answered:
-                            answered += 1
-                            r = await http.post("/api/commands", json={"type": "answer_interview"})
+                        if iv is not None and iv.pending and len(iv.turns) == answered:
+                            answered += len(iv.pending)
+                            answer = {"type": "answer_interview", "answers": [None] * len(iv.pending)}
+                            r = await http.post("/api/commands", json=answer)
                             assert r.status_code == 200
                         if msg.data.phase == "awaiting_approval" and not approved:
                             approved = True
@@ -217,7 +216,7 @@ async def test_ws_late_joiner_gets_latest_snapshot_and_all_clients_get_updates(
     rig = await start_rig(nats_url, tmp_path, gateway=True)
     try:
         await rig.ok(c.StartTask(repo="sample-repo", title="CSV"))
-        waiting = await rig.wait_for(lambda v: v.interview is not None and v.interview.pending is not None)
+        waiting = await rig.wait_for(lambda v: v.interview is not None and bool(v.interview.pending))
         async with (
             websockets.connect(await ws_url(rig)) as late,
             websockets.connect(await ws_url(rig)) as late2,
@@ -227,7 +226,8 @@ async def test_ws_late_joiner_gets_latest_snapshot_and_all_clients_get_updates(
                 assert isinstance(snap, c.WsView) and snap.data is not None
                 assert snap.data.task_id == "T-1" and snap.data.interview is not None
                 assert snap.data.interview.pending == waiting.interview.pending  # type: ignore[union-attr]
-            await rig.ok(c.AnswerInterview(text=None))
+            assert waiting.interview is not None
+            await rig.ok(c.AnswerInterview(answers=[None] * len(waiting.interview.pending)))
             for ws in (late, late2):
                 while True:
                     msg = await next_msg(ws)

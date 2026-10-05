@@ -14,14 +14,15 @@ async function startTask(page: Page) {
   await expect(page.getByText('T-107')).toBeVisible()
 }
 
-/** Inicia e aceita as 3 recomendações da entrevista do cenário mock. */
+/** Inicia e aceita as recomendações das 2 rodadas da entrevista do cenário mock. */
 async function startTaskToPlan(page: Page) {
   await startTask(page)
   await expect(card(page, 'interviewer')).toHaveAttribute('data-status', 'waiting')
   await header(page, 'interviewer').click()
-  for (let i = 0; i < 3; i += 1) {
-    await page.getByRole('button', { name: 'Aceitar recomendação' }).click()
-  }
+  await page.getByRole('heading', { name: '2 perguntas nesta rodada' }).waitFor()
+  await page.getByRole('button', { name: 'Aceitar todas as recomendações' }).click()
+  await page.getByRole('heading', { name: '1 pergunta nesta rodada' }).waitFor()
+  await page.getByRole('button', { name: 'Aceitar todas as recomendações' }).click()
 }
 
 test.describe('modo mock (MSW) — fluxo completo', () => {
@@ -73,7 +74,7 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await expect(card(page, 'done')).toHaveAttribute('data-status', 'idle')
   })
 
-  test('Manual: entrevista com 3 perguntas até o plano', async ({ page }) => {
+  test('Manual: entrevista em 2 rodadas até o plano', async ({ page }) => {
     await page.goto(`/?${FAST}`)
     await header(page, 'manual').click()
     await page.getByLabel('título').fill('Exportar pedidos filtrados em CSV')
@@ -81,10 +82,15 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
 
     await expect(card(page, 'interviewer')).toHaveAttribute('data-status', 'waiting')
     await header(page, 'interviewer').click()
-    await page.getByRole('button', { name: 'Aceitar recomendação' }).click()
-    await page.getByRole('textbox', { name: 'Responder diferente' }).fill('Intervalo inclusivo')
-    await page.getByRole('button', { name: 'Enviar', exact: true }).click()
-    await page.getByRole('button', { name: 'Aceitar recomendação' }).click()
+    // rodada 1: aceita a 1ª, responde a 2ª com texto próprio
+    const criteria = page.getByRole('group', { name: /Critérios de aceite/ })
+    await criteria.getByRole('radio', { name: 'Outra resposta' }).check()
+    await criteria.getByRole('textbox').fill('Intervalo inclusivo')
+    await page.getByRole('button', { name: 'Enviar respostas' }).click()
+    // rodada 2: escolhe a alternativa não recomendada
+    const restrictions = page.getByRole('group', { name: /Restrições/ })
+    await restrictions.getByRole('radio', { name: /Pode adicionar dependências/ }).check()
+    await page.getByRole('button', { name: 'Enviar respostas' }).click()
 
     await expect(card(page, 'approval')).toHaveAttribute('data-status', 'waiting', {
       timeout: 15_000,

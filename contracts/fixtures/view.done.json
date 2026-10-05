@@ -86,13 +86,15 @@
           "topic": "Fora de escopo",
           "question": "O que fica fora do escopo desta entrega?",
           "recommendation": "Exportar o relatório fica pra depois.",
+          "options": [],
           "rationale": null
         },
         "answer": "Exportar o relatório fica pra depois.",
-        "accepted_recommendation": true
+        "accepted_recommendation": true,
+        "round": 1
       }
     ],
-    "pending": null,
+    "pending": [],
     "decisions": [
       "Fora de escopo: Exportar o relatório fica pra depois."
     ]

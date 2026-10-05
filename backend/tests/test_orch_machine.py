@@ -98,7 +98,7 @@ def test_start_allowed_after_terminal_task(terminal: str) -> None:
 # ------------------------------------------------------------------ commands without a task / wrong phase
 
 COMMANDS: list[c.Command] = [
-    c.AnswerInterview(text="x"),
+    c.AnswerInterview(answers=["x"]),
     c.ApprovePlan(),
     c.AdjustPlan(text="x"),
     c.EscalationAction(action="more_attempts"),
@@ -121,10 +121,10 @@ def test_commands_without_task_rejected(cmd: c.Command) -> None:
     [
         ("to_developing", c.ApprovePlan()),
         ("to_developing", c.AdjustPlan(text="x")),
-        ("to_developing", c.AnswerInterview(text="x")),
+        ("to_developing", c.AnswerInterview(answers=["x"])),
         ("to_developing", c.EscalationAction(action="more_attempts")),
         ("to_awaiting_approval", c.EscalationAction(action="instruct", text="x")),
-        ("to_awaiting_approval", c.AnswerInterview(text=None)),
+        ("to_awaiting_approval", c.AnswerInterview(answers=[None])),
         ("to_reviewing", c.ApprovePlan()),
     ],
 )
@@ -144,35 +144,36 @@ def test_conflict_errors_are_the_state_conflicts() -> None:
 # ------------------------------------------------------------------ interview
 
 
-def test_interview_flow_accept_and_custom_answer() -> None:
+def test_interview_flow_in_rounds_accept_and_custom_answers() -> None:
     d = Driver()
     d.boot()
-    d.result(c.InterviewResult(kind="question", question=question(1)))
+    d.result(c.InterviewResult(kind="question", questions=[question(1), question(2)]))
     s = d.s
-    assert s.stages["interviewer"].status == "waiting" and s.pending_question == question(1)
+    assert s.stages["interviewer"].status == "waiting"
+    assert s.pending_questions == [question(1), question(2)] and s.interview_round == 1
     assert d.effects == [Persist(), PublishView()]
+    view = s.to_view()
+    assert view.interview is not None and len(view.interview.pending) == 2
 
-    d.command(c.AnswerInterview(text=None))  # accept recommendation
+    d.command(c.AnswerInterview(answers=[None, "  só CSV  "]))  # accept the 1st, custom 2nd
     job = d.job
     assert job.agent == "interviewer" and job.attempt == 2
-    assert [t.accepted_recommendation for t in job.interview_history] == [True]
-    assert job.interview_history[0].answer == "Recomendação 1"
-    assert d.s.decisions == ["Fora de escopo: Recomendação 1"]
-    assert d.s.pending_question is None and d.s.stages["interviewer"].status == "active"
+    assert [t.accepted_recommendation for t in job.interview_history] == [True, False]
+    assert [t.answer for t in job.interview_history] == ["Recomendação 1", "só CSV"]
+    assert [t.round for t in job.interview_history] == [1, 1]
+    assert d.s.decisions == ["Fora de escopo: Recomendação 1", "Critérios de aceite: só CSV"]
+    assert d.s.pending_questions == [] and d.s.stages["interviewer"].status == "active"
 
-    d.result(c.InterviewResult(kind="question", question=question(2)))
-    d.command(c.AnswerInterview(text="  só CSV  "))
-    assert (
-        d.job.interview_history[1].answer == "só CSV"
-        and not d.job.interview_history[1].accepted_recommendation
-    )
-    assert d.s.decisions[1] == "Critérios de aceite: só CSV"
+    d.result(c.InterviewResult(kind="question", questions=[question(3)]))
+    d.command(c.AnswerInterview(answers=["Recomendação 3"]))  # picking the recommended option = accepting
+    assert d.job.interview_history[2].accepted_recommendation
+    assert d.job.interview_history[2].round == 2
 
     spec = c.TaskSpec(title="T", description="d", repo="other")  # wrong repo on purpose
     d.result(c.InterviewResult(kind="done", spec=spec))
     assert (
         d.s.stages["interviewer"].status == "done"
-        and d.s.stages["interviewer"].now == "Spec fechada · 2 decisões"
+        and d.s.stages["interviewer"].now == "Spec fechada · 3 decisões"
     )
     job = d.job
     assert job.agent == "planner" and job.spec.repo == "sample-repo"
@@ -185,9 +186,18 @@ def test_interview_flow_accept_and_custom_answer() -> None:
 def test_blank_answer_counts_as_acceptance() -> None:
     d = Driver()
     d.boot()
-    d.result(c.InterviewResult(kind="question", question=question(1)))
-    d.command(c.AnswerInterview(text="   "))
+    d.result(c.InterviewResult(kind="question", questions=[question(1)]))
+    d.command(c.AnswerInterview(answers=["   "]))
     assert d.s.interview_turns[0].accepted_recommendation
+
+
+def test_answers_must_cover_the_whole_round() -> None:
+    d = Driver()
+    d.boot()
+    d.result(c.InterviewResult(kind="question", questions=[question(1), question(2)]))
+    before = d.s
+    d.command(c.AnswerInterview(answers=[None]))
+    assert d.effects == [Reject(m.ERR_ANSWERS_MISMATCH)] and d.s is before
 
 
 @pytest.mark.parametrize(
@@ -738,7 +748,7 @@ def test_cancel_in_every_non_terminal_phase(setup: str) -> None:
 def test_cancel_while_interview_waits_marks_stage() -> None:
     d = Driver()
     d.boot()
-    d.result(c.InterviewResult(kind="question", question=question(1)))
+    d.result(c.InterviewResult(kind="question", questions=[question(1)]))
     d.command(c.CancelTask())
     assert (
         d.s.stages["interviewer"].status == "error"

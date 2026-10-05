@@ -146,8 +146,7 @@ async def test_interviewer_uses_the_history_to_pick_the_question(bus: Bus) -> No
     assert isinstance(payload, AgentResultEvt)
     assert isinstance(payload.output, InterviewResult)
     assert payload.output.kind == "question"
-    assert payload.output.question is not None
-    assert payload.output.question.topic == "Restrições"
+    assert [q.topic for q in payload.output.questions] == ["Restrições"]
 
 
 async def test_escalate_mode_still_publishes_a_result_not_a_failure(bus: Bus) -> None:

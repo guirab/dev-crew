@@ -88,9 +88,10 @@ def make_job(
     )
 
 
-def make_turn(topic: str = "Fora de escopo") -> InterviewTurn:
+def make_turn(topic: str = "Fora de escopo", round: int = 1) -> InterviewTurn:
     return InterviewTurn(
         question=InterviewQuestion(topic=topic, question="Pergunta?", recommendation="Recomendação."),
         answer="Recomendação.",
         accepted_recommendation=True,
+        round=round,
     )

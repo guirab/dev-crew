@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isTaskView } from '../api/guards'
-import type { TaskView, WsMessage } from '../contracts/generated'
+import type { Command, TaskView, WsMessage } from '../contracts/generated'
 import { ScenarioBackend } from './scenario'
 
 const MANUAL = {
@@ -19,10 +19,11 @@ function view(backend: ScenarioBackend): TaskView {
 /** Roda os timers do cenário até ele parar num ponto de espera humana (ou terminar). */
 const settle = () => vi.runAllTimersAsync()
 
-/** Inicia a tarefa manual, aceita as 3 recomendações da entrevista e espera o plano. */
+/** Inicia a tarefa manual, aceita as recomendações das 2 rodadas da entrevista e espera o plano. */
 async function toPlan(backend: ScenarioBackend): Promise<void> {
   backend.handle(MANUAL)
-  for (let i = 0; i < 3; i += 1) backend.handle({ type: 'answer_interview', text: null })
+  backend.handle({ type: 'answer_interview', answers: [null, null] })
+  backend.handle({ type: 'answer_interview', answers: [null] })
   await settle()
 }
 
@@ -82,27 +83,33 @@ describe('ScenarioBackend', () => {
     expect(messages.some((m) => m.type === 'progress')).toBe(true)
   })
 
-  it('fluxo manual: entrevista de 3 perguntas (aceitar e responder), spec fecha e segue pro plano', async () => {
+  it('fluxo manual: entrevista em 2 rodadas (aceitar e responder), spec fecha e segue pro plano', async () => {
     backend.handle(MANUAL)
     let v = view(backend)
     expect(v).toMatchObject({ phase: 'interviewing', active_edge: 'ma-iv' })
     expect(v.stages.interviewer.status).toBe('waiting')
-    expect(v.interview?.pending?.topic).toBe('Fora de escopo')
+    expect(v.interview?.pending.map((q) => q.topic)).toEqual([
+      'Fora de escopo',
+      'Critérios de aceite',
+    ])
 
-    expect(backend.handle({ type: 'answer_interview', text: null }).status).toBe(200) // aceita
+    // rodada 1: aceita a 1ª, responde a 2ª
+    expect(
+      backend.handle({ type: 'answer_interview', answers: [null, 'Intervalo inclusivo'] }).status,
+    ).toBe(200)
     v = view(backend)
-    expect(v.interview?.turns[0]).toMatchObject({ accepted_recommendation: true })
-    expect(v.interview?.pending?.topic).toBe('Critérios de aceite')
-
-    backend.handle({ type: 'answer_interview', text: 'Intervalo inclusivo' })
-    expect(view(backend).interview?.turns[1]).toMatchObject({
+    expect(v.interview?.turns[0]).toMatchObject({ accepted_recommendation: true, round: 1 })
+    expect(v.interview?.turns[1]).toMatchObject({
       answer: 'Intervalo inclusivo',
       accepted_recommendation: false,
+      round: 1,
     })
+    expect(v.interview?.pending.map((q) => q.topic)).toEqual(['Restrições'])
 
-    backend.handle({ type: 'answer_interview', text: null })
+    backend.handle({ type: 'answer_interview', answers: [null] })
     v = view(backend)
-    expect(v.interview?.pending).toBeNull()
+    expect(v.interview?.turns[2]).toMatchObject({ round: 2 })
+    expect(v.interview?.pending).toEqual([])
     expect(v.interview?.decisions).toHaveLength(3)
     expect(v.stages.interviewer.status).toBe('done')
 
@@ -188,21 +195,22 @@ describe('ScenarioBackend', () => {
     })
 
     it('409 pra comandos fora de contexto', () => {
-      for (const cmd of [
+      const commands: Command[] = [
         { type: 'approve_plan' },
-        { type: 'answer_interview', text: null },
+        { type: 'answer_interview', answers: [null] },
         { type: 'cancel_task' },
         { type: 'escalation', action: 'replan' },
-      ] as const) {
+      ]
+      for (const cmd of commands) {
         const outcome = backend.handle(cmd)
         expect(outcome.status).toBe(409)
         expect(outcome.reply.ok).toBe(false)
       }
     })
 
-    it('422 pra resposta e ajuste vazios', () => {
+    it('422 quando a rodada não é respondida por inteiro', () => {
       backend.handle(MANUAL)
-      expect(backend.handle({ type: 'answer_interview', text: '  ' }).status).toBe(422)
+      expect(backend.handle({ type: 'answer_interview', answers: [null] }).status).toBe(422)
     })
   })
 })

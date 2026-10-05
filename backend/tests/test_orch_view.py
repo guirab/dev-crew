@@ -32,9 +32,9 @@ def statuses(v: c.TaskView) -> dict[str, str]:
 def seq_interviewing() -> Driver:
     d = Driver()
     d.boot()
-    d.result(c.InterviewResult(kind="question", question=question(1)))
-    d.command(c.AnswerInterview(text=None))
-    d.result(c.InterviewResult(kind="question", question=question(2)))
+    d.result(c.InterviewResult(kind="question", questions=[question(1)]))
+    d.command(c.AnswerInterview(answers=[None]))
+    d.result(c.InterviewResult(kind="question", questions=[question(2), question(3)]))
     return d
 
 
@@ -122,9 +122,7 @@ def test_view_matches_fixture(name: str) -> None:
     assert (got.interview is None) == (expected.interview is None)
     if expected.interview is not None and got.interview is not None:
         assert len(got.interview.turns) == len(expected.interview.turns)
-        assert (got.interview.pending is None) == (expected.interview.pending is None)
-        if got.interview.pending is not None and expected.interview.pending is not None:
-            assert got.interview.pending.topic == expected.interview.pending.topic
+        assert [q.topic for q in got.interview.pending] == [q.topic for q in expected.interview.pending]
         assert len(got.interview.decisions) == len(expected.interview.decisions)
     assert (got.plan is None) == (expected.plan is None)
     assert [r.round for r in got.dev_rounds] == [r.round for r in expected.dev_rounds]

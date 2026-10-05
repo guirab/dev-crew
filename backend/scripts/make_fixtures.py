@@ -127,7 +127,7 @@ INTERVIEW_CLOSED = InterviewView(
             accepted_recommendation=True,
         )
     ],
-    pending=None,
+    pending=[],
     decisions=["Fora de escopo: Exportar o relatório fica pra depois."],
 )
 
@@ -174,11 +174,24 @@ FIXTURES: dict[str, TaskView] = {
                     accepted_recommendation=True,
                 )
             ],
-            pending=InterviewQuestion(
-                topic="Critérios de aceite",
-                question="Quais critérios o Tester deve validar?",
-                recommendation="Cabeçalho, encoding UTF-8 com BOM e filtro aplicado.",
-            ),
+            pending=[
+                InterviewQuestion(
+                    topic="Critérios de aceite",
+                    question="Quais critérios o Tester deve validar?",
+                    recommendation="Cabeçalho, encoding UTF-8 com BOM e filtro aplicado.",
+                    options=[
+                        "Cabeçalho, encoding UTF-8 com BOM e filtro aplicado.",
+                        "Só o filtro aplicado; formato livre.",
+                    ],
+                    rationale="Excel no Windows só lê acentos certo com BOM.",
+                ),
+                InterviewQuestion(
+                    topic="Restrições",
+                    question="Pode adicionar dependência pra gerar o CSV?",
+                    recommendation="Não: usar o módulo csv da stdlib.",
+                    options=["Não: usar o módulo csv da stdlib.", "Sim, se justificar no plano."],
+                ),
+            ],
             decisions=["Fora de escopo: Export XLSX/PDF fica pra depois."],
         ),
     ),

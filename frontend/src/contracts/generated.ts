@@ -36,12 +36,14 @@ export interface AgentProgress {
   text: string;
 }
 /**
+ * Answers the whole pending round, in order. ``None`` accepts that question's recommendation.
+ *
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "AnswerInterview".
  */
 export interface AnswerInterview {
   type: "answer_interview";
-  text?: string | null;
+  answers: (string | null)[];
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -170,7 +172,7 @@ export interface Counters {
  */
 export interface InterviewView {
   turns: InterviewTurn[];
-  pending: InterviewQuestion | null;
+  pending: InterviewQuestion[];
   decisions: string[];
 }
 /**
@@ -181,6 +183,7 @@ export interface InterviewTurn {
   question: InterviewQuestion;
   answer: string;
   accepted_recommendation: boolean;
+  round: number;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -190,6 +193,7 @@ export interface InterviewQuestion {
   topic: string;
   question: string;
   recommendation: string;
+  options: string[];
   rationale: string | null;
 }
 /**

@@ -163,17 +163,17 @@ def test_interviewer_first_prompt_snapshot() -> None:
     assert build_prompt(job, SPECS["interviewer"], resumed=False) == INTERVIEWER_FIRST
 
 
-def test_interviewer_prompt_lists_previous_turns_and_resumed_sends_the_answer() -> None:
-    job = make_job(
-        "interviewer", workspace=POSIX_WS, history=[make_turn("Fora de escopo"), make_turn("Restrições")]
-    )
+def test_interviewer_prompt_groups_turns_by_round_and_resumed_sends_the_last_round() -> None:
+    history = [make_turn("Fora de escopo"), make_turn("Critérios"), make_turn("Restrições", round=2)]
+    job = make_job("interviewer", workspace=POSIX_WS, history=history)
     full = build_prompt(job, SPECS["interviewer"], resumed=False)
-    assert "1. [Fora de escopo] Pergunta?" in full
+    assert "Rodada 1:\n1. [Fora de escopo] Pergunta?" in full
     assert "Resposta (aceitou a recomendação): Recomendação." in full
-    assert "2. [Restrições]" in full
+    assert "Rodada 2:\n3. [Restrições]" in full
     resumed = build_prompt(job, SPECS["interviewer"], resumed=True)
-    assert resumed.startswith("## Feedback\nResposta do usuário sobre [Restrições] (aceitou a recomendação)")
-    assert "Total de perguntas respondidas até agora: 2." in resumed
+    assert resumed.startswith("## Feedback\nRespostas do usuário à rodada 2:\n3. [Restrições]")
+    assert "[Fora de escopo]" not in resumed
+    assert "Total de perguntas respondidas até agora: 3." in resumed
     assert "## Tarefa" not in resumed
 
 

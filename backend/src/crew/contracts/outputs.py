@@ -15,6 +15,7 @@ class InterviewQuestion(Contract):
     topic: str
     question: str
     recommendation: str
+    options: list[str] = []  # selectable answers; the recommendation is one of them when present
     rationale: str | None = None
 
 
@@ -22,12 +23,15 @@ class InterviewTurn(Contract):
     question: InterviewQuestion
     answer: str
     accepted_recommendation: bool
+    round: int = 1
 
 
 class InterviewResult(Contract):
+    """One round of the interview: the whole decision frontier at once, or the closed spec."""
+
     type: Literal["interview"] = "interview"
     kind: Literal["question", "done"]
-    question: InterviewQuestion | None = None
+    questions: list[InterviewQuestion] = []
     spec: TaskSpec | None = None
 
 

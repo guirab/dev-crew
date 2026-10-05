@@ -72,8 +72,9 @@ ERR_BUDGET: Final = "orçamento estourado — use more_attempts para liberar +50
 CONFLICT_ERRORS: Final = frozenset({ERR_ACTIVE_TASK, ERR_NO_TASK, ERR_WRONG_PHASE, ERR_BUDGET})
 
 ERR_UNKNOWN_REPO: Final = "repositório desconhecido"
-ERR_TITLE_REQUIRED: Final = "título é obrigatório para tarefas manuais"
+ERR_TITLE_REQUIRED: Final = "título é obrigatório"
 ERR_TEXT_REQUIRED: Final = "texto obrigatório"
+ERR_ANSWERS_MISMATCH: Final = "responda todas as perguntas da rodada (uma resposta por pergunta)"
 ERR_REPLAN_UNAVAILABLE: Final = "replanejar não se aplica: a spec ainda não foi fechada"
 
 _PHASE: Final[dict[AgentName, TaskPhase]] = {
@@ -360,17 +361,24 @@ def _start(
 def _answer(
     state: TaskState, s: TaskState, cmd: AnswerInterview, at: datetime
 ) -> tuple[TaskState | None, list[Effect]]:
-    q = s.pending_question
-    if s.phase != "interviewing" or q is None:
+    pending = s.pending_questions
+    if s.phase != "interviewing" or not pending:
         return _reject(state, ERR_WRONG_PHASE)
-    text = (cmd.text or "").strip()
-    accepted = not text
-    answer = q.recommendation if accepted else text
-    s.interview_turns.append(InterviewTurn(question=q, answer=answer, accepted_recommendation=accepted))
-    s.decisions.append(f"{q.topic}: {answer}")
-    s.pending_question = None
-    _log(s, "interviewer", f"{q.topic} definido", at)
-    effects = _advance(s, at, "interviewer", edge=None, now="Processando sua resposta")
+    if len(cmd.answers) != len(pending):
+        return _reject(state, ERR_ANSWERS_MISMATCH)
+    for q, raw in zip(pending, cmd.answers, strict=True):
+        text = (raw or "").strip()
+        accepted = not text or text == q.recommendation
+        answer = q.recommendation if accepted else text
+        s.interview_turns.append(
+            InterviewTurn(
+                question=q, answer=answer, accepted_recommendation=accepted, round=s.interview_round
+            )
+        )
+        s.decisions.append(f"{q.topic}: {answer}")
+    s.pending_questions = []
+    _log(s, "interviewer", f"Rodada {s.interview_round} respondida ({len(pending)} decisões)", at)
+    effects = _advance(s, at, "interviewer", edge=None, now="Processando suas respostas")
     return _commit(s, *effects)
 
 
@@ -677,10 +685,12 @@ def _on_result(s: TaskState, ev: AgentResult) -> tuple[TaskState | None, list[Ef
 def _interviewer_result(
     s: TaskState, out: InterviewResult, at: datetime, pending: PendingJob | None
 ) -> tuple[TaskState | None, list[Effect]]:
-    if out.kind == "question" and out.question is not None:
-        s.pending_question = out.question
+    if out.kind == "question" and out.questions:
+        s.pending_questions = list(out.questions)
+        s.interview_round += 1
         s.phase = "interviewing"
-        _log(s, "interviewer", f"Pergunta: {out.question.topic}", at)
+        topics = ", ".join(q.topic for q in out.questions)
+        _log(s, "interviewer", f"Rodada {s.interview_round}: {topics}", at)
         _set(s, "interviewer", "waiting", _WAITING_FOR_YOU, at)
         return _commit(s)
     if out.kind == "done" and out.spec is not None:
@@ -690,7 +700,7 @@ def _interviewer_result(
                 "decisions": out.spec.decisions or list(s.decisions),
             }
         )
-        s.pending_question = None
+        s.pending_questions = []
         _set(s, "interviewer", "done", f"Spec fechada · {len(s.decisions)} decisões", at)
         effects = _advance(s, at, "planner", edge="iv-pl")
         return _commit(s, *effects)

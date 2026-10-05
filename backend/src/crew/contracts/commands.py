@@ -16,8 +16,10 @@ class StartTask(Contract):
 
 
 class AnswerInterview(Contract):
+    """Answers the whole pending round, in order. ``None`` accepts that question's recommendation."""
+
     type: Literal["answer_interview"] = "answer_interview"
-    text: str | None = None  # None = accept the recommendation
+    answers: list[str | None]
 
 
 class ApprovePlan(Contract):

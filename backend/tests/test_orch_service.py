@@ -34,15 +34,22 @@ async def rig(nats_url: str, tmp_path: Path) -> AsyncIterator[Rig]:
         await r.aclose()
 
 
-async def drive_interview(rig: Rig) -> None:
-    for i in range(3):
+async def drive_interview(rig: Rig, custom: dict[str, str] | None = None) -> None:
+    """Answer every round of the fake interviewer: accept the recommendation unless ``custom[topic]``."""
+    custom = {"Critérios de aceite": "só CSV com BOM"} if custom is None else custom
+    answered = 0
+    while True:
         v = await rig.wait_for(
-            lambda v, n=i: (
-                v.interview is not None and v.interview.pending is not None and len(v.interview.turns) == n
+            lambda v, n=answered: (
+                v.phase != "interviewing"
+                or (v.interview is not None and bool(v.interview.pending) and len(v.interview.turns) == n)
             )
         )
+        if v.phase != "interviewing" or v.interview is None:
+            return
         assert v.stages.interviewer.status == "waiting"
-        await rig.ok(c.AnswerInterview(text=None if i != 1 else "só CSV com BOM"))
+        await rig.ok(c.AnswerInterview(answers=[custom.get(q.topic) for q in v.interview.pending]))
+        answered += len(v.interview.pending)
 
 
 async def start_to_plan(rig: Rig, *, timeout: float = 10.0) -> c.TaskView:
@@ -224,7 +231,7 @@ async def test_malformed_command_gets_a_clear_error_reply(rig: Rig) -> None:
 
 async def test_stale_and_foreign_results_are_ignored(rig: Rig) -> None:
     await rig.ok(START_MANUAL)
-    q = await rig.wait_for(lambda v: v.interview is not None and v.interview.pending is not None)
+    q = await rig.wait_for(lambda v: v.interview is not None and bool(v.interview.pending))
     before = len(rig.views)
     evt = c.AgentResultEvt(agent="planner", job_id=uuid4(), output=dev(), cost_usd=99.0)
     await rig.bus.publish_event("T-1", "result", evt, source="planner")

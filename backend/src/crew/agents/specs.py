@@ -68,15 +68,21 @@ class AgentSpec[OutT: BaseModel]:
 # ---------------- semantic checks (run after Pydantic validation) ----------------
 def check_interview(r: InterviewResult) -> str | None:
     if r.kind == "question":
-        if r.question is None:
-            return "kind='question' exige o campo question."
+        if not r.questions:
+            return "kind='question' exige ao menos uma pergunta em questions (a fronteira inteira)."
         if r.spec is not None:
             return "kind='question' não deve trazer spec."
+        topics = [q.topic for q in r.questions]
+        if len(set(topics)) != len(topics):
+            return "cada pergunta da rodada precisa de um topic diferente."
+        for q in r.questions:
+            if q.options and q.recommendation not in q.options:
+                return f"[{q.topic}] a recommendation precisa ser uma das options."
     else:
         if r.spec is None:
             return "kind='done' exige a spec consolidada."
-        if r.question is not None:
-            return "kind='done' não deve trazer question."
+        if r.questions:
+            return "kind='done' não deve trazer questions."
     return None
 
 

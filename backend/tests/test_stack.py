@@ -95,15 +95,17 @@ async def make_stack(nats_url: str, tmp_path: Path):  # type: ignore[no-untyped-
 
 
 async def answer_interview(st: Stack, *, last: str | None = None) -> None:
-    """The builtin fake interviewer asks 3 questions; accept all but optionally override the last one."""
-    for i in range(3):
+    """The builtin fake interviewer asks 2 rounds (2 + 1 questions); accept all but optionally the last."""
+    for round_size, answered in ((2, 0), (1, 2)):
         await st.until(
-            lambda v, n=i: (
-                v.interview is not None and v.interview.pending is not None and len(v.interview.turns) == n
+            lambda v, n=answered: (
+                v.interview is not None and bool(v.interview.pending) and len(v.interview.turns) == n
             )
         )
-        body: dict[str, object] = {"type": "answer_interview", "text": last if i == 2 else None}
-        assert (await st.post(body)).status_code == 200
+        answers: list[str | None] = [None] * round_size
+        if round_size == 1:
+            answers[-1] = last
+        assert (await st.post({"type": "answer_interview", "answers": answers})).status_code == 200
 
 
 async def test_up_plan_adjustment_to_done(make_stack) -> None:  # type: ignore[no-untyped-def]

@@ -60,8 +60,26 @@ QUESTIONS = (
         topic="Restrições",
         question="Alguma restrição técnica? (lib proibida, padrão do repo, performance)",
         recommendation="Seguir padrões existentes do repo; nenhuma dependência nova sem aprovação.",
+        options=[
+            "Seguir padrões existentes do repo; nenhuma dependência nova sem aprovação.",
+            "Pode adicionar dependências se justificar no plano.",
+        ],
     ),
 )
+# round 1 = the two independent questions; round 2 depends on them
+ROUNDS = ((QUESTIONS[0], QUESTIONS[1]), (QUESTIONS[2],))
+def next_round(
+    rounds: tuple[tuple[InterviewQuestion, ...], ...], answered: int
+) -> tuple[InterviewQuestion, ...] | None:
+    """The scripted round that follows ``answered`` questions, or ``None`` when the script is over."""
+    seen = 0
+    for questions in rounds:
+        if answered <= seen:
+            return questions
+        seen += len(questions)
+    return None
+
+
 FEATURE_FILE = "src/crew_fake_feature.py"
 TEST_FILE = "tests/test_crew_fake_feature.py"
 
@@ -149,9 +167,9 @@ class FakeCrew:
 
     async def _interviewer(self, job: AgentJob) -> AgentOutput:
         await self._say(job, "Lendo a descrição e o repo")
-        n = len(job.interview_history)
-        if n < len(QUESTIONS):
-            return InterviewResult(kind="question", question=QUESTIONS[n])
+        questions = next_round(ROUNDS, len(job.interview_history))
+        if questions is not None:
+            return InterviewResult(kind="question", questions=list(questions))
         decisions = [f"{t.question.topic}: {t.answer}" for t in job.interview_history]
         criteria = [t.answer for t in job.interview_history if t.question.topic == "Critérios de aceite"]
         spec = TaskSpec(

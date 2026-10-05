@@ -60,7 +60,8 @@ def test_job_round_trip() -> None:
     "output",
     [
         c.InterviewResult(
-            kind="question", question=c.InterviewQuestion(topic="a", question="b", recommendation="c")
+            kind="question",
+            questions=[c.InterviewQuestion(topic="a", question="b", recommendation="c", options=["c", "d"])],
         ),
         c.Plan(
             summary="s",
@@ -91,8 +92,10 @@ def test_envelope_wrap_and_decode() -> None:
 
 
 def test_commands_discriminated() -> None:
-    cmd = c.CommandAdapter.validate_json('{"type": "answer_interview"}')
-    assert isinstance(cmd, c.AnswerInterview) and cmd.text is None
+    cmd = c.CommandAdapter.validate_json('{"type": "answer_interview", "answers": [null, "x"]}')
+    assert isinstance(cmd, c.AnswerInterview) and cmd.answers == [None, "x"]
+    with pytest.raises(ValidationError):
+        c.CommandAdapter.validate_json('{"type": "answer_interview"}')
     cmd = c.CommandAdapter.validate_python({"type": "escalation", "action": "instruct", "text": "x"})
     assert isinstance(cmd, c.EscalationAction)
     with pytest.raises(ValidationError):

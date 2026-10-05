@@ -25,7 +25,7 @@ import type {
 } from '../contracts/generated'
 import type { EdgeKey, EdgeStatus, StageKey, StageStatus, TaskPhase } from '../contracts/aliases'
 import type { CommandOutcome, MockBackend } from './backend'
-import { INTERVIEW_QUESTIONS, REPOS } from './data'
+import { INTERVIEW_ROUNDS, REPOS } from './data'
 
 export interface ScenarioOptions {
   /** Multiplicador de velocidade (2 = metade do tempo). */
@@ -65,8 +65,9 @@ class Cancelled extends Error {}
 
 interface InterviewState {
   turns: InterviewTurn[]
-  queue: InterviewQuestion[]
-  pending: InterviewQuestion | null
+  queue: (readonly InterviewQuestion[])[]
+  pending: readonly InterviewQuestion[]
+  round: number
   decisions: string[]
 }
 
@@ -200,7 +201,7 @@ export class ScenarioBackend implements MockBackend {
       interview: s.interview
         ? {
             turns: s.interview.turns,
-            pending: s.interview.pending,
+            pending: [...s.interview.pending],
             decisions: s.interview.decisions,
           }
         : null,
@@ -226,7 +227,7 @@ export class ScenarioBackend implements MockBackend {
       case 'start_task':
         return this.start(command)
       case 'answer_interview':
-        return this.answer(command.text ?? null)
+        return this.answer(command.answers)
       case 'approve_plan':
         return this.approve()
       case 'adjust_plan':
@@ -295,7 +296,7 @@ export class ScenarioBackend implements MockBackend {
     this.s = s
 
     this.finish('manual', title)
-    s.interview = { turns: [], queue: [...INTERVIEW_QUESTIONS], pending: null, decisions: [] }
+    s.interview = { turns: [], queue: [...INTERVIEW_ROUNDS], pending: [], round: 0, decisions: [] }
     this.nextQuestion(s.interview)
     s.now.interviewer = 'Aguardando sua resposta — expanda pra responder'
     this.go('ma-iv', 'interviewer', 'waiting')
@@ -303,23 +304,34 @@ export class ScenarioBackend implements MockBackend {
   }
 
   private nextQuestion(interview: InterviewState): boolean {
-    interview.pending = interview.queue.shift() ?? null
-    return interview.pending !== null
+    interview.pending = interview.queue.shift() ?? []
+    if (interview.pending.length > 0) interview.round += 1
+    return interview.pending.length > 0
   }
 
-  private answer(text: string | null): CommandOutcome {
+  private answer(answers: readonly (string | null)[]): CommandOutcome {
     const s = this.s
     const interview = s?.interview
-    if (!s || !interview?.pending || s.st.interviewer !== 'waiting') {
+    if (!s || !interview || interview.pending.length === 0 || s.st.interviewer !== 'waiting') {
       return this.refuse(409, 'Nenhuma pergunta aguardando resposta.')
     }
-    if (text !== null && text.trim() === '') return this.refuse(422, 'Resposta vazia.')
+    if (answers.length !== interview.pending.length) {
+      return this.refuse(422, 'Responda todas as perguntas da rodada.')
+    }
 
-    const question = interview.pending
-    const answer = text?.trim() ?? question.recommendation
-    interview.turns.push({ question, answer, accepted_recommendation: text === null })
-    interview.decisions.push(`${question.topic}: ${answer}`)
-    this.log('interviewer', `${question.topic} definido`)
+    interview.pending.forEach((question, i) => {
+      const text = answers[i]?.trim() ?? ''
+      const accepted = text === '' || text === question.recommendation
+      const answer = accepted ? question.recommendation : text
+      interview.turns.push({
+        question,
+        answer,
+        accepted_recommendation: accepted,
+        round: interview.round,
+      })
+      interview.decisions.push(`${question.topic}: ${answer}`)
+    })
+    this.log('interviewer', `Rodada ${String(interview.round)} respondida`)
 
     if (!this.nextQuestion(interview)) {
       this.run(async () => {

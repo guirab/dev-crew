@@ -9,12 +9,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import structlog
+from pydantic import ValidationError
 from sqlalchemy import Engine, event
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
 from ..contracts import AgentJob
 from .state import TaskState
+
+log = structlog.get_logger(__name__)
 
 JobStatus = str  # dispatched | done | failed | cancelled
 
@@ -112,10 +116,20 @@ class Store:
             return TaskState.model_validate_json(row.state_json) if row else None
 
     def load_latest(self) -> TaskState | None:
-        """The most recent task (highest sequence), terminal or not."""
+        """The most recent task (highest sequence), terminal or not.
+
+        A row saved by an older, incompatible contract is skipped (``None``) instead of crashing the
+        orchestrator on every boot; it stays in the database for inspection.
+        """
         with Session(self.engine) as s:
             row = s.exec(select(TaskRow).order_by(col(TaskRow.seq).desc())).first()
-            return TaskState.model_validate_json(row.state_json) if row else None
+            if row is None:
+                return None
+            try:
+                return TaskState.model_validate_json(row.state_json)
+            except ValidationError as e:
+                log.warning("task_state_incompatible", task_id=row.task_id, errors=e.error_count())
+                return None
 
     def next_task_id(self) -> str:
         with Session(self.engine) as s:

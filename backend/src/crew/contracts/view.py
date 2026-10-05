@@ -40,7 +40,7 @@ class Counters(Contract):
 
 class InterviewView(Contract):
     turns: list[InterviewTurn] = []
-    pending: InterviewQuestion | None = None
+    pending: list[InterviewQuestion] = []  # the round waiting for answers
     decisions: list[str] = []
 
 

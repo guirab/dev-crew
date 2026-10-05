@@ -100,7 +100,8 @@ class TaskState(BaseModel):
     review_round: int = 0
 
     interview_turns: list[InterviewTurn] = Field(default_factory=list)
-    pending_question: InterviewQuestion | None = None
+    pending_questions: list[InterviewQuestion] = Field(default_factory=list)
+    interview_round: int = 0
     decisions: list[str] = Field(default_factory=list)
 
     plan: Plan | None = None
@@ -135,7 +136,7 @@ class TaskState(BaseModel):
         )
         interview = InterviewView(
             turns=list(self.interview_turns),
-            pending=self.pending_question,
+            pending=list(self.pending_questions),
             decisions=list(self.decisions),
         )
         escalation = (

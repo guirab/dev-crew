@@ -191,8 +191,8 @@ class Driver:
     def to_planner(self) -> None:
         """Boot + a one-question interview (free, so budgets only count from the planner on)."""
         self.boot()
-        self.result(c.InterviewResult(kind="question", question=question(1)), cost=0.0)
-        self.command(c.AnswerInterview(text=None))
+        self.result(c.InterviewResult(kind="question", questions=[question(1)]), cost=0.0)
+        self.command(c.AnswerInterview(answers=[None]))
         spec = c.TaskSpec(title="Exportar pedidos em CSV", description="d", repo="sample-repo")
         self.result(c.InterviewResult(kind="done", spec=spec), cost=0.0)
 

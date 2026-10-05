@@ -433,14 +433,15 @@ async def test_interviewer_resume_sends_the_last_answer(harness: Any) -> None:
 
     async def turn(client: ScriptedClient) -> AsyncIterator[Message]:
         await client.submit.handle(
-            {"kind": "question", "question": {"topic": "t", "question": "q?", "recommendation": "r"}}
+            {"kind": "question", "questions": [{"topic": "t", "question": "q?", "recommendation": "r"}]}
         )
         yield result_msg()
 
     await harness.runner([turn]).run(job, harness.emit)
     client = harness.clients[0]
     assert client.options.resume == "s0"
-    assert "Resposta do usuário sobre [Fora de escopo]" in client.prompts[0]
+    assert "Respostas do usuário à rodada 1:" in client.prompts[0]
+    assert "[Fora de escopo]" in client.prompts[0]
     assert "## Tarefa" not in client.prompts[0]
 
 

@@ -133,7 +133,7 @@ async def test_the_sdk_server_validates_the_wire_schema_before_the_handler() -> 
     schema = tool.sdk_tool.input_schema
     assert isinstance(schema, dict)
     jsonschema.validate(
-        {"kind": "question", "question": {"topic": "t", "question": "q", "recommendation": "r"}}, schema
+        {"kind": "question", "questions": [{"topic": "t", "question": "q", "recommendation": "r"}]}, schema
     )
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate({"kind": "maybe"}, schema)

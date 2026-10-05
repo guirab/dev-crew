@@ -97,12 +97,20 @@ Q = InterviewQuestion(topic="t", question="q", recommendation="r")
 
 def test_interview_check() -> None:
     spec = make_spec()
-    assert check_interview(InterviewResult(kind="question", question=Q)) is None
+    assert check_interview(InterviewResult(kind="question", questions=[Q])) is None
     assert check_interview(InterviewResult(kind="done", spec=spec)) is None
-    assert "question" in (check_interview(InterviewResult(kind="question")) or "")
-    assert "spec" in (check_interview(InterviewResult(kind="question", question=Q, spec=spec)) or "")
+    assert "questions" in (check_interview(InterviewResult(kind="question")) or "")
+    assert "spec" in (check_interview(InterviewResult(kind="question", questions=[Q], spec=spec)) or "")
     assert "spec" in (check_interview(InterviewResult(kind="done")) or "")
-    assert "question" in (check_interview(InterviewResult(kind="done", spec=spec, question=Q)) or "")
+    assert "questions" in (check_interview(InterviewResult(kind="done", spec=spec, questions=[Q])) or "")
+
+
+def test_interview_check_rounds() -> None:
+    other = InterviewQuestion(topic="u", question="q2", recommendation="b", options=["a", "b"])
+    assert check_interview(InterviewResult(kind="question", questions=[Q, other])) is None
+    assert "topic" in (check_interview(InterviewResult(kind="question", questions=[Q, Q])) or "")
+    off = InterviewQuestion(topic="u", question="q2", recommendation="z", options=["a", "b"])
+    assert "options" in (check_interview(InterviewResult(kind="question", questions=[off])) or "")
 
 
 def test_plan_check() -> None:
@@ -185,7 +193,7 @@ def test_finalize_interview_pins_identity_fields_to_the_job() -> None:
     assert out.spec.repo == "sample-repo"
     assert out.spec.decisions == ["usar UTC"]
     assert out.spec.acceptance_criteria == ["ac"]
-    question = InterviewResult(kind="question", question=Q)
+    question = InterviewResult(kind="question", questions=[Q])
     assert finalize_interview(question, job) == question
 
 

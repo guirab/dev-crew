@@ -62,12 +62,18 @@ def _interview_block(history: list[InterviewTurn]) -> str:
     if not history:
         return "### Entrevista até agora\n(nenhuma pergunta feita ainda)"
     out = ["### Entrevista até agora"]
+    current = 0
     for i, turn in enumerate(history, 1):
-        accepted = " (aceitou a recomendação)" if turn.accepted_recommendation else ""
-        out.append(
-            f"{i}. [{turn.question.topic}] {turn.question.question}\n   Resposta{accepted}: {turn.answer}"
-        )
+        if turn.round != current:
+            current = turn.round
+            out.append(f"Rodada {current}:")
+        out.append(_turn_line(i, turn))
     return "\n".join(out)
+
+
+def _turn_line(i: int, turn: InterviewTurn) -> str:
+    accepted = " (aceitou a recomendação)" if turn.accepted_recommendation else ""
+    return f"{i}. [{turn.question.topic}] {turn.question.question}\n   Resposta{accepted}: {turn.answer}"
 
 
 def _plan_section(plan: Plan) -> str:
@@ -103,13 +109,11 @@ def feedback_section(feedback: Feedback) -> str:
 
 
 def _resume_answer_section(history: list[InterviewTurn]) -> str:
-    last = history[-1]
-    accepted = " (aceitou a recomendação)" if last.accepted_recommendation else ""
-    return (
-        "## Feedback\n"
-        f"Resposta do usuário sobre [{last.question.topic}]{accepted}: {last.answer}\n"
-        f"Total de perguntas respondidas até agora: {len(history)}."
-    )
+    last_round = history[-1].round
+    lines = ["## Feedback", f"Respostas do usuário à rodada {last_round}:"]
+    lines += [_turn_line(i, t) for i, t in enumerate(history, 1) if t.round == last_round]
+    lines.append(f"Total de perguntas respondidas até agora: {len(history)}.")
+    return "\n".join(lines)
 
 
 def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:

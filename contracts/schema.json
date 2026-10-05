@@ -62,29 +62,33 @@
     },
     "AnswerInterview": {
       "additionalProperties": false,
+      "description": "Answers the whole pending round, in order. ``None`` accepts that question's recommendation.",
       "properties": {
         "type": {
           "const": "answer_interview",
           "default": "answer_interview",
           "type": "string"
         },
-        "text": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+        "answers": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "array"
         }
       },
-      "title": "AnswerInterview",
-      "type": "object",
       "required": [
+        "answers",
         "type"
-      ]
+      ],
+      "title": "AnswerInterview",
+      "type": "object"
     },
     "ApprovePlan": {
       "additionalProperties": false,
@@ -400,6 +404,13 @@
         "recommendation": {
           "type": "string"
         },
+        "options": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "rationale": {
           "anyOf": [
             {
@@ -416,6 +427,7 @@
         "topic",
         "question",
         "recommendation",
+        "options",
         "rationale"
       ],
       "title": "InterviewQuestion",
@@ -432,12 +444,17 @@
         },
         "accepted_recommendation": {
           "type": "boolean"
+        },
+        "round": {
+          "default": 1,
+          "type": "integer"
         }
       },
       "required": [
         "question",
         "answer",
-        "accepted_recommendation"
+        "accepted_recommendation",
+        "round"
       ],
       "title": "InterviewTurn",
       "type": "object"
@@ -453,15 +470,11 @@
           "type": "array"
         },
         "pending": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/InterviewQuestion"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InterviewQuestion"
+          },
+          "type": "array"
         },
         "decisions": {
           "default": [],

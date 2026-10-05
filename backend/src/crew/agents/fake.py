@@ -55,8 +55,25 @@ QUESTIONS: tuple[InterviewQuestion, ...] = (
         topic="Restrições",
         question="Alguma restrição técnica? (lib proibida, padrão do repo, performance)",
         recommendation="Seguir padrões existentes do repo; nenhuma dependência nova sem aprovação.",
+        options=[
+            "Seguir padrões existentes do repo; nenhuma dependência nova sem aprovação.",
+            "Pode adicionar dependências se justificar no plano.",
+        ],
     ),
 )
+ROUNDS = ((QUESTIONS[0], QUESTIONS[1]), (QUESTIONS[2],))
+
+
+def next_round(
+    rounds: tuple[tuple[InterviewQuestion, ...], ...], answered: int
+) -> tuple[InterviewQuestion, ...] | None:
+    """The scripted round that follows ``answered`` questions, or ``None`` when the script is over."""
+    seen = 0
+    for questions in rounds:
+        if answered <= seen:
+            return questions
+        seen += len(questions)
+    return None
 
 DEFAULT_PLAN_FILES: tuple[PlanFile, ...] = (
     PlanFile(path="src/api/routes.py", change="M"),
@@ -139,8 +156,9 @@ class ScriptedRunner:
         if asked == 0:
             await steps.step("Lendo a descrição e o repo", 0.8)
         await steps.step("Explorando o repo (Grep/Read nos módulos afetados)", 0.8)
-        if asked < len(QUESTIONS):
-            return InterviewResult(kind="question", question=QUESTIONS[asked])
+        questions = next_round(ROUNDS, asked)
+        if questions is not None:
+            return InterviewResult(kind="question", questions=list(questions))
         await steps.step("Consolidando a spec", 0.6)
         return InterviewResult(kind="done", spec=_consolidate(job.spec, job))
 

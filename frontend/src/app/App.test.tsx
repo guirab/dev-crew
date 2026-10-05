@@ -26,7 +26,7 @@ const SLOW = { timeout: 8000 }
 
 type User = ReturnType<typeof userEvent.setup>
 
-/** Inicia uma tarefa manual e aceita todas as recomendações da entrevista (3 perguntas no mock). */
+/** Inicia uma tarefa manual e aceita todas as recomendações da entrevista (2 rodadas no mock). */
 async function startAndAcceptInterview(user: User, title: string): Promise<void> {
   await user.click(stageButton('manual'))
   await user.type(screen.getByLabelText('título'), title)
@@ -35,8 +35,8 @@ async function startAndAcceptInterview(user: User, title: string): Promise<void>
     expect(stageCard('interviewer')).toHaveAttribute('data-status', 'waiting')
   })
   await user.click(stageButton('interviewer'))
-  for (let i = 0; i < 3; i += 1) {
-    await user.click(await screen.findByRole('button', { name: 'Aceitar recomendação' }))
+  for (let i = 0; i < 2; i += 1) {
+    await user.click(await screen.findByRole('button', { name: 'Aceitar todas as recomendações' }))
   }
 }
 
@@ -132,13 +132,13 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(useCrewStore.getState().view?.repo).toBe('api-pedidos')
 
     await user.click(stageButton('interviewer'))
-    await user.click(screen.getByRole('button', { name: 'Aceitar recomendação' }))
-    await user.type(
-      screen.getByRole('textbox', { name: 'Responder diferente' }),
-      'Intervalo inclusivo',
-    )
-    await user.click(screen.getByRole('button', { name: 'Enviar' }))
-    await user.click(await screen.findByRole('button', { name: 'Aceitar recomendação' }))
+    // rodada 1: aceita "Fora de escopo", responde "Critérios de aceite" com texto próprio
+    const criteria = screen.getByRole('group', { name: /Critérios de aceite/ })
+    await user.click(within(criteria).getByRole('radio', { name: 'Outra resposta' }))
+    await user.type(within(criteria).getByRole('textbox'), 'Intervalo inclusivo')
+    await user.click(screen.getByRole('button', { name: 'Enviar respostas' }))
+    // rodada 2: aceita tudo
+    await user.click(await screen.findByRole('button', { name: 'Aceitar todas as recomendações' }))
 
     await waitFor(() => {
       expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
