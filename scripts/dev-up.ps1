@@ -1,4 +1,4 @@
-# Sobe NATS (JetStream) + dev-crew num terminal só. Ctrl+C encerra os dois.
+# Sobe NATS (JetStream, via Docker se disponível) + dev-crew num terminal só. Ctrl+C encerra o dev-crew.
 # Uso:  powershell -ExecutionPolicy Bypass -File scripts\dev-up.ps1 [-Real] [-Speed 3] [-Escalate]
 #   sem -Real: agentes e Azure fake (zero tokens)
 param(
@@ -16,7 +16,13 @@ New-Item -ItemType Directory -Force $store | Out-Null
 $natsUp = $false
 try { $c = New-Object Net.Sockets.TcpClient('127.0.0.1', 4222); $c.Close(); $natsUp = $true } catch {}
 $nats = $null
-if (-not $natsUp) {
+if (-not $natsUp -and (Get-Command docker -ErrorAction SilentlyContinue)) {
+    # Docker primeiro: o Smart App Control do Windows pode bloquear o nats-server.exe
+    docker compose -f (Join-Path $root 'infra\docker-compose.yml') up -d
+    if ($LASTEXITCODE -ne 0) { throw 'docker compose falhou: o Docker Desktop está aberto?' }
+    Start-Sleep -Seconds 2
+    Write-Host 'nats via docker (fica rodando; pare com: docker compose -f infra/docker-compose.yml down)'
+} elseif (-not $natsUp) {
     $nats = Start-Process -FilePath 'nats-server' -ArgumentList @('-js', '-a', '127.0.0.1', '-p', '4222', '-sd', $store, '-m', '8222') -PassThru -WindowStyle Hidden
     Start-Sleep -Milliseconds 800
     Write-Host "nats-server pid $($nats.Id)"
