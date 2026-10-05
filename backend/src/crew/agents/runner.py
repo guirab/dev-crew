@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import sys
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -30,6 +31,7 @@ from claude_agent_sdk.types import SystemPromptPreset
 
 from ..bus import FatalJobError, RetryableJobError
 from ..contracts import AgentJob, AgentOutput
+from ..gitbash import find_git_bash
 from . import guards
 from .context import FOLLOW_UP, build_prompt, has_new_information, system_prompt_text
 from .progress import ProgressLine, ProgressSink, ProgressThrottle, map_message
@@ -121,9 +123,18 @@ def build_options(
         hooks=guards.for_agent(spec, job, workspace, on_block),
         resume=job.resume_session_id if resumed else None,
         setting_sources=[],
-        env=dict(SUBPROCESS_ENV),
+        env=session_env(),
         cli_path=cli_path,
     )
+
+
+def session_env() -> dict[str, str]:
+    """Env for the CLI session. Pins Git Bash so the CLI never picks the WSL launcher in System32."""
+    env = dict(SUBPROCESS_ENV)
+    bash = find_git_bash()
+    if sys.platform == "win32" and bash:
+        env["CLAUDE_CODE_GIT_BASH_PATH"] = bash
+    return env
 
 
 def failure_for(
@@ -139,7 +150,9 @@ def failure_for(
     if result.subtype == "error_max_turns":
         return FatalJobError("limite de turnos do agente excedido")
     if assistant_error == "authentication_failed" or status in (401, 403):
-        return FatalJobError("autenticação na API Anthropic falhou: confira ANTHROPIC_API_KEY")
+        return FatalJobError(
+            "autenticação falhou: rode `claude auth login` (assinatura) ou confira ANTHROPIC_API_KEY"
+        )
     if assistant_error == "billing_error":
         return FatalJobError("erro de cobrança na API Anthropic (créditos/limite de gasto)")
     if assistant_error in ("rate_limit", "server_error") or status in TRANSIENT_STATUS:

@@ -131,13 +131,12 @@ def agent_factories(
         return {"fake-agents": lambda: crew.run(stop, agents)}
 
     if not opts.fake_agents:
+        # No key = the CLI uses the Claude subscription login (`claude auth login`). A key bills the API.
         key = secrets.anthropic_api_key
-        if key is None and not os.environ.get("ANTHROPIC_API_KEY"):
-            raise StackError(
-                "ANTHROPIC_API_KEY ausente (.env ou ambiente). Use --fake-agents pra rodar sem tokens."
-            )
         if key is not None:
             os.environ.setdefault("ANTHROPIC_API_KEY", key.get_secret_value())  # the Agent SDK reads the env
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            log.warning("anthropic_api_key_set", detail="agentes vão cobrar na API, não na assinatura")
 
     def make(agent: AgentName) -> Callable[[], Awaitable[None]]:
         async def run() -> None:

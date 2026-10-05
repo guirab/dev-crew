@@ -33,27 +33,59 @@ def _wait_port(port: int, timeout: float = 10.0) -> None:
     raise RuntimeError(f"nats-server did not open port {port}")
 
 
+NATS_IMAGE = "nats:2.15"
+
+
 @pytest.fixture(scope="session")
 def nats_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
-    binary = shutil.which("nats-server")
-    if not binary:
-        pytest.skip("nats-server not found in PATH (winget install NATSAuthors.NATSServer)")
+    """Local nats-server binary; falls back to a throwaway Docker container (e.g. binary blocked by
+    Windows Smart App Control)."""
     port = _free_port()
-    store = tmp_path_factory.mktemp("js")
-    proc = subprocess.Popen(
-        [binary, "-js", "-a", "127.0.0.1", "-p", str(port), "-sd", str(store)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+    binary = shutil.which("nats-server")
+    proc: subprocess.Popen[bytes] | None = None
+    if binary:
+        store = tmp_path_factory.mktemp("js")
+        try:
+            proc = subprocess.Popen(
+                [binary, "-js", "-a", "127.0.0.1", "-p", str(port), "-sd", str(store)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            proc = None
+    if proc is not None:
+        try:
+            _wait_port(port)
+            yield f"nats://127.0.0.1:{port}"
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        return
+    yield from _docker_nats(port)
+
+
+def _docker_nats(port: int) -> Iterator[str]:
+    docker = shutil.which("docker")
+    if not docker:
+        pytest.skip("nats-server indisponível e docker ausente (winget install NATSAuthors.NATSServer)")
+    run = subprocess.run(
+        [docker, "run", "-d", "--rm", "-p", f"127.0.0.1:{port}:4222", NATS_IMAGE, "-js"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
+    if run.returncode != 0:
+        pytest.skip(f"nats via docker falhou: {run.stderr.strip()[:200]}")
+    container = run.stdout.strip()
     try:
-        _wait_port(port)
+        _wait_port(port, timeout=30.0)
+        time.sleep(0.3)  # docker's port proxy accepts before the server inside is ready
         yield f"nats://127.0.0.1:{port}"
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        subprocess.run([docker, "rm", "-f", container], capture_output=True, check=False)
 
 
 @pytest.fixture

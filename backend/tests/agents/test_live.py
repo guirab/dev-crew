@@ -1,6 +1,7 @@
-"""Smoke tests against the real API. Run explicitly: ``uv run pytest -m live`` (costs cents).
+"""Smoke tests against the real model. Run explicitly: ``uv run pytest -m live`` (spends plan quota).
 
-Skipped without ANTHROPIC_API_KEY. Each job is capped by a small ``budget_usd``.
+Uses the ``claude auth login`` session (subscription); ANTHROPIC_API_KEY, if set, bills the API instead.
+Each job is capped by a small ``budget_usd``.
 """
 
 from __future__ import annotations
@@ -19,10 +20,7 @@ from crew.contracts import Feedback, Plan, ReviewResult
 
 from .factories import make_job, make_plan, make_repo, make_spec
 
-pytestmark = [
-    pytest.mark.live,
-    pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY not set"),
-]
+pytestmark = [pytest.mark.live]
 
 
 @pytest.fixture

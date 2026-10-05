@@ -513,6 +513,8 @@ def test_build_options_per_agent(agent: str) -> None:
     assert opts.max_budget_usd == spec.budget_cap_usd
     assert set(opts.disallowed_tools) >= {"WebFetch", "WebSearch", "PowerShell"}
     assert opts.env["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] == "1"
+    git_bash = opts.env.get("CLAUDE_CODE_GIT_BASH_PATH", "")
+    assert "system32" not in git_bash.lower()  # never the WSL launcher
     assert list(opts.mcp_servers) == ["crew"]  # type: ignore[arg-type]
     assert opts.hooks is not None
     assert list(opts.hooks) == ["PreToolUse"]

@@ -42,7 +42,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
 ```
 
 - sem flags: agentes e Azure **fake** (zero tokens) — abra `http://127.0.0.1:8787`
-- `-Real`: agentes reais (precisa `ANTHROPIC_API_KEY` no `.env` e `claude.exe` nativo)
+- `-Real`: agentes reais via assinatura (`claude.exe` nativo logado com `claude auth login`; **sem** `ANTHROPIC_API_KEY`, senão cobra na API)
 - `-Escalate`: fakes forçam a escalada no Tester · `-Speed 3`: velocidade dos fakes
 
 Antes do primeiro uso real:

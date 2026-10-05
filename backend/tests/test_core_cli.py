@@ -105,11 +105,33 @@ async def test_doctor_test_cmd_outcomes(tmp_path: Path) -> None:
     assert failing.status == "warn" and "código 3" in failing.detail and "boom" in failing.detail
 
 
-def test_doctor_secret_checks(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    assert d.check_anthropic_key(Secrets(_env_file=None)).status == "warn"
+async def test_doctor_claude_auth_warns_when_an_api_key_would_bill_the_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-x")
-    assert d.check_anthropic_key(Secrets(_env_file=None)).status == "ok"
+    check = await d.check_claude_auth(Secrets(_env_file=None))
+    assert check.status == "warn" and "cobrar na API" in check.detail
+
+
+async def test_doctor_claude_auth_reads_the_cli_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(d, "find_claude_cli", lambda: "claude.exe")
+
+    def fake_run(payload: str) -> object:
+        def run(*_a: object, **_k: object) -> object:
+            return type("P", (), {"stdout": payload.encode(), "returncode": 0})()
+
+        return run
+
+    logged_in = '{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "pro"}'
+    monkeypatch.setattr(d.subprocess, "run", fake_run(logged_in))
+    ok_check = await d.check_claude_auth(Secrets(_env_file=None))
+    assert ok_check.status == "ok" and "pro" in ok_check.detail
+    monkeypatch.setattr(d.subprocess, "run", fake_run('{"loggedIn": false}'))
+    out = await d.check_claude_auth(Secrets(_env_file=None))
+    assert out.status == "fail" and "claude auth login" in out.hint
+    monkeypatch.setattr(d.subprocess, "run", fake_run("not json"))
+    assert (await d.check_claude_auth(Secrets(_env_file=None))).status == "warn"
 
 
 async def test_doctor_azure_missing_pat_is_a_clear_failure() -> None:

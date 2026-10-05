@@ -2,7 +2,7 @@
 
 Usage (from backend/):
     uv run python scripts/spike_sdk.py            # offline: introspection + local tool/hook checks, no API
-    uv run python scripts/spike_sdk.py --live     # needs ANTHROPIC_API_KEY; spends cents (budget capped)
+    uv run python scripts/spike_sdk.py --live     # `claude auth login` session; spends plan quota (capped)
 
 Offline mode never calls the API. Live mode runs against a fresh copy of fixtures/sample-repo with a
 submit_echo tool, a hook that denies ``git commit`` and two turns chained with ``resume``.
@@ -212,9 +212,9 @@ async def offline_submit_and_hooks() -> None:
 
 # ---------------------------------------------------------------------------------- live
 async def live(budget: float) -> None:
-    """Calls the real API. Needs ANTHROPIC_API_KEY. Cost is capped by max_budget_usd."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("ANTHROPIC_API_KEY não definida: modo --live não roda sem chave.")
+    """Calls the real model through the CLI login (Claude subscription) or ANTHROPIC_API_KEY if set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        print("AVISO: ANTHROPIC_API_KEY definida, esta rodada cobra na API (não na assinatura).")
     from init_sample_repo import init_sample_repo
 
     workdir = Path(tempfile.mkdtemp(prefix="crew-spike-")) / "repo"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import shutil
 import socket
@@ -20,14 +21,11 @@ from .azure.service import McpAzureBackend
 from .bus import Bus
 from .bus import subjects as s
 from .config import ConfigError, CrewConfig, Secrets, crew_home, find_config_path, load_config
+from .gitbash import find_git_bash
 from .workspace import git
 
 Status = Literal["ok", "warn", "fail"]
 TEST_CMD_TIMEOUT_S = 120.0
-GIT_BASH_CANDIDATES = (
-    r"C:\Program Files\Git\bin\bash.exe",
-    r"C:\Program Files (x86)\Git\bin\bash.exe",
-)
 
 
 @dataclass(frozen=True)
@@ -77,11 +75,11 @@ async def check_git() -> Check:
 def check_git_bash() -> Check:
     if sys.platform != "win32":
         return ok("git-bash", "não necessário fora do Windows")
-    found = shutil.which("bash") or next((p for p in GIT_BASH_CANDIDATES if Path(p).is_file()), None)
+    found = find_git_bash()
     if found is None:
         return warn(
             "git-bash",
-            "bash.exe não encontrado",
+            "Git Bash não encontrado (o bash.exe do System32 é o WSL e não serve)",
             "a tool Bash do Agent SDK precisa do Git Bash (vem com o Git for Windows)",
         )
     return ok("git-bash", found)
@@ -168,14 +166,29 @@ async def check_nats(cfg: CrewConfig) -> Check:
         await bus.close()
 
 
-def check_anthropic_key(secrets: Secrets) -> Check:
+async def check_claude_auth(secrets: Secrets) -> Check:
+    """Real agents run on the Claude subscription login; an API key would silently bill the API instead."""
     if secrets.anthropic_api_key is not None or os.environ.get("ANTHROPIC_API_KEY"):
-        return ok("ANTHROPIC_API_KEY", "definida")
-    return warn(
-        "ANTHROPIC_API_KEY",
-        "ausente",
-        "necessária pros agentes reais (preencha o .env); com --fake-agents não é preciso",
-    )
+        return warn(
+            "claude-auth",
+            "ANTHROPIC_API_KEY definida: agentes vão cobrar na API, não na assinatura",
+            "remova a chave do .env e do ambiente pra usar o login da assinatura",
+        )
+    exe = find_claude_cli()
+    if exe is None:
+        return warn("claude-auth", "claude.exe ausente, login não verificado", "veja o check claude-cli")
+    hint = "rode: claude auth login"
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run, [exe, "auth", "status"], capture_output=True, timeout=30, check=False
+        )
+        info = json.loads(proc.stdout.decode(errors="replace"))
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return warn("claude-auth", "não consegui ler `claude auth status`", hint)
+    if not info.get("loggedIn"):
+        return fail("claude-auth", "claude.exe não está logado", hint)
+    plan = info.get("subscriptionType") or "sem assinatura"
+    return ok("claude-auth", f"logado via {info.get('authMethod', '?')} (plano {plan})")
 
 
 async def check_repo(cfg: CrewConfig, name: str, *, run_tests: bool) -> list[Check]:
@@ -316,7 +329,7 @@ async def run_checks(
     results.append(await check_claude_cli())
     results.append(await check_node())
     results.append(check_data_dir())
-    results.append(check_anthropic_key(secrets))
+    results.append(await check_claude_auth(secrets))
     if cfg is None:
         return results
     results.append(await check_nats(cfg))

@@ -178,7 +178,7 @@ def test_service_name_validation() -> None:
             validate_service_name(bad)
 
 
-def test_real_agents_unavailable_without_stream_b_or_key(
+def test_real_agents_need_the_agents_runtime_but_not_an_api_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -188,8 +188,9 @@ def test_real_agents_unavailable_without_stream_b_or_key(
         with pytest.raises(StackError, match="agentes reais indisponíveis"):
             agent_factories(None, cfg, Secrets(), StackOptions(), asyncio.Event())  # type: ignore[arg-type]
     else:
-        with pytest.raises(StackError, match="ANTHROPIC_API_KEY"):
-            agent_factories(None, cfg, Secrets(_env_file=None), StackOptions(), asyncio.Event())  # type: ignore[arg-type]
+        # no key = subscription login; must build the factories instead of raising
+        factories = agent_factories(None, cfg, Secrets(_env_file=None), StackOptions(), asyncio.Event())  # type: ignore[arg-type]
+        assert factories
 
 
 async def test_supervisor_restarts_a_crashing_service_and_stops_cleanly() -> None:
