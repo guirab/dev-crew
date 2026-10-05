@@ -1,5 +1,7 @@
 # Stream B: agentes (backend-agents)
 
+> Registro histórico do M1 (2026-10-01). Depois disso o Azure DevOps foi removido (D38, `5573d1b`) e a entrevista virou rodadas (D39); o estado atual está no vault.
+
 Branch: `worktree-agent-a0b754394976f32b9` · base: M0 (`4188f9c`). Plano: `plan/03-backend-agents.md`.
 
 ## Feito

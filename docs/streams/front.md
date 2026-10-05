@@ -1,5 +1,7 @@
 # Stream C · Frontend
 
+> Registro histórico do M1 (2026-10-01). Depois disso o Azure DevOps foi removido (D38, `5573d1b`) e a entrevista virou rodadas (D39); o estado atual está no vault.
+
 Branch: `worktree-agent-a6675f949ca95bacb`. Escopo: só `frontend/` (mais `docs/contract-requests.md` e este arquivo).
 
 ## Como rodar

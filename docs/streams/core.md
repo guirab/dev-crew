@@ -1,5 +1,7 @@
 # Stream A — backend-core
 
+> Registro histórico do M1 (2026-10-01). Depois disso o Azure DevOps foi removido (D38, `5573d1b`) e a entrevista virou rodadas (D39); o estado atual está no vault.
+
 Estado: entregue. `uv run pytest -q` (282 testes), `ruff check`, `ruff format` e `mypy src` verdes (mypy strict em `contracts/`, `bus/`, `orchestrator/`).
 
 ## O que foi feito
