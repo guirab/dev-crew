@@ -40,10 +40,10 @@ Reproduzir: `cd backend && uv run python scripts/spike_sdk.py` (offline), `--cli
 
 Rodar `uv run python scripts/spike_sdk.py --live` e `uv run pytest -m live` (custa centavos; teto por job via `budget_usd`):
 
-- [ ] CLI respeita `permissionDecision: "deny"` do hook (Bash `git commit`, `Write` fora do worktree).
-- [ ] Tool Bash executa no Windows via Git Bash; `printenv` não mostra a chave com `ENV_SCRUB`.
+- [x] CLI respeita `permissionDecision: "deny"` do hook: `git commit --allow-empty -m x` bloqueado na chamada real (2026-10-05, login da assinatura, Sonnet).
+- [x] Tool Bash executa no Windows via Git Bash (`python -m pytest -q` rodou; `CLAUDE_CODE_GIT_BASH_PATH` fixado por sessão). `printenv` não verificado (guarda nega).
 - [ ] Nome final da tool (`mcp__crew__submit_*`) e comportamento "agente esquece o submit" (follow-up).
-- [ ] `resume`: contexto mantido, `session_id`, erro de sessão inexistente.
+- [x] `resume`: mesma `session_id` no resume e contexto mantido (2026-10-05). Erro de sessão inexistente não testado.
 - [ ] `total_cost_usd` cumulativo ou por turno; `usage` e cache.
 - [ ] `max_budget_usd` estourado devolve `error_max_budget_usd`.
 - [ ] Preset `claude_code` + append vs string pura.

@@ -217,6 +217,8 @@ async def live(budget: float) -> None:
         print("AVISO: ANTHROPIC_API_KEY definida, esta rodada cobra na API (não na assinatura).")
     from init_sample_repo import init_sample_repo
 
+    from crew.agents.runner import session_env
+
     workdir = Path(tempfile.mkdtemp(prefix="crew-spike-")) / "repo"
     init_sample_repo(workdir)
     denied_calls: list[str] = []
@@ -250,7 +252,7 @@ async def live(budget: float) -> None:
         setting_sources=[],
         max_turns=8,
         max_budget_usd=budget,
-        env={"CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"},
+        env=session_env(),  # same env as the real runner (scrub + Git Bash pinned)
     )
 
     section("LIVE: turno 1 (Bash + tentativa de commit + submit_echo)")
