@@ -20,7 +20,7 @@ from crew.contracts import (
     TestResult,
 )
 
-from .factories import POSIX_WS, make_job, make_spec, make_turn
+from .factories import POSIX_WS, make_job, make_repo, make_spec, make_turn
 
 PLANNER_MANUAL = """\
 ## Tarefa
@@ -189,6 +189,14 @@ def test_tester_rules_list_the_test_globs() -> None:
     assert "`tests/**`" in prompt
     assert "`**/test_*.py`" in prompt
     assert "python -m pytest -q" in prompt
+    assert "Lint do repo" not in prompt, "no lint_cmd configured"
+
+
+def test_tester_must_run_the_repo_lint_when_there_is_one() -> None:
+    job = make_job("tester", workspace=POSIX_WS, repo=make_repo(lint_cmd="npm run lint"))
+    prompt = build_prompt(job, SPECS["tester"], resumed=False)
+    assert "- Lint do repo (obrigatório, depois dos testes): `npm run lint`." in prompt
+    assert "rode-o **depois** dos testes" in system_prompt_text("tester")
 
 
 def test_review_feedback_keeps_every_comment_whole() -> None:

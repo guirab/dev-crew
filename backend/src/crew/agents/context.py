@@ -138,6 +138,8 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
             lines.append(f"- Comando de testes do repo: `{job.repo.test_cmd}`.")
         case "tester":
             lines.append(f"- Comando de testes (rode a suíte completa com ele): `{job.repo.test_cmd}`.")
+            if job.repo.lint_cmd:
+                lines.append(f"- Lint do repo (obrigatório, depois dos testes): `{job.repo.lint_cmd}`.")
             lines.append(
                 "- Arquivos de teste permitidos: " + ", ".join(f"`{g}`" for g in effective_test_globs(job))
             )
