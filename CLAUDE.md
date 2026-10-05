@@ -43,7 +43,7 @@ Estrutura planejada:
 
 ## Stack
 
-- **Backend:** Python 3.12+, `uv`, Pydantic v2, nats-py 2.16 (API clássica `nc.jetstream()`, sem FastStream), Claude Agent SDK, `mcp` 2.x, FastAPI (só no gateway), SQLModel/SQLite, Typer, structlog, ruff, mypy, pytest.
+- **Backend:** Python 3.12+, `uv`, Pydantic v2, nats-py 2.16 (API clássica `nc.jetstream()`, sem FastStream), Claude Agent SDK, FastAPI (só no gateway), SQLModel/SQLite, Typer, structlog, ruff, mypy, pytest.
 - **Frontend:** Vite, React 19, TypeScript strict, CSS Modules, Zustand, TanStack Query, MSW 2, Vitest, Playwright. Gerenciador de pacotes: **npm**.
 - **Infra:** nats-server 2.15 com `-js`.
 - **SO:** Windows 11. Use `pathlib` e `npx.cmd` em subprocess.

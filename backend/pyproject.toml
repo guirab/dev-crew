@@ -12,8 +12,6 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "sqlmodel>=0.0.22",
-    "mcp>=2.0",
-    "markdownify>=0.14",
     "claude-agent-sdk>=0.1",
 ]
 
@@ -69,5 +67,5 @@ module = ["crew.contracts.*", "crew.bus.*", "crew.orchestrator.*"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["nats.*", "markdownify.*"]
+module = ["nats.*"]
 ignore_missing_imports = true
