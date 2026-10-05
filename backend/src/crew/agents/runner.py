@@ -26,6 +26,7 @@ from claude_agent_sdk import (
     Message,
     ProcessError,
     ResultMessage,
+    create_sdk_mcp_server,
 )
 from claude_agent_sdk.types import SystemPromptPreset
 
@@ -35,9 +36,10 @@ from ..gitbash import find_git_bash
 from . import guards
 from .context import FOLLOW_UP, build_prompt, has_new_information, system_prompt_text
 from .progress import ProgressLine, ProgressSink, ProgressThrottle, map_message
+from .runtool import RUN_FULL_NAME, effective_tools, make_run_tool
 from .settings import AgentRuntimeSettings
 from .specs import DISALLOWED_TOOLS, SPECS, AgentSpec
-from .submit import SubmitTool, make_submit_tool
+from .submit import SERVER_NAME, SubmitTool, make_submit_tool
 
 log = structlog.get_logger(__name__)
 
@@ -108,17 +110,23 @@ def build_options(
         "preset": "claude_code",
         "append": system_prompt_text(spec.name),
     }
+    tools = effective_tools(spec, job)
+    mcp_tools = [submit.sdk_tool]
+    disallowed = list(DISALLOWED_TOOLS)
+    if RUN_FULL_NAME in tools:
+        mcp_tools.append(make_run_tool(job))
+        disallowed.append("Bash")  # the sandbox replaces it; host shell must stay unreachable
     return ClaudeAgentOptions(
         model=settings.model,
         system_prompt=prompt,
-        tools=list(spec.tools),
-        allowed_tools=[*spec.tools, submit.full_name],
-        disallowed_tools=list(DISALLOWED_TOOLS),
+        tools=[t for t in tools if not t.startswith("mcp__")],
+        allowed_tools=[*tools, submit.full_name],
+        disallowed_tools=disallowed,
         permission_mode=spec.permission_mode,
         cwd=workspace,
         max_turns=settings.max_turns or spec.max_turns,
         max_budget_usd=min(spec.budget_cap_usd, job.budget_usd),
-        mcp_servers={"crew": submit.server()},
+        mcp_servers={"crew": create_sdk_mcp_server(SERVER_NAME, tools=mcp_tools)},
         strict_mcp_config=True,
         hooks=guards.for_agent(spec, job, workspace, on_block),
         resume=job.resume_session_id if resumed else None,

@@ -16,6 +16,24 @@ New-Item -ItemType Directory -Force $store | Out-Null
 $natsUp = $false
 try { $c = New-Object Net.Sockets.TcpClient('127.0.0.1', 4222); $c.Close(); $natsUp = $true } catch {}
 $nats = $null
+
+# Docker Desktop fechado: abre e espera o engine (NATS e o sandbox dos agentes dependem dele)
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+    docker version --format '{{.Server.Version}}' 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        $desktop = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
+        if (Test-Path $desktop) {
+            Write-Host 'abrindo o Docker Desktop...'
+            Start-Process $desktop
+            $deadline = (Get-Date).AddMinutes(3)
+            do {
+                Start-Sleep -Seconds 3
+                docker version --format '{{.Server.Version}}' 2>$null | Out-Null
+            } while ($LASTEXITCODE -ne 0 -and (Get-Date) -lt $deadline)
+            if ($LASTEXITCODE -ne 0) { throw 'o engine do Docker não subiu em 3 min' }
+        }
+    }
+}
 if (-not $natsUp -and (Get-Command docker -ErrorAction SilentlyContinue)) {
     # Docker primeiro: o Smart App Control do Windows pode bloquear o nats-server.exe
     docker compose -f (Join-Path $root 'infra\docker-compose.yml') up -d

@@ -22,6 +22,7 @@ from claude_agent_sdk.types import HookEvent, PreToolUseHookSpecificOutput, Sync
 
 from ..contracts import AgentJob
 from .pathjail import PathJail, expand_braces, is_unresolvable, matches_any_glob
+from .runtool import RUN_FULL_NAME, effective_tools
 from .shellparse import Cmd, ParsedShell, ShellParseError, Word, parse
 from .specs import AgentSpec, BashMode, WriteMode, effective_test_globs
 from .submit import full_tool_name
@@ -972,7 +973,9 @@ def check_tool(policy: GuardPolicy, tool_name: str, tool_input: Mapping[str, Any
     """Decide whether one tool call is allowed. Deny by default for anything unknown."""
     if tool_name not in policy.tools:
         return deny(f"a tool '{tool_name}' não está disponível para este agente.")
-    if tool_name.startswith("mcp__"):
+    if tool_name == RUN_FULL_NAME:  # sandboxed Bash: same policy, defense in depth
+        tool_name = "Bash"
+    elif tool_name.startswith("mcp__"):
         return ALLOW  # only the submit tool is ever registered under allowed MCP names
     jail = PathJail(policy.workspace)
     match tool_name:
@@ -1006,7 +1009,7 @@ def check_tool(policy: GuardPolicy, tool_name: str, tool_input: Mapping[str, Any
 def policy_for(spec: AgentSpec[Any], job: AgentJob, workspace: str) -> GuardPolicy:
     return GuardPolicy(
         workspace=workspace,
-        tools=frozenset({*spec.tools, full_tool_name(spec.submit_name)}),
+        tools=frozenset({*effective_tools(spec, job), full_tool_name(spec.submit_name)}),
         bash=spec.bash,
         write=spec.write,
         test_globs=effective_test_globs(job) if spec.write == "tests_only" else (),

@@ -88,16 +88,27 @@ class RepoCfg(_Section):
     test_cmd: str
     lint_cmd: str | None = None
     test_globs: list[str] = Field(default_factory=list)
+    setup_cmd: str | None = None  # run by dev-crew (never the agents) before the first agent
+    sandbox_image: str | None = None  # Docker image: agent commands run in a per-task container
+    deps_dirs: list[str] = Field(default_factory=list)  # kept in Docker volumes, e.g. node_modules
 
     @field_validator("path")
     @classmethod
     def _expand(cls, v: Path) -> Path:
         return v.expanduser()
 
-    @field_validator("lint_cmd")
+    @field_validator("lint_cmd", "setup_cmd", "sandbox_image")
     @classmethod
     def _empty_is_none(cls, v: str | None) -> str | None:
         return v or None
+
+    @field_validator("deps_dirs")
+    @classmethod
+    def _relative_dirs(cls, v: list[str]) -> list[str]:
+        for d in v:
+            if not d or d.startswith(("/", "\\")) or ":" in d or ".." in Path(d).parts:
+                raise ValueError(f"deps_dirs precisa de caminhos relativos ao repo: {d!r}")
+        return [d.replace("\\", "/").strip("/") for d in v]
 
 
 class Secrets(BaseSettings):
@@ -145,6 +156,7 @@ class CrewConfig(_Section):
             lint_cmd=r.lint_cmd,
             test_globs=list(r.test_globs),
             commit_language=self.commit.language,
+            sandbox=r.sandbox_image is not None,
         )
 
     def repo_infos(self) -> list[RepoInfo]:

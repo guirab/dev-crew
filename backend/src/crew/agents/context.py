@@ -125,6 +125,11 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
     ]
     if spec.writes_files and job.workspace_path:
         lines.append(f"- Worktree (seu diretório de trabalho): {job.workspace_path}")
+    if job.repo.sandbox and spec.bash != "none":
+        lines.append(
+            "- Comandos: use a tool `run` (container Linux isolado, cwd /work = o worktree, sem internet). "
+            "Não existe Bash. Use caminhos relativos; Read/Edit/Write continuam no caminho do worktree acima."
+        )
     match job.agent:
         case "developer":
             lines.append(f"- `round` do resultado: {job.attempt}.")

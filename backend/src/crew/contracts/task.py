@@ -20,6 +20,7 @@ class RepoContext(Contract):
     lint_cmd: str | None = None
     test_globs: list[str]
     commit_language: str = "pt-BR"
+    sandbox: bool = False  # True: commands run in the task's Docker container (tool `run`, not Bash)
 
 
 class RepoInfo(Contract):

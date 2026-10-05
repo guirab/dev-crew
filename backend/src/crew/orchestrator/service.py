@@ -369,7 +369,9 @@ class OrchestratorService:
     async def _create_workspace(self, effect: CreateWorkspace) -> None:
         at = self.clock
         try:
-            ws = await self.workspace.create(effect.task_id, self.cfg.repo(effect.repo))
+            repo = self.cfg.repo(effect.repo)
+            ws = await self.workspace.create(effect.task_id, repo)
+            await self.workspace.prepare(ws, repo)  # sandbox + setup_cmd: fails before any agent
             event: Event = WorkspaceReady(effect.task_id, str(ws.path), ws.branch, at())
         except Exception as e:  # WorkspaceError and anything unexpected both fail the task cleanly
             log.warning("workspace_failed", task_id=effect.task_id, error=str(e))

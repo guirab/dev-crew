@@ -68,6 +68,8 @@ QUESTIONS = (
 )
 # round 1 = the two independent questions; round 2 depends on them
 ROUNDS = ((QUESTIONS[0], QUESTIONS[1]), (QUESTIONS[2],))
+
+
 def next_round(
     rounds: tuple[tuple[InterviewQuestion, ...], ...], answered: int
 ) -> tuple[InterviewQuestion, ...] | None:

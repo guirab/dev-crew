@@ -215,6 +215,33 @@ async def check_test_cmd(name: str, cmd: str, cwd: Path) -> Check:
     )
 
 
+async def check_docker(cfg: CrewConfig) -> Check | None:
+    """Only when some repo uses the sandbox (D41): the Docker engine must be up."""
+    images = sorted({r.sandbox_image for r in cfg.repos if r.sandbox_image})
+    if not images:
+        return None
+    hint = "abra o Docker Desktop (o sandbox dos agentes roda em container)"
+    exe = shutil.which("docker")
+    if exe is None:
+        return fail(
+            "docker", "docker não encontrado", "instale o Docker Desktop: winget install Docker.DockerDesktop"
+        )
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            [exe, "version", "--format", "{{.Server.Version}}"],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return fail("docker", f"docker falhou: {e}", hint)
+    if proc.returncode != 0:
+        return fail("docker", "engine parado", hint)
+    version = proc.stdout.decode(errors="replace").strip()
+    return ok("docker", f"engine {version} · sandbox: {', '.join(images)}")
+
+
 def check_workspace_root(cfg: CrewConfig) -> Check:
     root = cfg.workspace.root
     try:
@@ -275,6 +302,8 @@ async def run_checks(
         return results
     results.append(await check_nats(cfg))
     results.append(check_workspace_root(cfg))
+    if (docker := await check_docker(cfg)) is not None:
+        results.append(docker)
     results.append(check_gateway_port(cfg))
     for repo in cfg.repos:
         results.extend(await check_repo(cfg, repo.name, run_tests=run_tests))

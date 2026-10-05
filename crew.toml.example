@@ -35,3 +35,7 @@ base_branch = "main"
 test_cmd = "python -m pytest -q"
 lint_cmd = ""
 test_globs = ["tests/**", "**/test_*.py"]
+# Opcionais:
+# setup_cmd = "npm ci"          # roda pelo dev-crew (nunca pelos agentes) antes do 1º agente; falhou = tarefa falha
+# sandbox_image = "node:22"     # comandos dos agentes rodam num container por tarefa (sem rede, só vê o worktree)
+# deps_dirs = ["node_modules"]  # com sandbox: ficam em volumes Docker, fora do worktree

@@ -15,7 +15,7 @@ from crew.contracts import (
     PlanFile,
     RepoContext,
     TaskSpec,
-    )
+)
 
 WINDOWS_WS = "C:\\work\\crew\\T-1"
 POSIX_WS = "/work/crew/T-1"

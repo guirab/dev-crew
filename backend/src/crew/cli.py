@@ -196,7 +196,8 @@ def cleanup(
     config: Path | None = ConfigOpt,
     force: bool = typer.Option(False, "--force", help="Remove mesmo com mudanças não commitadas"),
 ) -> None:
-    """Remove o worktree (e a branch crew/<task>) de uma tarefa."""
+    """Remove o worktree (e a branch crew/<task>) de uma tarefa, e o container do sandbox."""
+    from . import sandbox
     from .config import ConfigError, load_config
     from .workspace.manager import WorkspaceError, WorkspaceManager
 
@@ -212,9 +213,13 @@ def cleanup(
 
         async def _run() -> None:
             for path in found:
-                ws = manager.locate(task_id, cfg.repo(path.parent.name))
+                repo = cfg.repo(path.parent.name)
+                ws = manager.locate(task_id, repo)
                 await manager.cleanup(ws, force=force)
                 typer.echo(f"removido: {path}")
+                if repo.sandbox_image and sandbox.docker_available():
+                    if await sandbox.remove(task_id, repo.name, tuple(repo.deps_dirs)):
+                        typer.echo(f"container removido: {sandbox.container_name(task_id, repo.name)}")
 
         asyncio.run(_run())
     except (ConfigError, WorkspaceError) as e:

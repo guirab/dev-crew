@@ -133,9 +133,6 @@ async def test_doctor_claude_auth_reads_the_cli_login(monkeypatch: pytest.Monkey
     assert (await d.check_claude_auth(Secrets(_env_file=None))).status == "warn"
 
 
-
-
-
 def test_render_includes_hints_only_when_not_ok() -> None:
     lines = d.render(
         [d.ok("a", "fine"), d.warn("b", "meh", "do x"), d.fail("c", "bad", "do y")], lambda t, _s: t
@@ -206,3 +203,13 @@ def test_up_help_lists_the_fake_flags() -> None:
     out = runner.invoke(app, ["up", "--help"]).output
     for flag in ("--fake-agents", "--fake-speed", "--fake-escalate"):
         assert flag in out
+
+
+async def test_doctor_docker_only_when_a_repo_uses_the_sandbox(tmp_path: Path) -> None:
+    from crew.config import RepoCfg
+
+    plain = CrewConfig(repos=[RepoCfg(name="a", path=tmp_path, test_cmd="x")])
+    assert await d.check_docker(plain) is None
+    boxed = CrewConfig(repos=[RepoCfg(name="a", path=tmp_path, test_cmd="x", sandbox_image="node:22")])
+    check = await d.check_docker(boxed)
+    assert check is not None and check.name == "docker"

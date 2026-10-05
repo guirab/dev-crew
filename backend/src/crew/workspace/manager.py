@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 import structlog
 
+from .. import sandbox
 from ..config import RepoCfg
 from ..contracts import FileChange, FinalFile
 from . import git
@@ -122,6 +126,25 @@ class WorkspaceManager:
         log.info("workspace_created", task_id=ws.task_id, path=str(ws.path), branch=ws.branch)
         return ws
 
+    # ------------------------------------------------------------------ environment
+
+    async def prepare(self, ws: Workspace, repo: RepoCfg) -> None:
+        """Make the workspace runnable before any agent: sandbox container and/or ``setup_cmd``.
+
+        Raises ``WorkspaceError`` (setup or Docker failed): the task fails before spending tokens.
+        """
+        try:
+            if repo.sandbox_image:
+                layout = await git_layout(ws.path)
+                name = await sandbox.create(
+                    ws.task_id, repo.name, repo.sandbox_image, ws.path, layout, tuple(repo.deps_dirs)
+                )
+                await sandbox.setup(name, repo.setup_cmd)
+            elif repo.setup_cmd:
+                await run_host_setup(ws.path, repo.setup_cmd)
+        except sandbox.SandboxError as e:
+            raise WorkspaceError(str(e)) from e
+
     async def _is_worktree_on_branch(self, ws: Workspace) -> bool:
         res = await git.run(ws.path, "rev-parse", "--abbrev-ref", "HEAD", check=False)
         return res.returncode == 0 and res.stdout.strip() == ws.branch
@@ -175,6 +198,52 @@ class WorkspaceManager:
         if res.returncode != 0:
             log.warning("branch_kept", branch=ws.branch, stderr=res.stderr.strip()[:200])
         log.info("workspace_removed", task_id=ws.task_id, path=str(ws.path))
+
+
+# ---------------------------------------------------------------------- environment helpers
+
+
+async def git_layout(path: Path) -> sandbox.GitLayout:
+    """Host location of the worktree's git data, for the read-only mount in the sandbox."""
+    common = Path(await git.out(path, "rev-parse", "--git-common-dir"))
+    git_dir = Path(await git.out(path, "rev-parse", "--absolute-git-dir"))
+    crlf = await git.run(path, "config", "--get", "core.autocrlf", check=False)
+    return _layout(path, common, git_dir, crlf.stdout.strip() or None)
+
+
+def _layout(path: Path, common: Path, git_dir: Path, autocrlf: str | None) -> sandbox.GitLayout:
+    # normpath is lexical (no I/O): rev-parse may answer the common dir relative to the worktree
+    return sandbox.GitLayout(
+        common_dir=Path(os.path.normpath(common if common.is_absolute() else path / common)),
+        git_dir=Path(os.path.normpath(git_dir)),
+        autocrlf=autocrlf,
+    )
+
+
+async def run_host_setup(path: Path, command: str) -> None:
+    """``setup_cmd`` without a sandbox: run by dev-crew in the worktree, through the system shell."""
+
+    def run() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            command,
+            shell=True,
+            cwd=path,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=sandbox.SETUP_TIMEOUT_S,
+            check=False,
+        )
+
+    try:
+        res = await asyncio.to_thread(run)
+    except subprocess.TimeoutExpired as e:
+        raise WorkspaceError(f"setup (`{command}`) passou de {sandbox.SETUP_TIMEOUT_S:.0f}s") from e
+    if res.returncode != 0:
+        output = (res.stdout + res.stderr).strip()
+        raise WorkspaceError(f"setup falhou (`{command}`, código {res.returncode}):\n{sandbox.tail(output)}")
+    log.info("setup_done", path=str(path))
 
 
 # ---------------------------------------------------------------------- parsing helpers

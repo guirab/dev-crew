@@ -61,12 +61,5 @@ class LogStale:
 
 
 Effect = (
-    Persist
-    | PublishView
-    | CreateWorkspace
-    | DispatchJob
-    | CancelJobs
-    | BuildFinalReport
-    | Reject
-    | LogStale
+    Persist | PublishView | CreateWorkspace | DispatchJob | CancelJobs | BuildFinalReport | Reject | LogStale
 )
