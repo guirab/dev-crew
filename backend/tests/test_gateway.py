@@ -57,31 +57,23 @@ async def test_get_repos(rig: Rig) -> None:
     assert r.status_code == 200 and r.json() == [{"name": "sample-repo", "base_branch": "main"}]
 
 
-async def test_get_work_items_from_fake_azure(rig: Rig) -> None:
-    async with client(rig) as http:
-        r = await http.get("/api/azure/work-items")
-    assert r.status_code == 200
-    items = [c.WorkItemSummary.model_validate(i) for i in r.json()]
-    assert [i.id for i in items] == [4830, 4827, 4821, 4819]
-
-
 async def test_get_task_null_then_view_after_start(rig: Rig) -> None:
     async with client(rig) as http:
         assert (await http.get("/api/task")).json() is None
         r = await http.post(
             "/api/commands",
-            json={"type": "start_task", "source": "manual", "repo": "sample-repo", "title": "x"},
+            json={"type": "start_task", "repo": "sample-repo", "title": "x"},
         )
         assert r.status_code == 200
         reply = c.CommandReply.model_validate(r.json())
         assert reply.ok and reply.view is not None and reply.view.task_id == "T-1"
         view = c.TaskView.model_validate((await http.get("/api/task")).json())
-        assert view.task_id == "T-1" and view.source == "manual"
+        assert view.task_id == "T-1" and view.phase == "interviewing"
 
 
 async def test_commands_status_mapping(rig: Rig) -> None:
     async with client(rig) as http:
-        start = {"type": "start_task", "source": "azure", "repo": "sample-repo", "work_item_id": 4821}
+        start = {"type": "start_task", "repo": "sample-repo", "title": "CSV"}
         assert (await http.post("/api/commands", json=start)).status_code == 200
         dup = await http.post("/api/commands", json=start)
         assert dup.status_code == 409 and dup.json() == {
@@ -91,7 +83,7 @@ async def test_commands_status_mapping(rig: Rig) -> None:
         }
         await http.post("/api/commands", json={"type": "cancel_task"})
         unknown = await http.post(
-            "/api/commands", json={"type": "start_task", "source": "manual", "repo": "nope", "title": "x"}
+            "/api/commands", json={"type": "start_task", "repo": "nope", "title": "x"}
         )
         assert unknown.status_code == 422 and unknown.json()["error"] == m.ERR_UNKNOWN_REPO
         no_task = await http.post("/api/commands", json={"type": "approve_plan"})
@@ -111,11 +103,10 @@ async def test_invalid_command_body_is_422(rig: Rig, body: object) -> None:
 
 
 async def test_service_unavailable_is_503_not_500(nats_url: str, tmp_path: Path) -> None:
-    rig = await start_rig(nats_url, tmp_path, gateway=True, orchestrator=False, azure=False, agents=False)
+    rig = await start_rig(nats_url, tmp_path, gateway=True, orchestrator=False, agents=False)
     try:
         async with client(rig) as http:
             assert (await http.get("/api/task")).status_code == 503
-            assert (await http.get("/api/azure/work-items")).status_code == 503
             r = await http.post("/api/commands", json={"type": "approve_plan"})
             assert r.status_code == 503 and "indisponível" in r.json()["detail"]
     finally:
@@ -188,14 +179,20 @@ async def test_ws_snapshot_then_live_views_and_progress_until_done(nats_url: str
             assert isinstance(first, c.WsView) and first.data is None, "no task yet: snapshot is null"
 
             async with client(rig) as http:
-                start = {"type": "start_task", "source": "azure", "repo": "sample-repo", "work_item_id": 4821}
+                start = {"type": "start_task", "repo": "sample-repo", "title": "CSV"}
                 assert (await http.post("/api/commands", json=start)).status_code == 200
                 msgs: list[c.WsView | c.WsProgress] = []
                 approved = False
+                answered = 0
                 while True:
                     msg = await next_msg(ws, timeout=30)
                     msgs.append(msg)
                     if isinstance(msg, c.WsView) and msg.data is not None:
+                        iv = msg.data.interview
+                        if iv is not None and iv.pending is not None and len(iv.turns) == answered:
+                            answered += 1
+                            r = await http.post("/api/commands", json={"type": "answer_interview"})
+                            assert r.status_code == 200
                         if msg.data.phase == "awaiting_approval" and not approved:
                             approved = True
                             r = await http.post("/api/commands", json={"type": "approve_plan"})
@@ -209,7 +206,7 @@ async def test_ws_snapshot_then_live_views_and_progress_until_done(nats_url: str
         assert all(p.task_id == "T-1" and p.data.text for p in progress)
         assert views[-1].data is not None and views[-1].data.final is not None
         phases = [v.data.phase for v in views if v.data is not None]
-        assert phases[0] == "planning" and phases[-1] == "done" and "awaiting_approval" in phases
+        assert phases[0] == "interviewing" and phases[-1] == "done" and "awaiting_approval" in phases
     finally:
         await rig.aclose()
 
@@ -219,7 +216,7 @@ async def test_ws_late_joiner_gets_latest_snapshot_and_all_clients_get_updates(
 ) -> None:
     rig = await start_rig(nats_url, tmp_path, gateway=True)
     try:
-        await rig.ok(c.StartTask(source="manual", repo="sample-repo", title="CSV"))
+        await rig.ok(c.StartTask(repo="sample-repo", title="CSV"))
         waiting = await rig.wait_for(lambda v: v.interview is not None and v.interview.pending is not None)
         async with (
             websockets.connect(await ws_url(rig)) as late,

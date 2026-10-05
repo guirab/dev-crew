@@ -31,9 +31,7 @@ export function InterviewBody({ view, stage }: BodyProps) {
   if (!interview) {
     return (
       <Empty>
-        {view?.source === 'azure'
-          ? 'Pulado — tarefa veio do Azure DevOps.'
-          : 'Entra só em tarefa manual: uma pergunta por vez, sempre com recomendação, até fechar a spec.'}
+        Pergunta em rodadas, sempre com recomendação, até fechar a spec.
       </Empty>
     )
   }

@@ -33,7 +33,6 @@ from ..contracts import (
     StageStatus,
     StageView,
     TaskPhase,
-    TaskSource,
     TaskSpec,
     TaskView,
     TestResult,
@@ -43,7 +42,7 @@ from ..contracts.common import STAGES, TERMINAL_PHASES
 MAX_STAGE_LOGS = 50
 
 EscalationKind = Literal["test_limit", "review_limit", "agent_failed", "budget"]
-Boot = Literal["fetch_work_item", "create_workspace", "build_report"]
+Boot = Literal["create_workspace", "build_report"]
 """Side-effecting step in flight that is not an agent job; re-issued on restart."""
 
 
@@ -84,13 +83,10 @@ class TaskState(BaseModel):
     task_id: str
     title: str
     description: str
-    source: TaskSource
-    ref: str | None = None
     repo: RepoContext
     limits: Limits = Field(default_factory=Limits)
     phase: TaskPhase
     spec: TaskSpec
-    work_item_id: int | None = None
     workspace_path: str | None = None
     branch: str | None = None
     boot: Boot | None = None
@@ -137,14 +133,10 @@ class TaskState(BaseModel):
                 for k, st in self.stages.items()
             }
         )
-        interview = (
-            InterviewView(
-                turns=list(self.interview_turns),
-                pending=self.pending_question,
-                decisions=list(self.decisions),
-            )
-            if self.source == "manual"
-            else None
+        interview = InterviewView(
+            turns=list(self.interview_turns),
+            pending=self.pending_question,
+            decisions=list(self.decisions),
         )
         escalation = (
             Escalation(stage=self.escalation.stage, reason=self.escalation.reason)
@@ -155,8 +147,6 @@ class TaskState(BaseModel):
             task_id=self.task_id,
             title=self.title,
             description=self.description,
-            source=self.source,
-            ref=self.ref,
             repo=self.repo.name,
             phase=self.phase,
             stages=stages,

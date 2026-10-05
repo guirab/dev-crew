@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -28,17 +27,15 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from ..bus import Bus, BusError
 from ..bus import subjects as s
 from ..config import CrewConfig
-from ..contracts import Command, CommandReply, RepoInfo, TaskView, WorkItemSummary
+from ..contracts import Command, CommandReply, RepoInfo, TaskView
 from ..orchestrator.machine import CONFLICT_ERRORS
 from .hub import Hub
 
 log = structlog.get_logger(__name__)
 
 DEV_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
-AZURE_LIST_TIMEOUT_S = 130.0  # first MCP spawn (npx) is slow
 COMMAND_TIMEOUT_S = 40.0
 
-_SUMMARIES: TypeAdapter[list[WorkItemSummary]] = TypeAdapter(list[WorkItemSummary])
 _VIEW_OR_NONE: TypeAdapter[TaskView | None] = TypeAdapter(TaskView | None)
 
 DEFAULT_DIST = Path(__file__).resolve().parents[4] / "frontend" / "dist"
@@ -91,14 +88,6 @@ class Gateway:
         @app.get("/api/repos")
         async def repos() -> list[RepoInfo]:
             return self.cfg.repo_infos()
-
-        @app.get("/api/azure/work-items")
-        async def work_items() -> list[WorkItemSummary]:
-            try:
-                raw = await self.bus.request_raw(s.AZURE_LIST, timeout=AZURE_LIST_TIMEOUT_S)
-            except (BusError, NoRespondersError):
-                raise _unavailable("Azure DevOps") from None
-            return _parse_work_items(raw)
 
         @app.get("/api/task")
         async def task() -> Response:
@@ -168,16 +157,3 @@ class _EmbeddedServer(uvicorn.Server):
     @contextlib.contextmanager
     def capture_signals(self):  # type: ignore[no-untyped-def]
         yield
-
-
-def _parse_work_items(raw: bytes) -> list[WorkItemSummary]:
-    try:
-        data = json.loads(raw)
-    except ValueError:
-        raise HTTPException(status_code=502, detail="resposta inválida do serviço Azure") from None
-    if isinstance(data, dict) and data.get("ok") is False:
-        raise HTTPException(status_code=502, detail=str(data.get("error") or "erro no serviço Azure"))
-    try:
-        return _SUMMARIES.validate_python(data)
-    except ValidationError:
-        raise HTTPException(status_code=502, detail="resposta inválida do serviço Azure") from None

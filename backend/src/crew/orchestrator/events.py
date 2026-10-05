@@ -13,7 +13,6 @@ from ..contracts import (
     Command,
     FinalFile,
     RepoContext,
-    WorkItemDetail,
 )
 from .state import Limits
 
@@ -56,20 +55,6 @@ class AgentProgressed:
 
 
 @dataclass(frozen=True)
-class WorkItemLoaded:
-    task_id: str
-    detail: WorkItemDetail
-    at: datetime
-
-
-@dataclass(frozen=True)
-class WorkItemFailed:
-    task_id: str
-    error: str
-    at: datetime
-
-
-@dataclass(frozen=True)
 class WorkspaceReady:
     task_id: str
     path: str
@@ -104,8 +89,6 @@ Event = (
     | AgentResult
     | AgentFailed
     | AgentProgressed
-    | WorkItemLoaded
-    | WorkItemFailed
     | WorkspaceReady
     | WorkspaceFailed
     | ReportBuilt

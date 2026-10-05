@@ -25,12 +25,6 @@ class CreateWorkspace:
 
 
 @dataclass(frozen=True)
-class FetchWorkItem:
-    task_id: str
-    work_item_id: int
-
-
-@dataclass(frozen=True)
 class DispatchJob:
     job: AgentJob
 
@@ -70,7 +64,6 @@ Effect = (
     Persist
     | PublishView
     | CreateWorkspace
-    | FetchWorkItem
     | DispatchJob
     | CancelJobs
     | BuildFinalReport

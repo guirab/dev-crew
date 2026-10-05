@@ -19,13 +19,13 @@ const STATUSES: readonly StageStatus[] = [
 ]
 
 const SAMPLE_NOW: Record<StageStatus, string> = {
-  pick: 'Importa um work item via MCP',
+  pick: 'Você descreve a tarefa',
   idle: 'Escreve e roda os testes',
   active: '$ pytest -q && npm test',
   waiting: 'Aguardando você — expanda pra revisar o plano',
   done: 'PASSOU · 48/48 · cobertura 87%',
   error: 'Limite 3/3 atingido — expanda pra decidir',
-  skipped: 'Pulado — tarefa veio do Azure DevOps.',
+  skipped: 'Pulado — etapa não se aplica a esta tarefa.',
 }
 
 const COUNTERS: Counters = {

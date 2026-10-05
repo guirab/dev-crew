@@ -29,7 +29,6 @@ from crew.contracts import (
     DevResult,
     Feedback,
     Plan,
-    ReviewResult,
     TestFailure,
     TestResult,
 )
@@ -210,14 +209,6 @@ async def test_finalizer_forces_dev_round_from_the_job(harness: Any) -> None:
     )
     assert isinstance(outcome.output, DevResult)
     assert outcome.output.round == 3
-
-
-async def test_finalizer_adds_refs_to_the_review_commit(harness: Any) -> None:
-    job = make_job("reviewer", workspace=POSIX_WS, work_item=True)
-    args = {"verdict": "approved", "comments": [], "commit_message": "feat(relatorio): filtro por datas"}
-    outcome = await harness.runner([submit_ok(args, name="mcp__crew__submit_review")]).run(job, harness.emit)
-    assert isinstance(outcome.output, ReviewResult)
-    assert outcome.output.commit_message == "feat(relatorio): filtro por datas\n\nRefs: AB#4821"
 
 
 # ---------------------------------------------------------------------------------- submit discipline

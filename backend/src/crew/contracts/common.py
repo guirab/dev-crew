@@ -7,11 +7,8 @@ from pydantic import BaseModel, ConfigDict
 AgentName = Literal["interviewer", "planner", "developer", "tester", "reviewer"]
 AGENTS: tuple[AgentName, ...] = ("interviewer", "planner", "developer", "tester", "reviewer")
 
-StageKey = Literal[
-    "azure", "manual", "interviewer", "planner", "approval", "developer", "tester", "reviewer", "done"
-]
+StageKey = Literal["manual", "interviewer", "planner", "approval", "developer", "tester", "reviewer", "done"]
 STAGES: tuple[StageKey, ...] = (
-    "azure",
     "manual",
     "interviewer",
     "planner",
@@ -24,9 +21,8 @@ STAGES: tuple[StageKey, ...] = (
 
 StageStatus = Literal["idle", "pick", "active", "waiting", "done", "error", "skipped"]
 
-EdgeKey = Literal["az-pl", "ma-iv", "iv-pl", "pl-ap", "ap-dv", "dv-ts", "ts-rv", "rv-dn", "ts-dv", "rv-dv"]
+EdgeKey = Literal["ma-iv", "iv-pl", "pl-ap", "ap-dv", "dv-ts", "ts-rv", "rv-dn", "ts-dv", "rv-dv"]
 EDGES: tuple[EdgeKey, ...] = (
-    "az-pl",
     "ma-iv",
     "iv-pl",
     "pl-ap",
@@ -54,11 +50,8 @@ TaskPhase = Literal[
 ]
 TERMINAL_PHASES: frozenset[TaskPhase] = frozenset({"done", "cancelled", "failed"})
 
-TaskSource = Literal["azure", "manual"]
 FileChange = Literal["A", "M", "D"]
-EventSource = Literal[
-    "interviewer", "planner", "developer", "tester", "reviewer", "orchestrator", "gateway", "azure"
-]
+EventSource = Literal["interviewer", "planner", "developer", "tester", "reviewer", "orchestrator", "gateway"]
 
 
 class Contract(BaseModel):

@@ -61,7 +61,6 @@ def _run_stack(
     *,
     only: str | None,
     fake_agents: bool,
-    fake_azure: bool,
     fake_speed: float,
     fake_escalate: bool,
     builtin_fakes: bool,
@@ -80,7 +79,6 @@ def _run_stack(
             cfg = cfg.model_copy(update={"gateway": cfg.gateway.model_copy(update={"port": port})})
         opts = StackOptions(
             fake_agents=fake_agents,
-            fake_azure=fake_azure,
             fake_speed=fake_speed,
             fake_escalate=fake_escalate,
             builtin_fakes=builtin_fakes,
@@ -112,9 +110,6 @@ def up(
     fake_agents: bool = typer.Option(
         False, "--fake-agents", envvar="CREW_FAKE_AGENTS", help="Agentes roteirizados, zero tokens"
     ),
-    fake_azure: bool = typer.Option(
-        False, "--fake-azure", envvar="CREW_FAKE_AZURE", help="Azure com os 4 work items do mockup"
-    ),
     fake_speed: float = typer.Option(
         1.0, "--fake-speed", min=0.01, help="Multiplicador de velocidade dos fakes"
     ),
@@ -124,12 +119,11 @@ def up(
     no_frontend: bool = typer.Option(False, "--no-frontend", help="Não serve frontend/dist"),
     log_level: str = LogLevelOpt,
 ) -> None:
-    """Sobe tudo num processo: orquestrador, agentes, Azure e gateway."""
+    """Sobe tudo num processo: orquestrador, agentes e gateway."""
     _run_stack(
         config,
         only=None,
         fake_agents=fake_agents,
-        fake_azure=fake_azure,
         fake_speed=fake_speed,
         fake_escalate=fake_escalate,
         builtin_fakes=builtin_fakes,
@@ -141,10 +135,9 @@ def up(
 
 @app.command("svc")
 def svc(
-    name: str = typer.Argument(..., help="orchestrator | gateway | azure | agent:<nome>"),
+    name: str = typer.Argument(..., help="orchestrator | gateway | agent:<nome>"),
     config: Path | None = ConfigOpt,
     fake_agents: bool = typer.Option(False, "--fake-agents", envvar="CREW_FAKE_AGENTS"),
-    fake_azure: bool = typer.Option(False, "--fake-azure", envvar="CREW_FAKE_AZURE"),
     fake_speed: float = typer.Option(1.0, "--fake-speed", min=0.01),
     fake_escalate: bool = typer.Option(False, "--fake-escalate"),
     builtin_fakes: bool = typer.Option(False, "--builtin-fakes", hidden=True),
@@ -164,7 +157,6 @@ def svc(
         config,
         only=name,
         fake_agents=fake_agents,
-        fake_azure=fake_azure,
         fake_speed=fake_speed,
         fake_escalate=fake_escalate,
         builtin_fakes=builtin_fakes,
@@ -181,9 +173,8 @@ def svc(
 def doctor(
     config: Path | None = ConfigOpt,
     skip_tests: bool = typer.Option(False, "--skip-tests", help="Não roda o test_cmd de cada repo"),
-    skip_azure: bool = typer.Option(False, "--skip-azure", help="Não consulta o Azure DevOps"),
 ) -> None:
-    """Checa NATS, chaves, git, Node, repos, test_cmd e Azure; diz o que falta e como resolver."""
+    """Checa NATS, login do Claude, git, repos e test_cmd; diz o que falta e como resolver."""
     import sys
 
     from . import doctor as d
@@ -192,7 +183,7 @@ def doctor(
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
             reconfigure(encoding="utf-8")
-    checks = asyncio.run(d.run_checks(config, run_tests=not skip_tests, check_azure_too=not skip_azure))
+    checks = asyncio.run(d.run_checks(config, run_tests=not skip_tests))
     colors = {"ok": typer.colors.GREEN, "warn": typer.colors.YELLOW, "fail": typer.colors.RED}
     for line in d.render(checks, lambda text, status: typer.style(text, fg=colors[status], bold=True)):
         typer.echo(line)

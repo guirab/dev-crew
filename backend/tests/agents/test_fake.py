@@ -27,7 +27,7 @@ from crew.contracts import (
     TestResult,
 )
 
-from .factories import make_job, make_plan, make_repo, make_spec, make_turn, make_work_item
+from .factories import make_job, make_plan, make_repo, make_spec, make_turn
 
 REPO = Path(__file__).resolve().parents[3]
 SAMPLE = REPO / "fixtures" / "sample-repo"
@@ -328,18 +328,6 @@ async def test_reviewer_round_two_approves_resolves_comments_and_writes_the_comm
     assert len(subject) <= COMMIT_SUBJECT_MAX
     assert "- bind params na query e datas em UTC (review)" in body
     assert "Refs:" not in out.commit_message
-
-
-async def test_reviewer_adds_the_azure_ref_and_uses_fix_for_bugs() -> None:
-    rec = Recorder()
-    bug = make_work_item(4830).model_copy(update={"type": "Bug"})
-    spec = make_spec(source="azure", work_item=bug, title="Erro 500 ao salvar cliente sem CPF")
-    job = make_job("reviewer", attempt=2, spec=spec)
-    out = (await runner(rec).run(job, rec.emit)).output
-    assert isinstance(out, ReviewResult)
-    assert out.commit_message is not None
-    assert out.commit_message.splitlines()[0] == "fix: erro 500 ao salvar cliente sem CPF"
-    assert out.commit_message.endswith("\n\nRefs: AB#4830")
 
 
 def test_commit_subject_is_capped_at_72_chars_on_a_word_boundary() -> None:

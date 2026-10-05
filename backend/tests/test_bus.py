@@ -20,7 +20,7 @@ def _job(agent: c.AgentName = "planner") -> c.AgentJob:
         agent=agent,
         attempt=1,
         repo=c.RepoContext(name="r", base_branch="main", test_cmd="pytest", test_globs=["tests/**"]),
-        spec=c.TaskSpec(title="t", description="d", source="manual", repo="r"),
+        spec=c.TaskSpec(title="t", description="d", repo="r"),
         budget_usd=1.0,
     )
 

@@ -18,8 +18,6 @@ OUTBOUND: list[type[BaseModel]] = [
     c.WsProgress,
     c.CommandReply,
     c.RepoInfo,
-    c.WorkItemSummary,
-    c.WorkItemDetail,
 ]
 # Models the UI builds and sends (validation mode: fields with defaults are optional).
 INBOUND: list[type[BaseModel]] = [

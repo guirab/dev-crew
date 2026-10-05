@@ -15,7 +15,6 @@ from crew.orchestrator.effects import (
     CancelJobs,
     CreateWorkspace,
     DispatchJob,
-    FetchWorkItem,
     LogStale,
     Persist,
     PublishView,
@@ -34,7 +33,6 @@ from .core_helpers import (
     question,
     review_changes,
     review_ok,
-    work_item,
 )
 
 
@@ -45,38 +43,11 @@ def agents_dispatched(d: Driver) -> list[str]:
 # ------------------------------------------------------------------ start
 
 
-def test_start_azure_fetches_work_item_first() -> None:
-    d = Driver(source="azure")
-    fx = d.start()
-    assert [type(e) for e in fx] == [Persist, FetchWorkItem, PublishView]
-    assert d.one(FetchWorkItem).work_item_id == 4821
-    s = d.s
-    assert (s.phase, s.ref, s.boot) == ("planning", "AB#4821", "fetch_work_item")
-    assert s.stages["azure"].status == "active"
-    assert s.stages["manual"].status == s.stages["interviewer"].status == "skipped"
-    assert s.current_job_id is None
-
-
-def test_work_item_loaded_then_workspace_then_planner() -> None:
-    d = Driver(source="azure")
-    d.start()
-    d.feed(ev.WorkItemLoaded(task_id="T-107", detail=work_item(), at=d.tick()))
-    assert d.has(CreateWorkspace) and d.s.boot == "create_workspace"
-    assert d.s.title.startswith("Filtro") and d.s.stages["azure"].status == "done"
-    assert d.s.spec.work_item is not None and d.s.spec.acceptance_criteria == ["Intervalo inclusivo"]
-    d.feed(ev.WorkspaceReady(task_id="T-107", path="/wt", branch="crew/T-107", at=d.tick()))
-    job = d.job
-    assert job.agent == "planner" and job.workspace_path == "/wt" and job.attempt == 1
-    assert job.spec.work_item is not None and job.plan is None and job.feedback is None
-    assert d.s.edges == {"az-pl": "active"} and d.s.boot is None
-
-
 def test_start_manual_creates_workspace_then_interviewer() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     fx = d.start()
     assert [type(e) for e in fx] == [Persist, CreateWorkspace, PublishView]
     assert d.s.phase == "interviewing" and d.s.stages["manual"].status == "done"
-    assert d.s.stages["azure"].status == "skipped"
     d.feed(ev.WorkspaceReady(task_id="T-107", path="/wt", branch="crew/T-107", at=d.tick()))
     assert d.job.agent == "interviewer" and d.job.spec.title == "Exportar pedidos em CSV"
     assert d.s.edges == {"ma-iv": "active"}
@@ -85,11 +56,8 @@ def test_start_manual_creates_workspace_then_interviewer() -> None:
 @pytest.mark.parametrize(
     ("cmd", "start_ok", "error"),
     [
-        (c.StartTask(source="azure", repo="r"), True, m.ERR_WORK_ITEM_REQUIRED),
-        (c.StartTask(source="manual", repo="r", title="  "), True, m.ERR_TITLE_REQUIRED),
-        (c.StartTask(source="manual", repo="r"), True, m.ERR_TITLE_REQUIRED),
-        (c.StartTask(source="manual", repo="nope", title="x"), False, m.ERR_UNKNOWN_REPO),
-        (c.StartTask(source="azure", repo="nope", work_item_id=1), False, m.ERR_UNKNOWN_REPO),
+        (c.StartTask(repo="r", title="  "), True, m.ERR_TITLE_REQUIRED),
+        (c.StartTask(repo="nope", title="x"), False, m.ERR_UNKNOWN_REPO),
     ],
 )
 def test_start_validation(cmd: c.StartTask, start_ok: bool, error: str) -> None:
@@ -102,7 +70,7 @@ def test_second_start_rejected_while_task_active_and_state_untouched() -> None:
     d = Driver()
     d.boot()
     before = d.s
-    d.command(c.StartTask(source="azure", repo="sample-repo", work_item_id=1), start=d.params())
+    d.command(c.StartTask(repo="sample-repo", title="outra"), start=d.params())
     assert d.effects == [Reject(m.ERR_ACTIVE_TASK)]
     assert d.s is before
 
@@ -117,10 +85,10 @@ def test_start_allowed_after_terminal_task(terminal: str) -> None:
         d.command(c.CancelTask())
     else:
         d.start()
-        d.feed(ev.WorkItemFailed(task_id="T-107", error="x", at=d.tick()))
+        d.feed(ev.WorkspaceFailed(task_id="T-107", error="x", at=d.tick()))
     assert d.s.phase == terminal
     d2 = d.command(
-        c.StartTask(source="manual", repo="sample-repo", title="outra"),
+        c.StartTask(repo="sample-repo", title="outra"),
         start=ev.StartParams(task_id="T-108", repo=d.params().repo, limits=Limits()),
     )
     assert any(isinstance(e, CreateWorkspace) for e in d2)
@@ -177,7 +145,7 @@ def test_conflict_errors_are_the_state_conflicts() -> None:
 
 
 def test_interview_flow_accept_and_custom_answer() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.boot()
     d.result(c.InterviewResult(kind="question", question=question(1)))
     s = d.s
@@ -200,16 +168,14 @@ def test_interview_flow_accept_and_custom_answer() -> None:
     )
     assert d.s.decisions[1] == "Critérios de aceite: só CSV"
 
-    spec = c.TaskSpec(
-        title="T", description="d", source="azure", repo="other"
-    )  # wrong source/repo on purpose
+    spec = c.TaskSpec(title="T", description="d", repo="other")  # wrong repo on purpose
     d.result(c.InterviewResult(kind="done", spec=spec))
     assert (
         d.s.stages["interviewer"].status == "done"
         and d.s.stages["interviewer"].now == "Spec fechada · 2 decisões"
     )
     job = d.job
-    assert job.agent == "planner" and job.spec.repo == "sample-repo" and job.spec.source == "manual"
+    assert job.agent == "planner" and job.spec.repo == "sample-repo"
     assert job.spec.decisions == d.s.decisions, (
         "decisions are filled from the interview when the agent omits them"
     )
@@ -217,7 +183,7 @@ def test_interview_flow_accept_and_custom_answer() -> None:
 
 
 def test_blank_answer_counts_as_acceptance() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.boot()
     d.result(c.InterviewResult(kind="question", question=question(1)))
     d.command(c.AnswerInterview(text="   "))
@@ -230,7 +196,7 @@ def test_blank_answer_counts_as_acceptance() -> None:
     ids=["question-missing", "spec-missing"],
 )
 def test_incomplete_interview_result_escalates(bad: c.InterviewResult) -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.boot()
     d.result(bad)
     assert d.s.phase == "escalated" and d.s.escalation is not None
@@ -242,20 +208,20 @@ def test_incomplete_interview_result_escalates(bad: c.InterviewResult) -> None:
 
 def test_plan_result_waits_for_approval() -> None:
     d = Driver()
-    d.boot()
+    d.to_planner()
     d.result(plan(), cost=0.3, session="s-plan")
     s = d.s
     assert s.phase == "awaiting_approval" and s.stages["planner"].status == "done"
     assert s.stages["planner"].now == "Plano pronto · 4 passos, 3 arquivos"
     assert s.stages["approval"].status == "waiting"
-    assert s.edges == {"az-pl": "on", "pl-ap": "active"}
+    assert s.edges == {"ma-iv": "on", "iv-pl": "on", "pl-ap": "active"}
     assert s.cost_usd == pytest.approx(0.3) and s.sessions["planner"] == "s-plan"
     assert d.effects == [Persist(), PublishView()]
 
 
 def test_adjust_plan_reruns_planner_with_feedback_and_resume() -> None:
     d = Driver()
-    d.boot()
+    d.to_planner()
     d.result(plan(), session="s-plan")
     d.command(c.AdjustPlan(text="  não mexer em auth  "))
     job = d.job
@@ -285,7 +251,7 @@ def test_approve_starts_developer_round_1() -> None:
     s = d.s
     assert s.phase == "developing" and s.dev_round == 1
     assert s.stages["approval"].status == "done" and s.stages["developer"].status == "active"
-    assert s.edges == {"az-pl": "on", "pl-ap": "on", "ap-dv": "active"}
+    assert s.edges == {"ma-iv": "on", "iv-pl": "on", "pl-ap": "on", "ap-dv": "active"}
 
 
 # ------------------------------------------------------------------ developer / tester loop
@@ -375,7 +341,7 @@ def test_review_approved_builds_final_report() -> None:
     d.result(review_changes())
     d.result(dev())
     d.result(pass_run())
-    fx = d.result(review_ok("feat: x\n\nRefs: AB#4821"), cost=0.5)
+    fx = d.result(review_ok("feat: x"), cost=0.5)
     assert [type(e) for e in fx] == [Persist, BuildFinalReport, PublishView]
     assert d.s.phase == "reviewing" and d.s.boot == "build_report" and d.s.final is None
     assert d.s.stages["reviewer"].status == "done" and d.s.stages["done"].status == "active"
@@ -411,24 +377,7 @@ def test_approved_without_commit_message_gets_conventional_fallback() -> None:
     d.to_reviewing()
     d.result(review_ok(commit=None))
     d.report_built()
-    assert d.s.final is not None and d.s.final.commit_message == (
-        "feat: filtro por intervalo de datas no relatório de vendas\n\nRefs: AB#4821"
-    )
-
-
-def test_fallback_commit_uses_fix_for_bugs() -> None:
-    d = Driver()
-    d.start()
-    bug = work_item().model_copy(update={"type": "Bug", "title": "Erro 500"})
-    d.feed(ev.WorkItemLoaded(task_id="T-107", detail=bug, at=d.tick()))
-    d.feed(ev.WorkspaceReady(task_id="T-107", path="/wt", branch="b", at=d.tick()))
-    d.result(plan())
-    d.command(c.ApprovePlan())
-    d.result(dev())
-    d.result(pass_run())
-    d.result(review_ok(None))
-    d.report_built()
-    assert d.s.final is not None and d.s.final.commit_message.startswith("fix: erro 500")
+    assert d.s.final is not None and d.s.final.commit_message == "feat: exportar pedidos em CSV"
 
 
 def test_minor_only_approval_keeps_minors_for_the_report() -> None:
@@ -529,7 +478,7 @@ def test_replan_clears_counters_keeps_history_and_calls_planner() -> None:
 
 
 def test_replan_not_available_before_spec_closes() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.boot()
     d.failed("x")
     d.command(c.EscalationAction(action="replan"))
@@ -586,7 +535,7 @@ def test_instruct_after_agent_failure(
 ) -> None:
     d = Driver()
     if stage == "planner":
-        d.boot()
+        d.to_planner()
     else:
         getattr(d, setup)()
     d.failed("x")
@@ -628,7 +577,7 @@ def test_timeout_of_old_job_is_ignored() -> None:
 @pytest.mark.parametrize(
     ("setup", "wrong", "expected"),
     [
-        ("boot", dev(), "esperava Plan"),
+        ("to_planner", dev(), "esperava Plan"),
         ("to_developing", plan(), "esperava DevResult"),
         ("to_testing", dev(), "esperava TestResult"),
         ("to_reviewing", pass_run(), "esperava ReviewResult"),
@@ -689,7 +638,7 @@ def test_last_review_approval_completes_even_if_budget_is_gone() -> None:
 
 def test_job_budget_is_what_remains() -> None:
     d = Driver(limits=Limits(budget_usd=2.0))
-    d.boot()
+    d.to_planner()
     assert d.job.budget_usd == pytest.approx(2.0)
     d.result(plan(), cost=0.75)
     d.command(c.ApprovePlan())
@@ -727,7 +676,7 @@ def test_job_ids_are_unique_deterministic_and_attempts_increment() -> None:
     d = Driver()
     d.to_testing()
     ids = [e.job.job_id for e in d.history if isinstance(e, DispatchJob)]
-    assert len(ids) == len(set(ids)) == 3
+    assert len(ids) == len(set(ids)) == 5  # interviewer x2, planner, developer, tester
     d2 = Driver()
     d2.to_testing()
     assert [e.job.job_id for e in d2.history if isinstance(e, DispatchJob)] == ids
@@ -737,7 +686,7 @@ def test_job_ids_are_unique_deterministic_and_attempts_increment() -> None:
 
 
 def test_dispatch_order_for_manual_flow_with_failures() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.to_reviewing()
     d.result(review_changes())
     d.result(dev())
@@ -787,7 +736,7 @@ def test_cancel_in_every_non_terminal_phase(setup: str) -> None:
 
 
 def test_cancel_while_interview_waits_marks_stage() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.boot()
     d.result(c.InterviewResult(kind="question", question=question(1)))
     d.command(c.CancelTask())
@@ -854,8 +803,6 @@ def test_stale_io_events_are_ignored() -> None:
     before = d.s
     for e in (
         ev.WorkspaceReady(task_id="T-107", path="/x", branch="b", at=d.tick()),
-        ev.WorkItemLoaded(task_id="T-107", detail=work_item(), at=d.tick()),
-        ev.WorkItemFailed(task_id="T-107", error="x", at=d.tick()),
         ev.WorkspaceFailed(task_id="T-107", error="x", at=d.tick()),
         ev.ReportBuilt(task_id="T-107", files=[], at=d.tick()),
         ev.WorkspaceReady(task_id="T-1", path="/x", branch="b", at=d.tick()),
@@ -868,25 +815,13 @@ def test_stale_io_events_are_ignored() -> None:
 
 
 def test_workspace_failure_fails_the_task() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.start()
     d.feed(ev.WorkspaceFailed(task_id="T-107", error="repo sujo", at=d.tick()))
     s = d.s
     assert s.phase == "failed" and s.ended_at is not None and s.stages["manual"].status == "error"
     assert "repo sujo" in (s.stages["manual"].now or "")
     assert [type(e) for e in d.effects] == [Persist, PublishView]
-
-
-def test_azure_workspace_failure_marks_azure_stage_and_work_item_failure() -> None:
-    d = Driver()
-    d.start()
-    d.feed(ev.WorkItemFailed(task_id="T-107", error="404", at=d.tick()))
-    assert d.s.phase == "failed" and d.s.stages["azure"].status == "error"
-    d2 = Driver()
-    d2.start()
-    d2.feed(ev.WorkItemLoaded(task_id="T-107", detail=work_item(), at=d2.tick()))
-    d2.feed(ev.WorkspaceFailed(task_id="T-107", error="x", at=d2.tick()))
-    assert d2.s.phase == "failed" and d2.s.stages["azure"].status == "error"
 
 
 # ------------------------------------------------------------------ progress / logs
@@ -916,14 +851,8 @@ def test_progress_from_dead_job_is_dropped_and_logs_capped_at_50() -> None:
 # ------------------------------------------------------------------ recovery & serialisation
 
 
-def test_recovery_reissues_fetch_work_item() -> None:
-    d = Driver()
-    d.start()
-    assert recovery_effects(d.s) == [FetchWorkItem("T-107", 4821)]
-
-
 def test_recovery_for_create_workspace_and_report() -> None:
-    d = Driver(source="manual")
+    d = Driver()
     d.start()
     assert recovery_effects(d.s) == [CreateWorkspace("T-107", "sample-repo")]
     d2 = Driver()

@@ -2,16 +2,9 @@
   "task_id": "T-108",
   "title": "Exportar pedidos filtrados em CSV",
   "description": "Usuário precisa exportar os pedidos da listagem em CSV.",
-  "source": "manual",
-  "ref": null,
   "repo": "sample-repo",
   "phase": "interviewing",
   "stages": {
-    "azure": {
-      "status": "skipped",
-      "now": null,
-      "logs": []
-    },
     "manual": {
       "status": "done",
       "now": "Exportar pedidos filtrados em CSV",

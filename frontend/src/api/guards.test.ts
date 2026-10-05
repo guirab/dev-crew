@@ -5,7 +5,6 @@ import {
   isNullableTaskView,
   isRepoList,
   isTaskView,
-  isWorkItemList,
   isWsMessage,
 } from './guards'
 
@@ -54,11 +53,9 @@ describe('isWsMessage', () => {
 })
 
 describe('listas e respostas', () => {
-  it('isRepoList / isWorkItemList', () => {
+  it('isRepoList', () => {
     expect(isRepoList([{ name: 'a', base_branch: 'main' }])).toBe(true)
     expect(isRepoList([{ name: 'a' }])).toBe(false)
-    expect(isWorkItemList([{ id: 1, type: 'Bug', title: 't', state: 'Active' }])).toBe(true)
-    expect(isWorkItemList([{ id: '1', type: 'Bug', title: 't', state: 'Active' }])).toBe(false)
   })
 
   it('isCommandReply tolera error/view ausentes', () => {

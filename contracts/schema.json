@@ -720,9 +720,6 @@
     "Stages": {
       "additionalProperties": false,
       "properties": {
-        "azure": {
-          "$ref": "#/$defs/StageView"
-        },
         "manual": {
           "$ref": "#/$defs/StageView"
         },
@@ -749,7 +746,6 @@
         }
       },
       "required": [
-        "azure",
         "manual",
         "interviewer",
         "planner",
@@ -770,53 +766,20 @@
           "default": "start_task",
           "type": "string"
         },
-        "source": {
-          "enum": [
-            "azure",
-            "manual"
-          ],
-          "type": "string"
-        },
         "repo": {
           "type": "string"
         },
-        "work_item_id": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
         "title": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "type": "string"
         },
         "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "default": "",
+          "type": "string"
         }
       },
       "required": [
         "repo",
-        "source",
+        "title",
         "type"
       ],
       "title": "StartTask",
@@ -833,24 +796,6 @@
         },
         "description": {
           "type": "string"
-        },
-        "source": {
-          "enum": [
-            "azure",
-            "manual"
-          ],
-          "type": "string"
-        },
-        "ref": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
         },
         "repo": {
           "type": "string"
@@ -884,7 +829,6 @@
           "default": {},
           "propertyNames": {
             "enum": [
-              "az-pl",
               "ma-iv",
               "iv-pl",
               "pl-ap",
@@ -902,7 +846,6 @@
           "anyOf": [
             {
               "enum": [
-                "az-pl",
                 "ma-iv",
                 "iv-pl",
                 "pl-ap",
@@ -1018,8 +961,6 @@
         "task_id",
         "title",
         "description",
-        "source",
-        "ref",
         "repo",
         "phase",
         "stages",
@@ -1118,84 +1059,6 @@
         "type"
       ],
       "title": "TestResult",
-      "type": "object"
-    },
-    "WorkItemDetail": {
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "integer"
-        },
-        "type": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "state": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "acceptance_criteria": {
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "iteration_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "url": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "type",
-        "title",
-        "state",
-        "description",
-        "acceptance_criteria",
-        "iteration_path",
-        "url"
-      ],
-      "title": "WorkItemDetail",
-      "type": "object"
-    },
-    "WorkItemSummary": {
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "integer"
-        },
-        "type": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "state": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "type",
-        "title",
-        "state"
-      ],
-      "title": "WorkItemSummary",
       "type": "object"
     },
     "WsMessage": {

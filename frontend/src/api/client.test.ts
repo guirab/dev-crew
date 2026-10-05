@@ -7,20 +7,15 @@ import {
   CommandError,
   fetchCurrentTask,
   fetchRepos,
-  fetchWorkItems,
   postCommand,
 } from './client'
 
 describe('GETs tipados', () => {
-  it('lista repos e work items', async () => {
+  it('lista repos', async () => {
     server.use(
       http.get('*/api/repos', () => HttpResponse.json([{ name: 'a', base_branch: 'main' }])),
-      http.get('*/api/azure/work-items', () =>
-        HttpResponse.json([{ id: 1, type: 'Bug', title: 't', state: 'Active' }]),
-      ),
     )
     await expect(fetchRepos()).resolves.toEqual([{ name: 'a', base_branch: 'main' }])
-    await expect(fetchWorkItems()).resolves.toHaveLength(1)
   })
 
   it('GET /api/task devolve TaskView ou null', async () => {
@@ -67,7 +62,6 @@ describe('postCommand', () => {
     )
     const error = await postCommand({
       type: 'start_task',
-      source: 'manual',
       repo: 'r',
       title: 't',
     }).catch((e: unknown) => e)

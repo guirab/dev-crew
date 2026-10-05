@@ -1,31 +1,24 @@
 {
   "task_id": "T-107",
   "title": "Filtro por intervalo de datas no relatório de vendas",
-  "description": "User Story importada do Azure DevOps.",
-  "source": "azure",
-  "ref": "AB#4821",
+  "description": "Relatório de vendas precisa de filtro por período.",
   "repo": "sample-repo",
   "phase": "escalated",
   "stages": {
-    "azure": {
-      "status": "done",
-      "now": "AB#4821 · Filtro por intervalo de datas",
-      "logs": [
-        {
-          "ts": "2026-10-01T12:00:00Z",
-          "text": "AB#4821 lido via MCP"
-        }
-      ]
-    },
     "manual": {
-      "status": "skipped",
-      "now": null,
+      "status": "done",
+      "now": "Filtro por intervalo de datas no relatório de vendas",
       "logs": []
     },
     "interviewer": {
-      "status": "skipped",
-      "now": null,
-      "logs": []
+      "status": "done",
+      "now": "Spec fechada · 3 decisões",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:02Z",
+          "text": "Spec fechada"
+        }
+      ]
     },
     "planner": {
       "status": "done",
@@ -68,7 +61,8 @@
     }
   },
   "edges": {
-    "az-pl": "on",
+    "ma-iv": "on",
+    "iv-pl": "on",
     "pl-ap": "on",
     "ap-dv": "on",
     "dv-ts": "on",
@@ -82,7 +76,24 @@
     "review_round": 0,
     "max_review_rounds": 2
   },
-  "interview": null,
+  "interview": {
+    "turns": [
+      {
+        "question": {
+          "topic": "Fora de escopo",
+          "question": "O que fica fora do escopo desta entrega?",
+          "recommendation": "Exportar o relatório fica pra depois.",
+          "rationale": null
+        },
+        "answer": "Exportar o relatório fica pra depois.",
+        "accepted_recommendation": true
+      }
+    ],
+    "pending": null,
+    "decisions": [
+      "Fora de escopo: Exportar o relatório fica pra depois."
+    ]
+  },
   "plan": {
     "type": "plan",
     "summary": "Adicionar filtro start_date/end_date no relatório de vendas, com validação e testes.",

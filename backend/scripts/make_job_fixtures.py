@@ -29,7 +29,6 @@ SPEC = TaskSpec(
         "O relatório de vendas (shop/report.py) deve aceitar data inicial e final "
         "e considerar só as vendas dentro do intervalo."
     ),
-    source="manual",
     repo="sample-repo",
     acceptance_criteria=[
         "Intervalo inclusivo nas duas pontas",

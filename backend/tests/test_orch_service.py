@@ -16,16 +16,13 @@ from crew.orchestrator import machine as m
 from crew.orchestrator.devfakes import FakeCrew
 from crew.orchestrator.store import Store
 
-from .core_helpers import dev, plan
+from .core_helpers import dev
 from .git_helpers import sh_git
 from .rig import Rig, start_orchestrator, start_rig
 
 pytestmark = pytest.mark.nats
 
-START_MANUAL = c.StartTask(
-    source="manual", repo="sample-repo", title="Exportar pedidos em CSV", description="CSV"
-)
-START_AZURE = c.StartTask(source="azure", repo="sample-repo", work_item_id=4821)
+START_MANUAL = c.StartTask(repo="sample-repo", title="Exportar pedidos em CSV", description="CSV")
 
 
 @pytest.fixture
@@ -48,13 +45,20 @@ async def drive_interview(rig: Rig) -> None:
         await rig.ok(c.AnswerInterview(text=None if i != 1 else "só CSV com BOM"))
 
 
+async def start_to_plan(rig: Rig, *, timeout: float = 10.0) -> c.TaskView:
+    """Start a manual task, accept every interview recommendation and wait for the plan."""
+    await rig.ok(START_MANUAL)
+    await drive_interview(rig)
+    return await rig.wait_phase("awaiting_approval", timeout=timeout)
+
+
 async def test_state_current_is_null_without_task(rig: Rig) -> None:
     assert await rig.current() is None
 
 
 async def test_manual_flow_to_done_with_interview_failure_loops_and_report(rig: Rig) -> None:
     first = await rig.ok(START_MANUAL)
-    assert first.task_id == "T-1" and first.phase == "interviewing" and first.source == "manual"
+    assert first.task_id == "T-1" and first.phase == "interviewing"
 
     await drive_interview(rig)
     plan_view = await rig.wait_phase("awaiting_approval")
@@ -107,15 +111,9 @@ async def test_manual_flow_to_done_with_interview_failure_loops_and_report(rig: 
     assert (await rig.current()) == done
 
 
-async def test_azure_flow_adjusts_plan_then_completes(rig: Rig) -> None:
-    started = await rig.ok(START_AZURE)
-    assert started.ref == "AB#4821" and started.source == "azure"
-    first_plan = await rig.wait_phase("awaiting_approval")
-    assert (
-        first_plan.title.startswith("Filtro por intervalo")
-        and first_plan.stages.interviewer.status == "skipped"
-    )
-    assert first_plan.stages.azure.status == "done" and first_plan.interview is None
+async def test_adjust_plan_then_completes(rig: Rig) -> None:
+    first_plan = await start_to_plan(rig)
+    assert first_plan.title == "Exportar pedidos em CSV" and first_plan.stages.interviewer.status == "done"
 
     adjusted = await rig.ok(c.AdjustPlan(text="não mexer no módulo de auth"))
     assert adjusted.phase == "planning"
@@ -126,19 +124,18 @@ async def test_azure_flow_adjusts_plan_then_completes(rig: Rig) -> None:
 
     await rig.ok(c.ApprovePlan())
     done = await rig.wait_phase("done")
-    assert done.final is not None and "Refs: AB#4821" in done.final.commit_message
+    assert done.final is not None
     assert "planning" in rig.phases()[2:], "adjust loops back through planning"
     # the job the planner got for the adjustment carried the user text and the previous plan
     jobs = rig.store.jobs("T-1")
-    assert [j.agent for j in jobs][:3] == ["planner", "planner", "developer"]
+    assert [j.agent for j in jobs if j.agent != "interviewer"][:3] == ["planner", "planner", "developer"]
     assert all(j.status == "done" for j in jobs)
 
 
 async def test_escalation_then_instruction_resumes_to_done(nats_url: str, tmp_path: Path) -> None:
     rig = await start_rig(nats_url, tmp_path, escalate=True)
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_phase("awaiting_approval")
+        await start_to_plan(rig)
         await rig.ok(c.ApprovePlan())
         esc = await rig.wait_phase("escalated")
         assert esc.escalation == c.Escalation(stage="tester", reason="3 falhas consecutivas de teste")
@@ -157,8 +154,7 @@ async def test_escalation_then_instruction_resumes_to_done(nats_url: str, tmp_pa
 async def test_escalation_more_attempts_raises_limit_and_finishes(nats_url: str, tmp_path: Path) -> None:
     rig = await start_rig(nats_url, tmp_path, escalate=True, max_test_attempts=3, max_review_rounds=3)
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_phase("awaiting_approval")
+        await start_to_plan(rig)
         await rig.ok(c.ApprovePlan())
         await rig.wait_phase("escalated")
         view = await rig.ok(c.EscalationAction(action="more_attempts"))
@@ -172,8 +168,7 @@ async def test_escalation_more_attempts_raises_limit_and_finishes(nats_url: str,
 async def test_escalation_replan_goes_back_to_approval(nats_url: str, tmp_path: Path) -> None:
     rig = await start_rig(nats_url, tmp_path, escalate=True)
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_phase("awaiting_approval")
+        await start_to_plan(rig)
         await rig.ok(c.ApprovePlan())
         await rig.wait_phase("escalated")
         replanned = await rig.ok(c.EscalationAction(action="replan"))
@@ -189,8 +184,7 @@ async def test_escalation_replan_goes_back_to_approval(nats_url: str, tmp_path: 
 async def test_cancel_stops_the_running_agent_and_ignores_late_results(nats_url: str, tmp_path: Path) -> None:
     rig = await start_rig(nats_url, tmp_path, speed=1.0)  # real-time fake: developer takes ~2s
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_phase("awaiting_approval", timeout=30)
+        await start_to_plan(rig, timeout=30)
         await rig.ok(c.ApprovePlan())
         await rig.wait_phase("developing")
         cancelled = await rig.ok(c.CancelTask())
@@ -210,14 +204,12 @@ async def test_cancel_stops_the_running_agent_and_ignores_late_results(nats_url:
 
 
 async def test_only_one_active_task_and_validation_replies(rig: Rig) -> None:
-    await rig.ok(START_AZURE)
+    await rig.ok(START_MANUAL)
     dup = await rig.cmd(START_MANUAL)
     assert not dup.ok and dup.error == m.ERR_ACTIVE_TASK
     await rig.ok(c.CancelTask())
-    unknown = await rig.cmd(c.StartTask(source="manual", repo="nope", title="x"))
+    unknown = await rig.cmd(c.StartTask(repo="nope", title="x"))
     assert not unknown.ok and unknown.error == m.ERR_UNKNOWN_REPO
-    noitem = await rig.cmd(c.StartTask(source="azure", repo="sample-repo"))
-    assert noitem.error == m.ERR_WORK_ITEM_REQUIRED
     wrong = await rig.cmd(c.ApprovePlan())
     assert wrong.error == m.ERR_NO_TASK
 
@@ -260,19 +252,19 @@ async def test_workspace_failure_fails_the_task(nats_url: str, tmp_path: Path) -
 async def test_job_timeout_escalates_when_nobody_answers(nats_url: str, tmp_path: Path) -> None:
     rig = await start_rig(nats_url, tmp_path, agents=False, job_timeout_min=0.01)  # 0.6 s
     try:
-        await rig.ok(START_AZURE)
+        await rig.ok(START_MANUAL)
         esc = await rig.wait_phase("escalated")
-        assert esc.escalation is not None and esc.escalation.stage == "planner"
+        assert esc.escalation is not None and esc.escalation.stage == "interviewer"
         assert "sem resposta" in esc.escalation.reason
     finally:
         await rig.aclose()
 
 
 async def test_budget_exhaustion_escalates_and_more_attempts_resumes(nats_url: str, tmp_path: Path) -> None:
-    rig = await start_rig(nats_url, tmp_path, budget_usd_per_task=0.12)  # each fake job costs 0.05
+    # each fake job costs 0.05: interview (4 jobs) + planner + developer = 0.30, the tester tips it over
+    rig = await start_rig(nats_url, tmp_path, budget_usd_per_task=0.32)
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_phase("awaiting_approval")
+        await start_to_plan(rig)
         await rig.ok(c.ApprovePlan())
         esc = await rig.wait_phase("escalated")
         assert "orçamento" in (esc.escalation.reason if esc.escalation else "")
@@ -280,18 +272,17 @@ async def test_budget_exhaustion_escalates_and_more_attempts_resumes(nats_url: s
         assert blocked.error == m.ERR_BUDGET
         await rig.ok(c.EscalationAction(action="more_attempts"))
         # keeps going; may escalate again for budget on a later step, but must have made progress
-        await rig.wait_for(lambda v: v.cost_usd >= 0.2)
+        await rig.wait_for(lambda v: v.cost_usd >= 0.4)
     finally:
         await rig.aclose()
 
 
 async def test_everything_is_persisted_and_event_logged(rig: Rig) -> None:
-    await rig.ok(START_AZURE)
-    await rig.wait_phase("awaiting_approval")
+    await start_to_plan(rig)
     saved = rig.store.load_task("T-1")
     assert saved is not None and saved.phase == "awaiting_approval" and saved.plan is not None
     kinds = [e.kind for e in rig.store.event_log("T-1")]
-    assert kinds[0] == "command" and "work_item_loaded" in kinds and "result" in kinds
+    assert kinds[0] == "command" and "workspace_ready" in kinds and "result" in kinds
     assert "progress" not in kinds
 
 
@@ -299,8 +290,7 @@ async def test_restart_between_steps_republishes_view_and_continues(nats_url: st
     store = Store(tmp_path / "crew.db")
     rig = await start_rig(nats_url, tmp_path, store=store)
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_phase("awaiting_approval")
+        await start_to_plan(rig)
 
         # "crash": stop the orchestrator only, keep bus / agents / store
         rig.stop.set()
@@ -319,7 +309,7 @@ async def test_restart_between_steps_republishes_view_and_continues(nats_url: st
         view = await rig.wait_phase("awaiting_approval", timeout=10)
         assert view.task_id == "T-1" and view.plan is not None, "view republished from SQLite on boot"
         assert (await rig.current()) == view
-        assert not (await rig.cmd(START_AZURE)).ok, "the recovered task is still the active one"
+        assert not (await rig.cmd(START_MANUAL)).ok, "the recovered task is still the active one"
 
         # agents died with the old stop event; start fresh ones against the new orchestrator
         crew = FakeCrew(rig.bus, speed=5000)
@@ -336,8 +326,8 @@ async def test_in_flight_result_survives_an_orchestrator_restart(nats_url: str, 
     store = Store(tmp_path / "crew.db")
     rig = await start_rig(nats_url, tmp_path, store=store, agents=False)
     try:
-        await rig.ok(START_AZURE)
-        await rig.wait_for(lambda v: v.stages.planner.status == "active")  # planner job dispatched
+        await rig.ok(START_MANUAL)
+        await rig.wait_for(lambda v: v.stages.interviewer.status == "active")  # interviewer job dispatched
         before = rig.store.load_task("T-1")
         assert before is not None and before.current_job_id is not None
         job_id = before.current_job_id
@@ -349,15 +339,20 @@ async def test_in_flight_result_survives_an_orchestrator_restart(nats_url: str, 
         rig.stop = asyncio.Event()
         rig.views.clear()
 
-        # while the orchestrator is down the planner finishes
-        res = c.AgentResultEvt(agent="planner", job_id=job_id, output=plan(), cost_usd=0.1, session_id="sess")
-        await rig.bus.publish_event("T-1", "result", res, source="planner")
+        # while the orchestrator is down the interviewer finishes
+        spec = c.TaskSpec(title="Exportar pedidos em CSV", description="CSV", repo="sample-repo")
+        out = c.InterviewResult(kind="done", spec=spec)
+        res = c.AgentResultEvt(
+            agent="interviewer", job_id=job_id, output=out, cost_usd=0.1, session_id="sess"
+        )
+        await rig.bus.publish_event("T-1", "result", res, source="interviewer")
 
         store.close()
         rig.store = Store(tmp_path / "crew.db")
         await start_orchestrator(rig)
-        view = await rig.wait_phase("awaiting_approval", timeout=15)
+        view = await rig.wait_phase("planning", timeout=15)
         after = rig.store.load_task("T-1")
-        assert view.plan is not None and after is not None and after.sessions["planner"] == "sess"
+        assert view.stages.interviewer.status == "done" and after is not None
+        assert after.sessions["interviewer"] == "sess"
     finally:
         await rig.aclose()

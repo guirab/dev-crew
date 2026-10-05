@@ -1,7 +1,7 @@
 import type { TaskView } from '../contracts/generated'
 import { isTaskView } from '../api/guards'
 import type { CommandOutcome, MockBackend } from './backend'
-import { REPOS, WORK_ITEMS } from './data'
+import { REPOS } from './data'
 
 const fixtureLoaders = import.meta.glob('../../../contracts/fixtures/view.*.json', {
   import: 'default',
@@ -31,7 +31,6 @@ export async function loadFixture(name: string): Promise<TaskView> {
 /** Backend de uma fixture estática: sempre devolve o mesmo snapshot; comandos são recusados. */
 export class FixtureBackend implements MockBackend {
   readonly repos = REPOS
-  readonly workItems = WORK_ITEMS
 
   constructor(
     private readonly view: TaskView,

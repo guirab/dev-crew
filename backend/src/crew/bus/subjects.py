@@ -10,8 +10,6 @@ EVENTS_WILDCARD = "crew.evt.>"
 
 CMD = "crew.cmd"
 STATE_CURRENT = "crew.state.current"
-AZURE_LIST = "crew.azure.list"
-AZURE_GET = "crew.azure.get"
 
 ORCHESTRATOR_DURABLE = "orchestrator"
 

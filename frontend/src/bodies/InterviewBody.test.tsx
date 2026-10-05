@@ -124,14 +124,8 @@ describe('InterviewBody', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
-  it('tarefa do Azure: explica que o estágio foi pulado', () => {
-    const azure = fixture('planning')
-    renderWithClient(<InterviewBody view={azure} stage={azure.stages.interviewer} />)
-    expect(screen.getByText('Pulado — tarefa veio do Azure DevOps.')).toBeInTheDocument()
-  })
-
   it('sem tarefa: explica quando o estágio entra', () => {
     renderWithClient(<InterviewBody view={null} stage={{ status: 'idle', now: null, logs: [] }} />)
-    expect(screen.getByText(/Entra só em tarefa manual/)).toBeInTheDocument()
+    expect(screen.getByText(/Pergunta em rodadas/)).toBeInTheDocument()
   })
 })

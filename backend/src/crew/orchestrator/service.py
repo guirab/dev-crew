@@ -1,7 +1,7 @@
 """Orchestrator service: the I/O shell around ``machine.decide``.
 
 All inputs (commands, agent results, progress, async effect completions, timeouts) go through ONE inbox
-consumed by ONE worker, so ``decide`` always sees a consistent state. Slow effects (worktree, Azure,
+consumed by ONE worker, so ``decide`` always sees a consistent state. Slow effects (worktree,
 diff report) run as background tasks and post their completion back into the inbox.
 """
 
@@ -33,7 +33,6 @@ from ..contracts import (
     CommandReply,
     Envelope,
     StartTask,
-    WorkItemDetail,
 )
 from ..workspace.manager import WorkspaceManager
 from . import machine
@@ -43,7 +42,6 @@ from .effects import (
     CreateWorkspace,
     DispatchJob,
     Effect,
-    FetchWorkItem,
     LogStale,
     Persist,
     PublishView,
@@ -58,8 +56,6 @@ from .events import (
     JobTimedOut,
     ReportBuilt,
     StartParams,
-    WorkItemFailed,
-    WorkItemLoaded,
     WorkspaceFailed,
     WorkspaceReady,
 )
@@ -69,7 +65,6 @@ from .store import Store
 log = structlog.get_logger(__name__)
 
 COMMAND_TIMEOUT_S = 30.0
-AZURE_GET_TIMEOUT_S = 150.0  # first MCP spawn (npx download) is slow
 
 
 @dataclass
@@ -318,8 +313,6 @@ class OrchestratorService:
                 await self._cancel_jobs(effect)
             case CreateWorkspace():
                 self._spawn(self._create_workspace(effect), f"create-workspace-{effect.task_id}")
-            case FetchWorkItem():
-                self._spawn(self._fetch_work_item(effect), f"fetch-work-item-{effect.task_id}")
             case BuildFinalReport():
                 self._spawn(self._build_report(effect), f"final-report-{effect.task_id}")
             case LogStale():
@@ -383,19 +376,6 @@ class OrchestratorService:
             event = WorkspaceFailed(effect.task_id, str(e), at())
         await self._inbox.put(_Item(event))
 
-    async def _fetch_work_item(self, effect: FetchWorkItem) -> None:
-        at = self.clock
-        event: Event
-        try:
-            raw = await self.bus.request_raw(
-                s.AZURE_GET, json.dumps({"id": effect.work_item_id}).encode(), timeout=AZURE_GET_TIMEOUT_S
-            )
-            event = WorkItemLoaded(effect.task_id, _parse_work_item(raw), at())
-        except Exception as e:
-            log.warning("work_item_failed", task_id=effect.task_id, error=str(e))
-            event = WorkItemFailed(effect.task_id, str(e), at())
-        await self._inbox.put(_Item(event))
-
     async def _build_report(self, effect: BuildFinalReport) -> None:
         at = self.clock
         try:
@@ -437,19 +417,6 @@ def _log_task_end(task: asyncio.Task[None]) -> None:
         log.error("orchestrator_task_died", task=task.get_name(), error=repr(exc))
 
 
-def _parse_work_item(raw: bytes) -> WorkItemDetail:
-    """``crew.azure.get`` replies a ``WorkItemDetail`` or ``{"ok": false, "error": ...}``."""
-    try:
-        data = json.loads(raw)
-    except ValueError as e:
-        raise RuntimeError("resposta inválida do serviço Azure") from e
-    if isinstance(data, dict) and data.get("ok") is False:
-        raise RuntimeError(str(data.get("error") or "erro no serviço Azure"))
-    if data is None:
-        raise RuntimeError("work item não encontrado")
-    return WorkItemDetail.model_validate(data)
-
-
 def _loggable(event: Event) -> tuple[str | None, str]:
     """What goes into the append-only event log (progress is too chatty and is skipped)."""
     match event:
@@ -463,10 +430,8 @@ def _loggable(event: Event) -> tuple[str | None, str]:
             return "timeout", json.dumps({"job_id": str(event.job_id)})
         case WorkspaceReady():
             return "workspace_ready", json.dumps({"path": event.path, "branch": event.branch})
-        case WorkspaceFailed() | WorkItemFailed():
+        case WorkspaceFailed():
             return "boot_failed", json.dumps({"error": event.error})
-        case WorkItemLoaded():
-            return "work_item_loaded", event.detail.model_dump_json()
         case ReportBuilt():
             return "report_built", json.dumps([f.model_dump() for f in event.files])
         case AgentProgressed():

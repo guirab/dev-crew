@@ -1,20 +1,8 @@
-import type { InterviewQuestion, RepoInfo, WorkItemSummary } from '../contracts/generated'
+import type { InterviewQuestion, RepoInfo } from '../contracts/generated'
 
 export const REPOS: readonly RepoInfo[] = [
   { name: 'portal-vendas', base_branch: 'main' },
   { name: 'api-pedidos', base_branch: 'main' },
-]
-
-export const WORK_ITEMS: readonly WorkItemSummary[] = [
-  { id: 4830, type: 'Bug', title: 'Erro 500 ao salvar cliente sem CPF', state: 'Active' },
-  { id: 4827, type: 'User Story', title: 'Dashboard de metas por vendedor', state: 'Active' },
-  {
-    id: 4821,
-    type: 'User Story',
-    title: 'Filtro por intervalo de datas no relatório de vendas',
-    state: 'Active',
-  },
-  { id: 4819, type: 'Task', title: 'Atualizar SDK de pagamentos pra v5', state: 'New' },
 ]
 
 export const INTERVIEW_QUESTIONS: readonly InterviewQuestion[] = [

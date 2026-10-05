@@ -3,9 +3,8 @@ import type {
   CommandReply,
   RepoInfo,
   TaskView,
-  WorkItemSummary,
 } from '../contracts/generated'
-import { isCommandReply, isNullableTaskView, isRepoList, isWorkItemList } from './guards'
+import { isCommandReply, isNullableTaskView, isRepoList } from './guards'
 
 /** Erro de chamada ao gateway. `status` 0 = sem resposta (rede/servidor fora). */
 export class ApiError extends Error {
@@ -52,10 +51,6 @@ async function getJson<T>(path: string, guard: (v: unknown) => v is T): Promise<
 
 export function fetchRepos(): Promise<RepoInfo[]> {
   return getJson('/api/repos', isRepoList)
-}
-
-export function fetchWorkItems(): Promise<WorkItemSummary[]> {
-  return getJson('/api/azure/work-items', isWorkItemList)
 }
 
 export function fetchCurrentTask(): Promise<TaskView | null> {

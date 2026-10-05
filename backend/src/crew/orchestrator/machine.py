@@ -44,7 +44,6 @@ from .effects import (
     CreateWorkspace,
     DispatchJob,
     Effect,
-    FetchWorkItem,
     LogStale,
     Persist,
     PublishView,
@@ -59,8 +58,6 @@ from .events import (
     JobTimedOut,
     ReportBuilt,
     StartParams,
-    WorkItemFailed,
-    WorkItemLoaded,
     WorkspaceFailed,
     WorkspaceReady,
 )
@@ -75,7 +72,6 @@ ERR_BUDGET: Final = "orçamento estourado — use more_attempts para liberar +50
 CONFLICT_ERRORS: Final = frozenset({ERR_ACTIVE_TASK, ERR_NO_TASK, ERR_WRONG_PHASE, ERR_BUDGET})
 
 ERR_UNKNOWN_REPO: Final = "repositório desconhecido"
-ERR_WORK_ITEM_REQUIRED: Final = "work_item_id é obrigatório para tarefas do Azure"
 ERR_TITLE_REQUIRED: Final = "título é obrigatório para tarefas manuais"
 ERR_TEXT_REQUIRED: Final = "texto obrigatório"
 ERR_REPLAN_UNAVAILABLE: Final = "replanejar não se aplica: a spec ainda não foi fechada"
@@ -108,7 +104,7 @@ def decide(state: TaskState | None, event: Event) -> tuple[TaskState | None, lis
             return _on_command(state, event)
         case AgentResult() | AgentFailed() | AgentProgressed() | JobTimedOut():
             return _on_agent_event(state, event)
-        case WorkItemLoaded() | WorkItemFailed() | WorkspaceReady() | WorkspaceFailed() | ReportBuilt():
+        case WorkspaceReady() | WorkspaceFailed() | ReportBuilt():
             return _on_io_event(state, event)
 
 
@@ -117,8 +113,6 @@ def recovery_effects(state: TaskState) -> list[Effect]:
     if state.terminal:
         return []
     match state.boot:
-        case "fetch_work_item" if state.work_item_id is not None:
-            return [FetchWorkItem(state.task_id, state.work_item_id)]
         case "create_workspace":
             return [CreateWorkspace(state.task_id, state.repo.name)]
         case "build_report" if state.workspace_path:
@@ -305,12 +299,8 @@ def _failure_summary(s: TaskState) -> str:
 
 
 def _fallback_commit_message(s: TaskState) -> str:
-    kind = "fix" if s.spec.work_item is not None and s.spec.work_item.type.lower() == "bug" else "feat"
     title = s.title[:1].lower() + s.title[1:]
-    msg = f"{kind}: {title}"
-    if s.ref:
-        msg += f"\n\nRefs: {s.ref}"
-    return msg
+    return f"feat: {title}"
 
 
 # ============================================================ commands
@@ -344,52 +334,25 @@ def _start(
 ) -> tuple[TaskState | None, list[Effect]]:
     if state is not None and not state.terminal:
         return _reject(state, ERR_ACTIVE_TASK)
-    if cmd.source == "azure" and cmd.work_item_id is None:
-        return _reject(state, ERR_WORK_ITEM_REQUIRED)
-    title = (cmd.title or "").strip()
-    if cmd.source == "manual" and not title:
+    title = cmd.title.strip()
+    if not title:
         return _reject(state, ERR_TITLE_REQUIRED)
     if params is None:
         return _reject(state, ERR_UNKNOWN_REPO)
 
     repo = params.repo
-    if cmd.source == "azure":
-        assert cmd.work_item_id is not None
-        s = TaskState(
-            task_id=params.task_id,
-            title=f"Work item #{cmd.work_item_id}",
-            description="",
-            source="azure",
-            ref=f"AB#{cmd.work_item_id}",
-            repo=repo,
-            limits=params.limits,
-            phase="planning",
-            spec=TaskSpec(
-                title=f"Work item #{cmd.work_item_id}", description="", source="azure", repo=repo.name
-            ),
-            work_item_id=cmd.work_item_id,
-            boot="fetch_work_item",
-            started_at=at,
-        )
-        _set(s, "manual", "skipped", None, at)
-        _set(s, "interviewer", "skipped", None, at)
-        _set(s, "azure", "active", f"Lendo work item AB#{cmd.work_item_id} via MCP", at)
-        return _commit(s, FetchWorkItem(s.task_id, cmd.work_item_id))
-
-    description = (cmd.description or "").strip()
+    description = cmd.description.strip()
     s = TaskState(
         task_id=params.task_id,
         title=title,
         description=description,
-        source="manual",
         repo=repo,
         limits=params.limits,
         phase="interviewing",
-        spec=TaskSpec(title=title, description=description, source="manual", repo=repo.name),
+        spec=TaskSpec(title=title, description=description, repo=repo.name),
         boot="create_workspace",
         started_at=at,
     )
-    _set(s, "azure", "skipped", None, at)
     _set(s, "manual", "done", title, at)
     return _commit(s, CreateWorkspace(s.task_id, repo.name))
 
@@ -570,56 +533,28 @@ def _instruct(s: TaskState, esc: EscalationState, text: str, at: datetime) -> li
     return _advance(s, at, "developer", edge=edge, feedback=fb, now=quoted)
 
 
-# ============================================================ io events (workspace / azure / report)
+# ============================================================ io events (workspace / report)
 
 
 def _on_io_event(
     state: TaskState | None,
-    ev: WorkItemLoaded | WorkItemFailed | WorkspaceReady | WorkspaceFailed | ReportBuilt,
+    ev: WorkspaceReady | WorkspaceFailed | ReportBuilt,
 ) -> tuple[TaskState | None, list[Effect]]:
     if state is None or state.terminal or state.task_id != ev.task_id:
         return _stale(state, ev.task_id, type(ev).__name__)
     s = _copy(state)
     match ev:
-        case WorkItemLoaded():
-            if s.boot != "fetch_work_item":
-                return _stale(state, ev.task_id, "WorkItemLoaded")
-            wi = ev.detail
-            s.title = wi.title
-            s.description = wi.description.strip()[:600] or f"{wi.type} importada do Azure DevOps."
-            s.spec = TaskSpec(
-                title=wi.title,
-                description=wi.description,
-                source="azure",
-                repo=s.repo.name,
-                work_item=wi,
-                acceptance_criteria=list(wi.acceptance_criteria),
-            )
-            s.boot = "create_workspace"
-            _log(s, "azure", f"AB#{wi.id} lido via MCP", ev.at)
-            _set(s, "azure", "done", f"AB#{wi.id} · {wi.title}", ev.at)
-            return _commit(s, CreateWorkspace(s.task_id, s.repo.name))
-        case WorkItemFailed():
-            if s.boot != "fetch_work_item":
-                return _stale(state, ev.task_id, "WorkItemFailed")
-            return _fail_boot(s, "azure", f"Falha ao ler o work item: {ev.error}", ev.at)
         case WorkspaceFailed():
             if s.boot != "create_workspace":
                 return _stale(state, ev.task_id, "WorkspaceFailed")
-            key: StageKey = "azure" if s.source == "azure" else "manual"
-            return _fail_boot(s, key, f"Falha ao preparar o worktree: {ev.error}", ev.at)
+            return _fail_boot(s, "manual", f"Falha ao preparar o worktree: {ev.error}", ev.at)
         case WorkspaceReady():
             if s.boot != "create_workspace":
                 return _stale(state, ev.task_id, "WorkspaceReady")
             s.boot = None
             s.workspace_path = ev.path
             s.branch = ev.branch
-            if s.source == "azure":
-                effects = _advance(s, ev.at, "planner", edge="az-pl")
-            else:
-                effects = _advance(
-                    s, ev.at, "interviewer", edge="ma-iv", now="Preparando a primeira pergunta"
-                )
+            effects = _advance(s, ev.at, "interviewer", edge="ma-iv", now="Preparando a primeira pergunta")
             return _commit(s, *effects)
         case ReportBuilt():
             if s.boot != "build_report" or s.review is None:
@@ -752,7 +687,6 @@ def _interviewer_result(
         s.spec = out.spec.model_copy(
             update={
                 "repo": s.repo.name,
-                "source": "manual",
                 "decisions": out.spec.decisions or list(s.decisions),
             }
         )

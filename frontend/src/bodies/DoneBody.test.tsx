@@ -31,7 +31,7 @@ describe('DoneBody', () => {
 
     const message = screen.getByText(/^feat: filtro por intervalo/)
     expect(message.tagName).toBe('PRE')
-    expect(message).toHaveTextContent('Refs: AB#4821')
+    expect(message).not.toHaveTextContent('Refs:')
   })
 
   it('copia a mensagem de commit pra área de transferência e confirma', async () => {

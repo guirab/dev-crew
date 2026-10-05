@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { REPOS, WORK_ITEMS } from '../mocks/data'
+import { REPOS } from '../mocks/data'
 
 /**
  * Servidor MSW compartilhado pelos testes (listen/reset/close no setup global).
@@ -8,5 +8,4 @@ import { REPOS, WORK_ITEMS } from '../mocks/data'
  */
 export const server = setupServer(
   http.get('*/api/repos', () => HttpResponse.json(REPOS)),
-  http.get('*/api/azure/work-items', () => HttpResponse.json(WORK_ITEMS)),
 )

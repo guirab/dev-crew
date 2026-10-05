@@ -30,7 +30,7 @@ def statuses(v: c.TaskView) -> dict[str, str]:
 
 
 def seq_interviewing() -> Driver:
-    d = Driver(source="manual")
+    d = Driver()
     d.boot()
     d.result(c.InterviewResult(kind="question", question=question(1)))
     d.command(c.AnswerInterview(text=None))
@@ -40,7 +40,7 @@ def seq_interviewing() -> Driver:
 
 def seq_planning() -> Driver:
     d = Driver()
-    d.boot()
+    d.to_planner()
     return d
 
 
@@ -118,12 +118,13 @@ def test_view_matches_fixture(name: str) -> None:
     assert got.edges == expected.edges
     assert got.active_edge == expected.active_edge
     assert got.counters == expected.counters
-    assert got.source == expected.source and got.repo == expected.repo
+    assert got.repo == expected.repo
     assert (got.interview is None) == (expected.interview is None)
     if expected.interview is not None and got.interview is not None:
         assert len(got.interview.turns) == len(expected.interview.turns)
-        assert got.interview.pending is not None and expected.interview.pending is not None
-        assert got.interview.pending.topic == expected.interview.pending.topic
+        assert (got.interview.pending is None) == (expected.interview.pending is None)
+        if got.interview.pending is not None and expected.interview.pending is not None:
+            assert got.interview.pending.topic == expected.interview.pending.topic
         assert len(got.interview.decisions) == len(expected.interview.decisions)
     assert (got.plan is None) == (expected.plan is None)
     assert [r.round for r in got.dev_rounds] == [r.round for r in expected.dev_rounds]
@@ -167,8 +168,6 @@ def test_view_final_report_fields() -> None:
     assert v.cost_usd == v.final.cost_usd and v.ended_at is not None
 
 
-def test_view_header_for_azure_and_manual() -> None:
-    v = seq_planning().s.to_view()
-    assert v.ref == "AB#4821" and v.title.startswith("Filtro") and v.interview is None
+def test_view_header_for_manual_task() -> None:
     m = seq_interviewing().s.to_view()
-    assert m.ref is None and m.title == "Exportar pedidos em CSV" and m.interview is not None
+    assert m.title == "Exportar pedidos em CSV" and m.interview is not None

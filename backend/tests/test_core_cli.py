@@ -53,7 +53,7 @@ def by_name(checks: list[d.Check], prefix: str) -> d.Check:
 
 
 async def test_doctor_reports_missing_config_with_a_fix(tmp_path: Path) -> None:
-    checks = await d.run_checks(tmp_path / "nope.toml", run_tests=False, check_azure_too=False)
+    checks = await d.run_checks(tmp_path / "nope.toml", run_tests=False)
     cfg = by_name(checks, "config")
     assert cfg.status == "fail" and "crew.toml.example" in cfg.hint
     assert d.exit_code(checks) == 1
@@ -63,12 +63,11 @@ async def test_doctor_reports_missing_config_with_a_fix(tmp_path: Path) -> None:
 async def test_doctor_all_green_with_real_nats_and_repo(nats_url: str, tmp_path: Path) -> None:
     repo = make_git_repo(tmp_path / "repos")
     toml = write_toml(tmp_path, repo, test_cmd=f"{PY} -c pass", nats=nats_url)
-    checks = await d.run_checks(toml, run_tests=True, check_azure_too=True, secrets=Secrets(_env_file=None))
+    checks = await d.run_checks(toml, run_tests=True, secrets=Secrets(_env_file=None))
     assert by_name(checks, "nats").status in ("ok", "warn")  # warn only if streams were never created
     assert by_name(checks, "config").status == "ok"
     assert by_name(checks, "repo:sample-repo").status == "ok"
     assert by_name(checks, "test_cmd:sample-repo").status == "ok"
-    assert by_name(checks, "azure").detail.startswith("não configurado")
     assert by_name(checks, "workspace").status == "ok"
     assert d.exit_code(checks) == 0
 
@@ -76,7 +75,7 @@ async def test_doctor_all_green_with_real_nats_and_repo(nats_url: str, tmp_path:
 async def test_doctor_nats_down_tells_how_to_start_it(tmp_path: Path) -> None:
     repo = make_git_repo(tmp_path / "repos")
     toml = write_toml(tmp_path, repo, test_cmd=f"{PY} -c pass", nats="nats://127.0.0.1:1")
-    checks = await d.run_checks(toml, run_tests=False, check_azure_too=False)
+    checks = await d.run_checks(toml, run_tests=False)
     nats = by_name(checks, "nats")
     assert nats.status == "fail" and "inacessível" in nats.detail and "docker compose" in nats.hint
     assert d.exit_code(checks) == 1
@@ -134,28 +133,7 @@ async def test_doctor_claude_auth_reads_the_cli_login(monkeypatch: pytest.Monkey
     assert (await d.check_claude_auth(Secrets(_env_file=None))).status == "warn"
 
 
-async def test_doctor_azure_missing_pat_is_a_clear_failure() -> None:
-    from crew.config import AzureCfg
 
-    cfg = CrewConfig(azure=AzureCfg(organization="o", project="p", team="t"))
-    check = await d.check_azure(cfg, Secrets(_env_file=None))
-    assert check.status == "fail" and "AZURE_DEVOPS_PAT_B64" in check.detail
-
-
-async def test_doctor_azure_lists_one_item_through_a_backend() -> None:
-    from crew.azure.fake import FakeAzureBackend
-    from crew.config import AzureCfg
-
-    class Backend:
-        def __init__(self) -> None:
-            self.inner = FakeAzureBackend()
-
-        async def list_work_items(self):  # type: ignore[no-untyped-def]
-            return await self.inner.list_work_items()
-
-    cfg = CrewConfig(azure=AzureCfg(organization="o", project="p", team="t"))
-    check = await d.check_azure(cfg, Secrets(_env_file=None), backend=Backend())  # type: ignore[arg-type]
-    assert check.status == "ok" and "4 item(ns)" in check.detail
 
 
 def test_render_includes_hints_only_when_not_ok() -> None:
@@ -171,7 +149,7 @@ def test_render_includes_hints_only_when_not_ok() -> None:
 def test_doctor_cli_exit_code_and_output(tmp_path: Path) -> None:
     repo = make_git_repo(tmp_path / "repos")
     toml = write_toml(tmp_path, repo, test_cmd=f"{PY} -c pass")  # nats unreachable -> blocking failure
-    result = runner.invoke(app, ["doctor", "--config", str(toml), "--skip-tests", "--skip-azure"])
+    result = runner.invoke(app, ["doctor", "--config", str(toml), "--skip-tests"])
     assert result.exit_code == 1
     assert "FAIL" in result.output and "nats" in result.output and "docker compose" in result.output
 
@@ -220,11 +198,11 @@ def test_svc_rejects_unknown_service() -> None:
 
 
 def test_up_without_config_explains(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["up", "--fake-agents", "--fake-azure", "--config", str(tmp_path / "x.toml")])
+    result = runner.invoke(app, ["up", "--fake-agents", "--config", str(tmp_path / "x.toml")])
     assert result.exit_code == 1 and "não existe" in result.output
 
 
 def test_up_help_lists_the_fake_flags() -> None:
     out = runner.invoke(app, ["up", "--help"]).output
-    for flag in ("--fake-agents", "--fake-azure", "--fake-speed", "--fake-escalate"):
+    for flag in ("--fake-agents", "--fake-speed", "--fake-escalate"):
         assert flag in out

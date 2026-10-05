@@ -63,11 +63,9 @@ export interface CancelTask {
  */
 export interface StartTask {
   type: "start_task";
-  source: "azure" | "manual";
   repo: string;
-  work_item_id?: number | null;
-  title?: string | null;
-  description?: string | null;
+  title: string;
+  description?: string;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -95,8 +93,6 @@ export interface TaskView {
   task_id: string;
   title: string;
   description: string;
-  source: "azure" | "manual";
-  ref: string | null;
   repo: string;
   phase:
     | "interviewing"
@@ -113,8 +109,7 @@ export interface TaskView {
   edges: {
     [k: string]: "on" | "active";
   };
-  active_edge:
-    ("az-pl" | "ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv") | null;
+  active_edge: ("ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv") | null;
   counters: Counters;
   interview: InterviewView | null;
   plan: Plan | null;
@@ -132,7 +127,6 @@ export interface TaskView {
  * via the `definition` "Stages".
  */
 export interface Stages {
-  azure: StageView;
   manual: StageView;
   interviewer: StageView;
   planner: StageView;
@@ -315,30 +309,6 @@ export interface FinalFile {
 export interface RepoInfo {
   name: string;
   base_branch: string;
-}
-/**
- * This interface was referenced by `CrewContracts`'s JSON-Schema
- * via the `definition` "WorkItemDetail".
- */
-export interface WorkItemDetail {
-  id: number;
-  type: string;
-  title: string;
-  state: string;
-  description: string;
-  acceptance_criteria: string[];
-  iteration_path: string | null;
-  url: string;
-}
-/**
- * This interface was referenced by `CrewContracts`'s JSON-Schema
- * via the `definition` "WorkItemSummary".
- */
-export interface WorkItemSummary {
-  id: number;
-  type: string;
-  title: string;
-  state: string;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema

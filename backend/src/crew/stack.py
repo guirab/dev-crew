@@ -18,9 +18,6 @@ from typing import Any
 
 import structlog
 
-from .azure.fake import FakeAzureBackend
-from .azure.mcp_client import AzureError, McpToolCaller, build_server_params
-from .azure.service import AzureBackend, AzureService, McpAzureBackend
 from .bus import Bus
 from .config import CrewConfig, Secrets, db_path
 from .contracts import AGENTS, AgentName
@@ -32,7 +29,7 @@ from .workspace.manager import WorkspaceManager
 
 log = structlog.get_logger(__name__)
 
-SERVICE_NAMES = ("orchestrator", "gateway", "azure")
+SERVICE_NAMES = ("orchestrator", "gateway")
 BACKOFF_S = (1.0, 2.0, 5.0, 10.0)
 STABLE_AFTER_S = 60.0
 
@@ -44,7 +41,6 @@ class StackError(RuntimeError):
 @dataclass(frozen=True)
 class StackOptions:
     fake_agents: bool = False
-    fake_azure: bool = False
     fake_speed: float = 1.0
     fake_escalate: bool = False
     builtin_fakes: bool = False  # force crew.orchestrator.devfakes even when Stream B's service exists
@@ -156,22 +152,6 @@ def agent_factories(
 # ====================================================================== other services
 
 
-def azure_backend(cfg: CrewConfig, secrets: Secrets, opts: StackOptions) -> AzureBackend | None:
-    """Fake, real (MCP) or ``None`` when Azure is not configured (manual tasks still work)."""
-    if opts.fake_azure:
-        return FakeAzureBackend()
-    if cfg.azure is None:
-        log.warning("azure_not_configured", hint="seção [azure] ausente em crew.toml: só tarefas manuais")
-        return None
-    pat = secrets.azure_devops_pat_b64.get_secret_value() if secrets.azure_devops_pat_b64 else None
-    try:
-        params = build_server_params(cfg.azure, pat)
-    except AzureError as e:
-        log.warning("azure_disabled", reason=str(e))
-        return None
-    return McpAzureBackend(McpToolCaller(params), cfg.azure)
-
-
 def build_orchestrator(bus: Bus, cfg: CrewConfig, opts: StackOptions) -> tuple[OrchestratorService, Store]:
     store = Store(opts.db or db_path())
     workspace = WorkspaceManager(cfg.workspace.root, cfg.workspace.mode)
@@ -189,7 +169,7 @@ async def run_stack(
     *,
     only: str | None = None,
 ) -> None:
-    """Run everything (``only=None``) or a single service (``orchestrator|gateway|azure|agent:<name>``)."""
+    """Run everything (``only=None``) or a single service (``orchestrator|gateway|agent:<name>``)."""
     bus = await Bus.connect(cfg.nats.url, name=f"crew-{only or 'up'}")
     await bus.ensure_streams()
     store: Store | None = None
@@ -202,11 +182,6 @@ async def run_stack(
         if only in (None, "orchestrator"):
             svc, store = build_orchestrator(bus, cfg, opts)
             launch("orchestrator", lambda: svc.run(stop))
-        if only in (None, "azure"):
-            backend = azure_backend(cfg, secrets, opts)
-            if backend is not None:
-                azure = AzureService(bus, backend)
-                launch("azure", lambda: azure.run(stop))
         if only in (None, "gateway"):
             gateway = Gateway(bus, cfg, dist=opts.dist)
             launch("gateway", lambda: gateway.run(stop))
@@ -258,4 +233,4 @@ def validate_service_name(name: str) -> str:
     if name.startswith("agent:"):
         _agent_name(name)
         return name
-    raise StackError(f"serviço desconhecido: {name!r} (use orchestrator, gateway, azure ou agent:<nome>)")
+    raise StackError(f"serviço desconhecido: {name!r} (use orchestrator, gateway ou agent:<nome>)")

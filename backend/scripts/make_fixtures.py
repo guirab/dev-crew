@@ -111,8 +111,24 @@ COMMIT = (
     "feat: filtro por intervalo de datas no relatório de vendas\n\n"
     "- aceita start_date/end_date e valida start <= end\n"
     "- filtro inclusivo em created_at com bind params\n"
-    "- testes de integração das bordas do intervalo\n\n"
-    "Refs: AB#4821"
+    "- testes de integração das bordas do intervalo"
+)
+
+
+INTERVIEW_CLOSED = InterviewView(
+    turns=[
+        InterviewTurn(
+            question=InterviewQuestion(
+                topic="Fora de escopo",
+                question="O que fica fora do escopo desta entrega?",
+                recommendation="Exportar o relatório fica pra depois.",
+            ),
+            answer="Exportar o relatório fica pra depois.",
+            accepted_recommendation=True,
+        )
+    ],
+    pending=None,
+    decisions=["Fora de escopo: Exportar o relatório fica pra depois."],
 )
 
 
@@ -120,10 +136,9 @@ def view(**kw: Any) -> TaskView:
     base: dict[str, Any] = {
         "task_id": "T-107",
         "title": "Filtro por intervalo de datas no relatório de vendas",
-        "description": "User Story importada do Azure DevOps.",
-        "source": "azure",
-        "ref": "AB#4821",
+        "description": "Relatório de vendas precisa de filtro por período.",
         "repo": "sample-repo",
+        "interview": INTERVIEW_CLOSED,
         "counters": Counters(),
         "started_at": T0,
     }
@@ -131,7 +146,8 @@ def view(**kw: Any) -> TaskView:
     return TaskView.model_validate(base)
 
 
-AZ_DONE = sv("done", "AB#4821 · Filtro por intervalo de datas", [(0, "AB#4821 lido via MCP")])
+MA_DONE = sv("done", "Filtro por intervalo de datas no relatório de vendas")
+IV_DONE = sv("done", "Spec fechada · 3 decisões", [(2, "Spec fechada")])
 PL_DONE = sv("done", "Plano pronto · 4 passos, 3 arquivos", [(5, "Lendo tarefa"), (20, "Plano pronto")])
 
 FIXTURES: dict[str, TaskView] = {
@@ -139,11 +155,8 @@ FIXTURES: dict[str, TaskView] = {
         task_id="T-108",
         title="Exportar pedidos filtrados em CSV",
         description="Usuário precisa exportar os pedidos da listagem em CSV.",
-        source="manual",
-        ref=None,
         phase="interviewing",
         stages=stages(
-            azure=sv("skipped"),
             manual=sv("done", "Exportar pedidos filtrados em CSV"),
             interviewer=sv("waiting", "Aguardando sua resposta — expanda pra responder"),
         ),
@@ -172,22 +185,20 @@ FIXTURES: dict[str, TaskView] = {
     "awaiting_approval": view(
         phase="awaiting_approval",
         stages=stages(
-            azure=AZ_DONE,
-            manual=sv("skipped"),
-            interviewer=sv("skipped"),
+            manual=MA_DONE,
+            interviewer=IV_DONE,
             planner=PL_DONE,
             approval=sv("waiting", "Aguardando você — expanda pra revisar o plano"),
         ),
-        edges={"az-pl": "on", "pl-ap": "active"},
+        edges={"ma-iv": "on", "iv-pl": "on", "pl-ap": "active"},
         active_edge="pl-ap",
         plan=PLAN,
     ),
     "developing": view(
         phase="developing",
         stages=stages(
-            azure=AZ_DONE,
-            manual=sv("skipped"),
-            interviewer=sv("skipped"),
+            manual=MA_DONE,
+            interviewer=IV_DONE,
             planner=PL_DONE,
             approval=sv("done", "Plano aprovado"),
             developer=sv(
@@ -196,7 +207,7 @@ FIXTURES: dict[str, TaskView] = {
                 [(40, "Preparando worktree"), (45, "Editando shop/report.py")],
             ),
         ),
-        edges={"az-pl": "on", "pl-ap": "on", "ap-dv": "active"},
+        edges={"ma-iv": "on", "iv-pl": "on", "pl-ap": "on", "ap-dv": "active"},
         active_edge="ap-dv",
         counters=Counters(dev_round=1),
         plan=PLAN,
@@ -204,15 +215,14 @@ FIXTURES: dict[str, TaskView] = {
     "testing_failed": view(
         phase="developing",
         stages=stages(
-            azure=AZ_DONE,
-            manual=sv("skipped"),
-            interviewer=sv("skipped"),
+            manual=MA_DONE,
+            interviewer=IV_DONE,
             planner=PL_DONE,
             approval=sv("done", "Plano aprovado"),
             developer=sv("active", "Corrigindo: test_range_inclusive_end"),
             tester=sv("idle", "FALHOU · 46/48 · tentativa 1/3"),
         ),
-        edges={"az-pl": "on", "pl-ap": "on", "ap-dv": "on", "dv-ts": "on", "ts-dv": "active"},
+        edges={"ma-iv": "on", "iv-pl": "on", "pl-ap": "on", "ap-dv": "on", "dv-ts": "on", "ts-dv": "active"},
         active_edge="ts-dv",
         counters=Counters(dev_round=2, test_attempt=1),
         plan=PLAN,
@@ -222,16 +232,23 @@ FIXTURES: dict[str, TaskView] = {
     "reviewing": view(
         phase="reviewing",
         stages=stages(
-            azure=AZ_DONE,
-            manual=sv("skipped"),
-            interviewer=sv("skipped"),
+            manual=MA_DONE,
+            interviewer=IV_DONE,
             planner=PL_DONE,
             approval=sv("done", "Plano aprovado"),
             developer=sv("done", "Rodada 2 salva no repo local · sem commit"),
             tester=sv("done", "PASSOU · 48/48 · cobertura 87%"),
             reviewer=sv("active", "$ git diff — lendo alterações"),
         ),
-        edges={"az-pl": "on", "pl-ap": "on", "ap-dv": "on", "dv-ts": "on", "ts-dv": "on", "ts-rv": "active"},
+        edges={
+            "ma-iv": "on",
+            "iv-pl": "on",
+            "pl-ap": "on",
+            "ap-dv": "on",
+            "dv-ts": "on",
+            "ts-dv": "on",
+            "ts-rv": "active",
+        },
         active_edge="ts-rv",
         counters=Counters(dev_round=2, test_attempt=0, review_round=1),
         plan=PLAN,
@@ -241,15 +258,14 @@ FIXTURES: dict[str, TaskView] = {
     "escalated": view(
         phase="escalated",
         stages=stages(
-            azure=AZ_DONE,
-            manual=sv("skipped"),
-            interviewer=sv("skipped"),
+            manual=MA_DONE,
+            interviewer=IV_DONE,
             planner=PL_DONE,
             approval=sv("done", "Plano aprovado"),
             developer=sv("done", "Rodada 3 salva no repo local · sem commit"),
             tester=sv("error", "Limite 3/3 atingido — expanda pra decidir"),
         ),
-        edges={"az-pl": "on", "pl-ap": "on", "ap-dv": "on", "dv-ts": "on", "ts-dv": "on"},
+        edges={"ma-iv": "on", "iv-pl": "on", "pl-ap": "on", "ap-dv": "on", "dv-ts": "on", "ts-dv": "on"},
         active_edge=None,
         counters=Counters(dev_round=3, test_attempt=3),
         plan=PLAN,
@@ -260,9 +276,8 @@ FIXTURES: dict[str, TaskView] = {
     "done": view(
         phase="done",
         stages=stages(
-            azure=AZ_DONE,
-            manual=sv("skipped"),
-            interviewer=sv("skipped"),
+            manual=MA_DONE,
+            interviewer=IV_DONE,
             planner=PL_DONE,
             approval=sv("done", "Plano aprovado"),
             developer=sv("done", "Rodada 3 salva no repo local · sem commit"),
@@ -270,7 +285,9 @@ FIXTURES: dict[str, TaskView] = {
             reviewer=sv("done", "APROVADO · comentários resolvidos"),
             done=sv("done", "Pronto pra você revisar e commitar"),
         ),
-        edges={k: "on" for k in ["az-pl", "pl-ap", "ap-dv", "dv-ts", "ts-dv", "ts-rv", "rv-dv", "rv-dn"]},
+        edges={
+            k: "on" for k in ["ma-iv", "iv-pl", "pl-ap", "ap-dv", "dv-ts", "ts-dv", "ts-rv", "rv-dv", "rv-dn"]
+        },
         counters=Counters(dev_round=3, review_round=2),
         plan=PLAN,
         dev_rounds=[DEV1, DEV2, DEV2.model_copy(update={"round": 3, "summary": "Aplica review"})],
@@ -299,13 +316,12 @@ FIXTURES: dict[str, TaskView] = {
 FIXTURES["planning"] = view(
     phase="planning",
     stages=stages(
-        azure=AZ_DONE,
-        manual=sv("skipped"),
-        interviewer=sv("skipped"),
+        manual=MA_DONE,
+        interviewer=IV_DONE,
         planner=sv("active", "Explorando repo (Grep/Read nos módulos afetados)", [(5, "Lendo tarefa")]),
     ),
-    edges={"az-pl": "active"},
-    active_edge="az-pl",
+    edges={"ma-iv": "on", "iv-pl": "active"},
+    active_edge="iv-pl",
 )
 
 

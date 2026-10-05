@@ -17,9 +17,7 @@
   "spec": {
     "title": "Filtro por intervalo de datas no relatório de vendas",
     "description": "Quero filtrar o relatório de vendas por período.",
-    "source": "manual",
     "repo": "sample-repo",
-    "work_item": null,
     "acceptance_criteria": [],
     "out_of_scope": [],
     "constraints": [],

@@ -55,7 +55,6 @@ export function ManualForm({ repoChoice, onStarted }: ManualFormProps) {
             send.mutate(
               {
                 type: 'start_task',
-                source: 'manual',
                 repo,
                 title: trimmedTitle,
                 description: description.trim(),

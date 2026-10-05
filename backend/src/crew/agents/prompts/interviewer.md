@@ -31,6 +31,6 @@ Chame `submit_interview` (resultado do tipo `interview`):
   - `out_of_scope`: o que fica de fora.
   - `constraints`: restrições técnicas decididas (inclusive fatos que você descobriu no código e que restringem a solução).
   - `decisions`: demais decisões tomadas na entrevista, uma por item, no formato "Tópico: decisão".
-  - `source`, `repo` e `work_item`: copie do que veio no job.
+  - `repo`: copie do que veio no job.
 
 Não escreva texto fora da tool além de uma linha curta.

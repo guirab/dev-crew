@@ -31,7 +31,6 @@ def test_example_toml_is_valid() -> None:
     cfg = load_config(REPO_ROOT / "crew.toml.example")
     assert cfg.gateway.host == "127.0.0.1"
     assert cfg.limits.max_test_attempts == 3
-    assert cfg.azure is not None and cfg.azure.mcp_version == "2.10.0"
     assert cfg.repos[0].lint_cmd is None  # "" -> None
 
 
@@ -101,7 +100,6 @@ def test_invalid_toml(tmp_path: Path) -> None:
 def test_secrets_from_env_never_leak_in_repr(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-secret")
-    monkeypatch.setenv("AZURE_DEVOPS_PAT_B64", "Zm9vOmJhcg==")
     s = Secrets()
     assert s.anthropic_api_key is not None and s.anthropic_api_key.get_secret_value() == "sk-secret"
     assert "sk-secret" not in repr(s)

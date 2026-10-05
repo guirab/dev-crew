@@ -20,7 +20,7 @@ export function isCommand(v: unknown): v is Command {
   if (!isRecord(v) || typeof v.type !== 'string' || !COMMAND_TYPES.includes(v.type)) return false
   switch (v.type) {
     case 'start_task':
-      return (v.source === 'azure' || v.source === 'manual') && typeof v.repo === 'string'
+      return typeof v.repo === 'string' && typeof v.title === 'string'
     case 'adjust_plan':
       return typeof v.text === 'string'
     case 'escalation':
@@ -44,10 +44,6 @@ export function createRestHandlers(backend: MockBackend, { latencyMs = 0 }: Rest
     http.get('*/api/repos', async () => {
       await lag()
       return HttpResponse.json(backend.repos)
-    }),
-    http.get('*/api/azure/work-items', async () => {
-      await lag()
-      return HttpResponse.json(backend.workItems)
     }),
     http.get('*/api/task', () => HttpResponse.json(backend.getView())),
     http.post('*/api/commands', async ({ request }) => {

@@ -1,6 +1,6 @@
 # dev-crew
 
-Equipe de desenvolvimento multi-agente local. Você entrega uma tarefa (work item do Azure DevOps ou descrita na mão) e os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream. No fim, as alterações ficam locais (sem commit) com uma mensagem de commit sugerida.
+Equipe de desenvolvimento multi-agente local. Você descreve uma tarefa e os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream. No fim, as alterações ficam locais (sem commit) com uma mensagem de commit sugerida.
 
 - Plano e contexto: vault Obsidian em `C:/Users/guilh/Documents/Vaults/dev-crew-vault` (ver `.obsidian-vault`)
 - Convenções: `CLAUDE.md`
@@ -41,7 +41,7 @@ Tudo num terminal (sobe NATS se não estiver rodando, cria streams e roda `crew 
 powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
 ```
 
-- sem flags: agentes e Azure **fake** (zero tokens) — abra `http://127.0.0.1:8787`
+- sem flags: agentes **fake** (zero tokens) — abra `http://127.0.0.1:8787`
 - `-Real`: agentes reais via assinatura (`claude.exe` nativo logado com `claude auth login`; **sem** `ANTHROPIC_API_KEY`, senão cobra na API)
 - `-Escalate`: fakes forçam a escalada no Tester · `-Speed 3`: velocidade dos fakes
 

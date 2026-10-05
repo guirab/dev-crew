@@ -28,13 +28,6 @@ reviewer    = "claude-opus-5-5"
 language = "pt-BR"
 style = "conventional"
 
-[azure]
-organization = "minha-org"   # só o nome, não a URL
-project = "Meu Projeto"
-team = "Meu Projeto Team"
-auth = "pat"                 # "pat" | "azcli"
-mcp_version = "2.10.0"
-
 [[repos]]
 name = "sample-repo"
 path = "C:/Users/guilh/Documents/dev-crew/fixtures/sample-repo"

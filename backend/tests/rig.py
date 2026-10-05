@@ -1,4 +1,4 @@
-"""Test rig: orchestrator + fake agents + fake Azure on a real nats-server, driven through the bus only."""
+"""Test rig: orchestrator + fake agents on a real nats-server, driven through the bus only."""
 
 from __future__ import annotations
 
@@ -14,8 +14,6 @@ from nats.aio.msg import Msg
 from pydantic import TypeAdapter
 
 from crew import contracts as c
-from crew.azure.fake import FakeAzureBackend
-from crew.azure.service import AzureService
 from crew.bus import Bus
 from crew.bus import subjects as s
 from crew.config import CrewConfig, GatewayCfg, LimitsCfg, RepoCfg, WorkspaceCfg
@@ -149,7 +147,6 @@ async def start_rig(
     speed: float = 5000.0,
     escalate: bool = False,
     agents: bool = True,
-    azure: bool = True,
     gateway: bool = False,
     dist: Path | None = None,
     orchestrator: bool = True,
@@ -168,8 +165,6 @@ async def start_rig(
     await bus.subscribe_core(s.evt_kind_wildcard("view"), rig._on_view)
     await bus.subscribe_core(s.evt_kind_wildcard("progress"), rig._on_progress)
 
-    if azure:
-        rig.spawn(AzureService(bus, FakeAzureBackend()).run(rig.stop), "azure")
     if agents:
         rig.fake = FakeCrew(bus, speed=speed, escalate=escalate)
         rig.spawn(rig.fake.run(rig.stop), "fake-agents")

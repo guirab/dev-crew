@@ -155,7 +155,7 @@ class ScriptedRunner:
         await steps.step("Montando passos, arquivos e critérios", 1.0)
         criteria = [*job.spec.acceptance_criteria, "Sem regressão na suíte existente"]
         if not job.spec.acceptance_criteria:
-            criteria.insert(0, "Critérios do work item" if job.spec.source == "azure" else job.spec.title)
+            criteria.insert(0, job.spec.title)
         return Plan(
             summary=(
                 f'Implementar "{job.spec.title}" seguindo os padrões do repo, '
@@ -299,13 +299,12 @@ def _consolidate(spec: TaskSpec, job: AgentJob) -> TaskSpec:
 
 
 def _commit_message(job: AgentJob) -> str:
-    kind = "fix" if job.spec.work_item and job.spec.work_item.type == "Bug" else "feat"
     steps = job.plan.steps[1:] if job.plan else []
-    lines = [commit_subject(kind, job.spec.title), ""]
+    lines = [commit_subject("feat", job.spec.title), ""]
     lines += [f"- {lower_first(s)}" for s in steps]
     if job.attempt > 1:
         lines.append("- bind params na query e datas em UTC (review)")
-    return "\n".join(lines).rstrip()  # the `Refs: AB#<id>` footer is added by the spec finalizer
+    return "\n".join(lines).rstrip()
 
 
 def _comment(path: str, text: str) -> str | None:

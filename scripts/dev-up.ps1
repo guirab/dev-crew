@@ -1,6 +1,6 @@
 # Sobe NATS (JetStream, via Docker se disponível) + dev-crew num terminal só. Ctrl+C encerra o dev-crew.
 # Uso:  powershell -ExecutionPolicy Bypass -File scripts\dev-up.ps1 [-Real] [-Speed 3] [-Escalate]
-#   sem -Real: agentes e Azure fake (zero tokens)
+#   sem -Real: agentes fake (zero tokens)
 param(
     [switch]$Real,
     [double]$Speed = 3,
@@ -34,7 +34,7 @@ try {
     Push-Location (Join-Path $root 'backend')
     uv run crew streams init
     $crewArgs = @('run', 'crew', 'up')
-    if (-not $Real) { $crewArgs += @('--fake-agents', '--fake-azure', '--fake-speed', "$Speed") }
+    if (-not $Real) { $crewArgs += @('--fake-agents', '--fake-speed', "$Speed") }
     if ($Escalate) { $crewArgs += '--fake-escalate' }
     & uv @crewArgs
 } finally {

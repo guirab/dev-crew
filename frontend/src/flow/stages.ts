@@ -9,11 +9,10 @@ export interface StageMeta {
 }
 
 export const STAGE_META: Record<StageKey, StageMeta> = {
-  azure: { title: 'Azure DevOps', desc: 'Importa um work item via MCP', icon: 'Az' },
   manual: { title: 'Manual', desc: 'Você descreve a tarefa', icon: 'M' },
   interviewer: {
     title: 'Entrevistador',
-    desc: 'Pergunta uma coisa por vez até a tarefa ficar clara · só tarefa manual',
+    desc: 'Pergunta em rodadas até a tarefa ficar clara',
     icon: 'E',
   },
   planner: { title: 'Planner', desc: 'Lê a tarefa e o repo, monta o plano', icon: 'P' },
@@ -46,7 +45,7 @@ export const STATUS_TAG: Record<StageStatus, string> = {
   skipped: 'pulado',
 }
 
-/** Ordem vertical do fluxo (sem os dois cards de origem, que ficam lado a lado no topo). */
+/** Ordem vertical do fluxo (sem o card de origem, que fica no topo). */
 export const FLOW_STAGES = [
   'interviewer',
   'planner',
@@ -63,11 +62,11 @@ export type ConnectorState = 'idle' | 'on' | 'active'
 
 /**
  * Cada conector vertical acende por uma ou mais arestas de `view.edges`.
- * Mesmo mapa do mockup (`conn(['az-pl','ma-iv'])` etc.).
+ * Mesmo mapa do mockup.
  */
 export const CONNECTOR_EDGES = {
-  source: ['az-pl', 'ma-iv'],
-  interview: ['az-pl', 'iv-pl'],
+  source: ['ma-iv'],
+  interview: ['iv-pl'],
   plan: ['pl-ap'],
   approval: ['ap-dv'],
   develop: ['dv-ts'],
@@ -83,7 +82,6 @@ export type ConnectorId = keyof typeof CONNECTOR_EDGES
 
 /** Estágio de destino de cada aresta: pra onde rolar quando a aresta fica ativa. */
 export const EDGE_TARGET: Record<EdgeKey, StageKey> = {
-  'az-pl': 'planner',
   'ma-iv': 'interviewer',
   'iv-pl': 'planner',
   'pl-ap': 'approval',
@@ -147,9 +145,9 @@ export function stageTag(
   return [STATUS_TAG[status], stageCounter(key, counters)].filter(Boolean).join(' · ')
 }
 
-/** Estágio sem tarefa: só os cards de origem ficam em `pick`; o resto `idle`. */
+/** Estágio sem tarefa: só o card de origem fica em `pick`; o resto `idle`. */
 export function emptyStage(key: StageKey): StageView {
-  return { status: key === 'azure' || key === 'manual' ? 'pick' : 'idle', now: null, logs: [] }
+  return { status: key === 'manual' ? 'pick' : 'idle', now: null, logs: [] }
 }
 
 /**

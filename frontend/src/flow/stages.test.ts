@@ -31,21 +31,14 @@ describe('connectorState (mapa conector → arestas, igual ao mockup)', () => {
   })
 
   it('é "on" quando qualquer aresta do conector existe', () => {
-    expect(connectorState({ 'az-pl': 'on' }, CONNECTOR_EDGES.source)).toBe('on')
     expect(connectorState({ 'ma-iv': 'on' }, CONNECTOR_EDGES.source)).toBe('on')
   })
 
   it('é "active" quando qualquer aresta do conector está ativa (active vence on)', () => {
-    expect(connectorState({ 'az-pl': 'on', 'ma-iv': 'active' }, CONNECTOR_EDGES.source)).toBe(
+    expect(connectorState({ 'iv-pl': 'on', 'pl-ap': 'active' }, CONNECTOR_EDGES.plan)).toBe('active')
+    expect(connectorState({ 'ts-dv': 'on', 'rv-dv': 'active' }, CONNECTOR_EDGES.loopAdjust)).toBe(
       'active',
     )
-  })
-
-  it('az-pl acende o conector antes e depois do Entrevistador', () => {
-    const edges = { 'az-pl': 'active' } as const
-    expect(connectorState(edges, CONNECTOR_EDGES.source)).toBe('active')
-    expect(connectorState(edges, CONNECTOR_EDGES.interview)).toBe('active')
-    expect(connectorState(edges, CONNECTOR_EDGES.plan)).toBe('idle')
   })
 
   it('ma-iv só acende o conector de origem; iv-pl só o seguinte', () => {
@@ -60,10 +53,9 @@ describe('connectorState (mapa conector → arestas, igual ao mockup)', () => {
     expect(connectorState(edges, CONNECTOR_EDGES.loopAdjust)).toBe('on')
   })
 
-  it('cobre as 10 arestas do contrato com um conector ou loop', () => {
+  it('cobre as 9 arestas do contrato com um conector ou loop', () => {
     const covered = new Set<string>(Object.values(CONNECTOR_EDGES).flat())
     const all: EdgeKey[] = [
-      'az-pl',
       'ma-iv',
       'iv-pl',
       'pl-ap',
@@ -153,8 +145,7 @@ describe('stageIcon', () => {
 })
 
 describe('emptyStage', () => {
-  it('só os cards de origem ficam em pick', () => {
-    expect(emptyStage('azure').status).toBe('pick')
+  it('só o card de origem fica em pick', () => {
     expect(emptyStage('manual').status).toBe('pick')
     for (const key of FLOW_STAGES) expect(emptyStage(key).status).toBe('idle')
   })

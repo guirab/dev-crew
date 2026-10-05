@@ -2,7 +2,6 @@ import type {
   CommandReply,
   RepoInfo,
   TaskView,
-  WorkItemSummary,
   WsMessage,
 } from '../contracts/generated'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
@@ -17,7 +16,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 const STAGE_KEYS: readonly StageKey[] = [
-  'azure',
   'manual',
   'interviewer',
   'planner',
@@ -77,7 +75,6 @@ export function isTaskView(v: unknown): v is TaskView {
   return (
     typeof v.task_id === 'string' &&
     typeof v.title === 'string' &&
-    (v.source === 'azure' || v.source === 'manual') &&
     typeof v.repo === 'string' &&
     PHASES.some((p) => p === v.phase) &&
     isRecord(stages) &&
@@ -120,19 +117,5 @@ export function isRepoList(v: unknown): v is RepoInfo[] {
   return (
     Array.isArray(v) &&
     v.every((r) => isRecord(r) && typeof r.name === 'string' && typeof r.base_branch === 'string')
-  )
-}
-
-export function isWorkItemList(v: unknown): v is WorkItemSummary[] {
-  return (
-    Array.isArray(v) &&
-    v.every(
-      (w) =>
-        isRecord(w) &&
-        typeof w.id === 'number' &&
-        typeof w.type === 'string' &&
-        typeof w.title === 'string' &&
-        typeof w.state === 'string',
-    )
   )
 }

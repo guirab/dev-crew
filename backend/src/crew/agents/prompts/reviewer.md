@@ -37,7 +37,7 @@ tipo(escopo opcional): assunto no imperativo, até 72 caracteres
 - outro ponto relevante
 ```
 
-Tipos: feat, fix, refactor, perf, test, docs, chore, build, ci, style, revert. Não inclua o rodapé `Refs:`; o orquestrador acrescenta quando a tarefa vem do Azure DevOps.
+Tipos: feat, fix, refactor, perf, test, docs, chore, build, ci, style, revert.
 
 ## Saída
 

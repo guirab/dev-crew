@@ -3,7 +3,7 @@
  * `TaskView`s válidos e reage aos `Command`s da UI. É a única parte do front com regra de fluxo,
  * e só existe pra desenvolver a UI sem o orquestrador (nunca entra no bundle de produção).
  *
- * Fluxo: azure|manual → (entrevista, 3 perguntas) → plano → aprovação (ou ajuste) → developer →
+ * Fluxo: manual → (entrevista, 3 perguntas) → plano → aprovação (ou ajuste) → developer →
  * tester (1º run falha) → developer → tester ok → reviewer (1º review pede mudanças) → developer →
  * tester ok → reviewer aprova → concluída. `forceEscalate` faz o Tester falhar sempre (escalada).
  */
@@ -25,7 +25,7 @@ import type {
 } from '../contracts/generated'
 import type { EdgeKey, EdgeStatus, StageKey, StageStatus, TaskPhase } from '../contracts/aliases'
 import type { CommandOutcome, MockBackend } from './backend'
-import { INTERVIEW_QUESTIONS, REPOS, WORK_ITEMS } from './data'
+import { INTERVIEW_QUESTIONS, REPOS } from './data'
 
 export interface ScenarioOptions {
   /** Multiplicador de velocidade (2 = metade do tempo). */
@@ -38,7 +38,6 @@ export interface ScenarioOptions {
 type Listener = (msg: WsMessage) => void
 
 const STAGE_KEYS: readonly StageKey[] = [
-  'azure',
   'manual',
   'interviewer',
   'planner',
@@ -73,11 +72,8 @@ interface InterviewState {
 
 interface TaskState {
   taskId: string
-  source: 'azure' | 'manual'
   title: string
   description: string
-  ref: string | null
-  workItemType: string | null
   repo: string
   phase: TaskPhase
   st: Record<StageKey, StageStatus>
@@ -102,7 +98,6 @@ interface TaskState {
 
 function perStage<T>(make: (key: StageKey) => T): Record<StageKey, T> {
   return {
-    azure: make('azure'),
     manual: make('manual'),
     interviewer: make('interviewer'),
     planner: make('planner'),
@@ -121,7 +116,6 @@ const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text
 
 export class ScenarioBackend implements MockBackend {
   readonly repos = REPOS
-  readonly workItems = WORK_ITEMS
 
   private s: TaskState | null = null
   private readonly listeners = new Set<Listener>()
@@ -182,12 +176,9 @@ export class ScenarioBackend implements MockBackend {
       task_id: s.taskId,
       title: s.title,
       description: s.description,
-      source: s.source,
-      ref: s.ref,
       repo: s.repo,
       phase: s.phase,
       stages: {
-        azure: stage('azure'),
         manual: stage('manual'),
         interviewer: stage('interviewer'),
         planner: stage('planner'),
@@ -262,11 +253,8 @@ export class ScenarioBackend implements MockBackend {
     if (!REPOS.some((r) => r.name === command.repo))
       return this.refuse(422, 'Repositório desconhecido.')
 
-    const workItem =
-      command.source === 'azure' ? WORK_ITEMS.find((w) => w.id === command.work_item_id) : undefined
-    if (command.source === 'azure' && !workItem) return this.refuse(422, 'Work item inválido.')
-    const manualTitle = command.title?.trim() ?? ''
-    if (command.source === 'manual' && manualTitle === '') {
+    const manualTitle = command.title.trim()
+    if (manualTitle === '') {
       return this.refuse(422, 'Informe um título pra tarefa.')
     }
 
@@ -275,21 +263,17 @@ export class ScenarioBackend implements MockBackend {
     this.generation += 1
     this.taskCounter += 1
     const taskId = `T-${this.taskCounter}`
-    const title = workItem?.title ?? manualTitle
+    const title = manualTitle
     const s: TaskState = {
       taskId,
-      source: command.source,
       title,
-      description: workItem
-        ? `${workItem.type} importada do Azure DevOps.`
-        : manualDescription === ''
+      description:
+        manualDescription === ''
           ? 'Sem descrição — o Entrevistador vai perguntar o resto.'
           : manualDescription,
-      ref: workItem ? `AB#${workItem.id}` : null,
-      workItemType: workItem?.type ?? null,
       repo: command.repo,
-      phase: command.source === 'azure' ? 'planning' : 'interviewing',
-      st: perStage((key) => (key === 'azure' || key === 'manual' ? 'pick' : 'idle')),
+      phase: 'interviewing',
+      st: perStage((key) => (key === 'manual' ? 'pick' : 'idle')),
       now: {},
       logs: perStage(() => []),
       edges: {},
@@ -310,20 +294,11 @@ export class ScenarioBackend implements MockBackend {
     }
     this.s = s
 
-    if (command.source === 'azure' && workItem) {
-      s.st.manual = 'skipped'
-      s.st.interviewer = 'skipped'
-      this.finish('azure', `AB#${workItem.id} · ${workItem.title}`)
-      this.go('az-pl', 'planner')
-      this.run(() => this.runPlanner())
-    } else {
-      s.st.azure = 'skipped'
-      this.finish('manual', title)
-      s.interview = { turns: [], queue: [...INTERVIEW_QUESTIONS], pending: null, decisions: [] }
-      this.nextQuestion(s.interview)
-      s.now.interviewer = 'Aguardando sua resposta — expanda pra responder'
-      this.go('ma-iv', 'interviewer', 'waiting')
-    }
+    this.finish('manual', title)
+    s.interview = { turns: [], queue: [...INTERVIEW_QUESTIONS], pending: null, decisions: [] }
+    this.nextQuestion(s.interview)
+    s.now.interviewer = 'Aguardando sua resposta — expanda pra responder'
+    this.go('ma-iv', 'interviewer', 'waiting')
     return this.accepted()
   }
 
@@ -725,12 +700,11 @@ export class ScenarioBackend implements MockBackend {
   private commitMessage(s: TaskState): string {
     const steps = s.plan?.steps.slice(1) ?? []
     const lines = [
-      `${s.workItemType === 'Bug' ? 'fix' : 'feat'}: ${lowerFirst(s.title)}`,
+      `feat: ${lowerFirst(s.title)}`,
       '',
       ...steps.map((step) => `- ${lowerFirst(step)}`),
     ]
     if (s.reviewIter > 1) lines.push('- bind params na query e datas em UTC (review)')
-    if (s.ref) lines.push('', `Refs: ${s.ref}`)
     return lines.join('\n')
   }
 

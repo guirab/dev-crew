@@ -15,8 +15,7 @@ from crew.contracts import (
     PlanFile,
     RepoContext,
     TaskSpec,
-    WorkItemDetail,
-)
+    )
 
 WINDOWS_WS = "C:\\work\\crew\\T-1"
 POSIX_WS = "/work/crew/T-1"
@@ -39,24 +38,10 @@ def make_spec(**over: object) -> TaskSpec:
     data: dict[str, object] = {
         "title": "Filtro por intervalo de datas no relatório de vendas",
         "description": "Permitir filtrar o relatório de vendas por data inicial e final.",
-        "source": "manual",
         "repo": "sample-repo",
     }
     data.update(over)
     return TaskSpec.model_validate(data)
-
-
-def make_work_item(wid: int = 4821) -> WorkItemDetail:
-    return WorkItemDetail(
-        id=wid,
-        type="User Story",
-        title="Filtro por intervalo de datas no relatório de vendas",
-        state="Active",
-        description="Como gerente quero filtrar vendas por período.",
-        acceptance_criteria=["Intervalo inclusivo nas duas pontas"],
-        iteration_path="Sprint 12",
-        url=f"https://dev.azure.com/org/proj/_workitems/edit/{wid}",
-    )
 
 
 def make_plan() -> Plan:
@@ -82,7 +67,6 @@ def make_job(
     plan: bool = True,
     feedback: Feedback | None = None,
     history: list[InterviewTurn] | None = None,
-    work_item: bool = False,
     budget_usd: float = 5.0,
     resume_session_id: str | None = None,
     repo: RepoContext | None = None,
@@ -94,10 +78,7 @@ def make_job(
         agent=agent,
         attempt=attempt,
         repo=repo or make_repo(),
-        spec=spec
-        or make_spec(
-            source="azure" if work_item else "manual", work_item=make_work_item() if work_item else None
-        ),
+        spec=spec or make_spec(),
         plan=make_plan() if plan and agent in ("developer", "tester", "reviewer") else None,
         feedback=feedback,
         interview_history=history or [],

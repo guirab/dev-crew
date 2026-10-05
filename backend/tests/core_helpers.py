@@ -22,19 +22,6 @@ def repo_ctx() -> c.RepoContext:
     )
 
 
-def work_item(wid: int = 4821, title: str = "Filtro por intervalo de datas no relatório de vendas"):
-    return c.WorkItemDetail(
-        id=wid,
-        type="User Story",
-        title=title,
-        state="Active",
-        description="Filtrar relatório por start_date/end_date.",
-        acceptance_criteria=["Intervalo inclusivo"],
-        iteration_path="Sprint 7",
-        url=f"https://dev.azure.com/org/proj/_workitems/edit/{wid}",
-    )
-
-
 def question(n: int = 1) -> c.InterviewQuestion:
     topics = ["Fora de escopo", "Critérios de aceite", "Restrições"]
     return c.InterviewQuestion(
@@ -99,14 +86,11 @@ def review_ok(commit: str | None = "feat: filtro de datas") -> c.ReviewResult:
 class Driver:
     """Owns the state, advances a fake clock and remembers the effects of each step."""
 
-    def __init__(
-        self, *, source: c.TaskSource = "azure", limits: Limits | None = None, task_id: str = "T-107"
-    ) -> None:
+    def __init__(self, *, limits: Limits | None = None, task_id: str = "T-107") -> None:
         self.state: TaskState | None = None
         self.effects: list[Effect] = []
         self.history: list[Effect] = []
         self.clock = T0
-        self.source = source
         self.limits = limits or Limits()
         self.task_id = task_id
 
@@ -150,22 +134,14 @@ class Driver:
         return ev.StartParams(task_id=self.task_id, repo=repo_ctx(), limits=self.limits)
 
     def start(self) -> list[Effect]:
-        if self.source == "azure":
-            return self.command(
-                c.StartTask(source="azure", repo="sample-repo", work_item_id=4821), start=self.params()
-            )
         return self.command(
-            c.StartTask(
-                source="manual", repo="sample-repo", title="Exportar pedidos em CSV", description="d"
-            ),
+            c.StartTask(repo="sample-repo", title="Exportar pedidos em CSV", description="d"),
             start=self.params(),
         )
 
     def boot(self) -> list[Effect]:
-        """Run the pre-agent steps (work item + worktree) and return the first dispatch effects."""
+        """Run the pre-agent step (worktree) and return the first dispatch effects."""
         self.start()
-        if self.source == "azure":
-            self.feed(ev.WorkItemLoaded(task_id=self.task_id, detail=work_item(), at=self.tick()))
         return self.feed(
             ev.WorkspaceReady(task_id=self.task_id, path="/wt/T-107", branch="crew/T-107", at=self.tick())
         )
@@ -212,15 +188,16 @@ class Driver:
         return self.feed(ev.ReportBuilt(task_id=self.s.task_id, files=files or [], at=self.tick()))
 
     # ---- flows
-    def to_awaiting_approval(self) -> None:
+    def to_planner(self) -> None:
+        """Boot + a one-question interview (free, so budgets only count from the planner on)."""
         self.boot()
-        if self.source == "manual":
-            self.result(c.InterviewResult(kind="question", question=question(1)))
-            self.command(c.AnswerInterview(text=None))
-            spec = c.TaskSpec(
-                title="Exportar pedidos em CSV", description="d", source="manual", repo="sample-repo"
-            )
-            self.result(c.InterviewResult(kind="done", spec=spec))
+        self.result(c.InterviewResult(kind="question", question=question(1)), cost=0.0)
+        self.command(c.AnswerInterview(text=None))
+        spec = c.TaskSpec(title="Exportar pedidos em CSV", description="d", repo="sample-repo")
+        self.result(c.InterviewResult(kind="done", spec=spec), cost=0.0)
+
+    def to_awaiting_approval(self) -> None:
+        self.to_planner()
         self.result(plan())
 
     def to_developing(self) -> None:

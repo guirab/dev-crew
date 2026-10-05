@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import AwareDatetime
 
-from .common import Contract, EdgeKey, EdgeStatus, FileChange, StageStatus, TaskPhase, TaskSource
+from .common import Contract, EdgeKey, EdgeStatus, FileChange, StageStatus, TaskPhase
 from .outputs import DevResult, InterviewQuestion, InterviewTurn, Plan, ReviewResult, TestResult
 
 
@@ -20,7 +20,6 @@ class StageView(Contract):
 
 
 class Stages(Contract):
-    azure: StageView
     manual: StageView
     interviewer: StageView
     planner: StageView
@@ -70,8 +69,6 @@ class TaskView(Contract):
     task_id: str
     title: str
     description: str
-    source: TaskSource
-    ref: str | None = None
     repo: str
     phase: TaskPhase
     stages: Stages

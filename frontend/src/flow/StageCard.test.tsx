@@ -92,9 +92,9 @@ describe('StageCard', () => {
   it('card de origem (sem children) não renderiza painel mesmo aberto', () => {
     render(
       <StageCard
-        stageKey="azure"
+        stageKey="manual"
         status="pick"
-        description="Importa um work item via MCP"
+        description="Você descreve a tarefa"
         open
         onToggle={vi.fn()}
       />,
@@ -107,7 +107,7 @@ describe('Connector', () => {
   it('deriva o estado de view.edges', () => {
     const { container, rerender } = render(<Connector id="source" edges={{}} />)
     expect(container.firstElementChild).toHaveAttribute('data-state', 'idle')
-    rerender(<Connector id="source" edges={{ 'az-pl': 'on' }} />)
+    rerender(<Connector id="source" edges={{ 'ma-iv': 'on' }} />)
     expect(container.firstElementChild).toHaveAttribute('data-state', 'on')
     rerender(<Connector id="source" edges={{ 'ma-iv': 'active' }} />)
     expect(container.firstElementChild).toHaveAttribute('data-state', 'active')

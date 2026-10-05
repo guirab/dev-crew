@@ -3,15 +3,8 @@ import { isTaskView } from '../api/guards'
 import type { TaskView, WsMessage } from '../contracts/generated'
 import { ScenarioBackend } from './scenario'
 
-const AZURE = {
-  type: 'start_task',
-  source: 'azure',
-  repo: 'portal-vendas',
-  work_item_id: 4821,
-} as const
 const MANUAL = {
   type: 'start_task',
-  source: 'manual',
   repo: 'api-pedidos',
   title: 'Exportar pedidos filtrados em CSV',
   description: 'Exportar a listagem',
@@ -25,6 +18,13 @@ function view(backend: ScenarioBackend): TaskView {
 
 /** Roda os timers do cenário até ele parar num ponto de espera humana (ou terminar). */
 const settle = () => vi.runAllTimersAsync()
+
+/** Inicia a tarefa manual, aceita as 3 recomendações da entrevista e espera o plano. */
+async function toPlan(backend: ScenarioBackend): Promise<void> {
+  backend.handle(MANUAL)
+  for (let i = 0; i < 3; i += 1) backend.handle({ type: 'answer_interview', text: null })
+  await settle()
+}
 
 describe('ScenarioBackend', () => {
   let backend: ScenarioBackend
@@ -48,18 +48,8 @@ describe('ScenarioBackend', () => {
     expect(backend.getView()).toBeNull()
   })
 
-  it('fluxo azure completo: plano → aprovação → dev → 1º teste falha → review pede mudanças → done', async () => {
-    const started = backend.handle(AZURE)
-    expect(started.status).toBe(200)
-    expect(view(backend)).toMatchObject({
-      source: 'azure',
-      ref: 'AB#4821',
-      phase: 'planning',
-      active_edge: 'az-pl',
-    })
-    expect(view(backend).stages.interviewer.status).toBe('skipped')
-
-    await settle()
+  it('fluxo completo: plano → aprovação → dev → 1º teste falha → review pede mudanças → done', async () => {
+    await toPlan(backend)
     expect(view(backend)).toMatchObject({ phase: 'awaiting_approval', active_edge: 'pl-ap' })
     expect(view(backend).stages.approval.status).toBe('waiting')
     expect(view(backend).plan?.steps).toHaveLength(4)
@@ -75,15 +65,14 @@ describe('ScenarioBackend', () => {
     expect(done.counters).toMatchObject({ review_round: 2, test_attempt: 0 })
     expect(done.review?.verdict).toBe('approved')
     expect(done.review?.comments.every((c) => c.resolved)).toBe(true)
-    expect(done.final?.commit_message).toContain('Refs: AB#4821')
+    expect(done.final?.commit_message).not.toContain('Refs:')
     expect(done.final?.files.length).toBeGreaterThan(0)
     expect(done.edges['rv-dn']).toBe('on')
     expect(done.active_edge).toBeNull()
   })
 
   it('todo snapshot emitido cumpre o contrato TaskView', async () => {
-    backend.handle(AZURE)
-    await settle()
+    await toPlan(backend)
     backend.handle({ type: 'approve_plan' })
     await settle()
 
@@ -97,7 +86,6 @@ describe('ScenarioBackend', () => {
     backend.handle(MANUAL)
     let v = view(backend)
     expect(v).toMatchObject({ phase: 'interviewing', active_edge: 'ma-iv' })
-    expect(v.stages.azure.status).toBe('skipped')
     expect(v.stages.interviewer.status).toBe('waiting')
     expect(v.interview?.pending?.topic).toBe('Fora de escopo')
 
@@ -125,8 +113,7 @@ describe('ScenarioBackend', () => {
   })
 
   it('ajuste de plano volta pro Planner e depois pra aprovação', async () => {
-    backend.handle(AZURE)
-    await settle()
+    await toPlan(backend)
     const adjust = backend.handle({ type: 'adjust_plan', text: 'não mexer no auth' })
     expect(adjust.status).toBe(200)
     expect(view(backend).stages.approval.status).toBe('idle')
@@ -137,8 +124,7 @@ describe('ScenarioBackend', () => {
 
   it('forceEscalate: Tester falha até o limite e escala; instruir retoma e conclui', async () => {
     backend.setForceEscalate(true)
-    backend.handle(AZURE)
-    await settle()
+    await toPlan(backend)
     backend.handle({ type: 'approve_plan' })
     await settle()
 
@@ -159,8 +145,7 @@ describe('ScenarioBackend', () => {
 
   it('escalada: +2 tentativas sobe o limite; replanejar volta pro Planner', async () => {
     backend.setForceEscalate(true)
-    backend.handle(AZURE)
-    await settle()
+    await toPlan(backend)
     backend.handle({ type: 'approve_plan' })
     await settle()
 
@@ -177,7 +162,7 @@ describe('ScenarioBackend', () => {
   })
 
   it('cancelar encerra o fluxo em andamento', async () => {
-    backend.handle(AZURE)
+    backend.handle(MANUAL)
     await vi.advanceTimersByTimeAsync(500)
     expect(backend.handle({ type: 'cancel_task' }).status).toBe(200)
     await settle()
@@ -189,16 +174,15 @@ describe('ScenarioBackend', () => {
 
   describe('validação dos comandos', () => {
     it('409 ao iniciar com tarefa ativa; permitido após terminar', () => {
-      backend.handle(AZURE)
-      expect(backend.handle(AZURE).status).toBe(409)
+      backend.handle(MANUAL)
+      expect(backend.handle(MANUAL).status).toBe(409)
       backend.handle({ type: 'cancel_task' })
       expect(backend.handle(MANUAL).status).toBe(200)
       expect(view(backend).task_id).toBe('T-108')
     })
 
-    it('422 pra work item, repo ou título inválidos', () => {
-      expect(backend.handle({ ...AZURE, work_item_id: 1 }).status).toBe(422)
-      expect(backend.handle({ ...AZURE, repo: 'nao-existe' }).status).toBe(422)
+    it('422 pra repo ou título inválidos', () => {
+      expect(backend.handle({ ...MANUAL, repo: 'nao-existe' }).status).toBe(422)
       expect(backend.handle({ ...MANUAL, title: '   ' }).status).toBe(422)
       expect(backend.getView()).toBeNull()
     })

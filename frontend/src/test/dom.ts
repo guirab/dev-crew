@@ -3,7 +3,6 @@ import { vi } from 'vitest'
 import type { StageKey } from '../contracts/aliases'
 
 export const ALL_STAGES: readonly StageKey[] = [
-  'azure',
   'manual',
   'interviewer',
   'planner',

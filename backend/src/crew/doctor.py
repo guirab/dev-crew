@@ -16,8 +16,6 @@ from typing import Literal
 
 from nats.errors import Error as NatsError
 
-from .azure.mcp_client import AzureError, McpToolCaller, build_server_params
-from .azure.service import McpAzureBackend
 from .bus import Bus
 from .bus import subjects as s
 from .config import ConfigError, CrewConfig, Secrets, crew_home, find_config_path, load_config
@@ -115,24 +113,6 @@ async def check_claude_cli() -> Check:
     except (OSError, subprocess.TimeoutExpired) as e:
         return fail("claude-cli", f"{exe} falhou: {e}", "reinstale o Claude Code nativo")
     return ok("claude-cli", f"{exe} {proc.stdout.decode(errors='replace').strip()}")
-
-
-async def check_node() -> Check:
-    npx = "npx.cmd" if sys.platform == "win32" else "npx"
-    exe = shutil.which(npx)
-    if exe is None:
-        return warn(
-            "node/npx",
-            f"{npx} não encontrado",
-            "só é necessário pro Azure DevOps MCP: winget install OpenJS.NodeJS.LTS",
-        )
-    try:
-        proc = await asyncio.to_thread(
-            subprocess.run, [exe, "--version"], capture_output=True, timeout=30, check=False
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return warn("node/npx", f"{npx} falhou: {e}", "reinstale o Node.js LTS")
-    return ok("node/npx", f"{npx} {proc.stdout.decode(errors='replace').strip()}")
 
 
 async def check_nats(cfg: CrewConfig) -> Check:
@@ -273,43 +253,6 @@ def check_gateway_port(cfg: CrewConfig) -> Check:
     return ok("gateway", f"{host}:{port} livre")
 
 
-async def check_azure(cfg: CrewConfig, secrets: Secrets, *, backend: McpAzureBackend | None = None) -> Check:
-    if cfg.azure is None:
-        return ok("azure", "não configurado (só tarefas manuais)")
-    pat = secrets.azure_devops_pat_b64.get_secret_value() if secrets.azure_devops_pat_b64 else None
-    own_caller: McpToolCaller | None = None
-    try:
-        if backend is None:
-            own_caller = McpToolCaller(build_server_params(cfg.azure, pat))
-            backend = McpAzureBackend(own_caller, cfg.azure)
-        items = await asyncio.wait_for(backend.list_work_items(), 150)
-    except AzureError as e:
-        return fail(
-            "azure",
-            str(e),
-            "confira AZURE_DEVOPS_PAT_B64 (base64 de email:pat) e organization/project/team",
-        )
-    except TimeoutError:
-        return fail(
-            "azure", "MCP não respondeu em 150s", "teste manualmente: npx -y @azure-devops/mcp@<versão> <org>"
-        )
-    except Exception as e:
-        return fail("azure", f"{type(e).__name__}: {e}", "veja o log do crew doctor com --verbose")
-    finally:
-        if own_caller is not None:
-            await own_caller.close()
-    if not items:
-        return ok(
-            "azure",
-            f"{cfg.azure.organization}/{cfg.azure.project}: conectou, sprint atual sem itens seus",
-        )
-    return ok(
-        "azure",
-        f"{cfg.azure.organization}/{cfg.azure.project}: {len(items)} item(ns), "
-        f"ex.: #{items[0].id} {items[0].title[:50]}",
-    )
-
-
 # ============================================================================ orchestration
 
 
@@ -317,7 +260,6 @@ async def run_checks(
     config_path: Path | None = None,
     *,
     run_tests: bool = True,
-    check_azure_too: bool = True,
     secrets: Secrets | None = None,
 ) -> list[Check]:
     secrets = secrets or Secrets()
@@ -327,7 +269,6 @@ async def run_checks(
     results.append(await check_git())
     results.append(check_git_bash())
     results.append(await check_claude_cli())
-    results.append(await check_node())
     results.append(check_data_dir())
     results.append(await check_claude_auth(secrets))
     if cfg is None:
@@ -337,8 +278,6 @@ async def run_checks(
     results.append(check_gateway_port(cfg))
     for repo in cfg.repos:
         results.extend(await check_repo(cfg, repo.name, run_tests=run_tests))
-    if check_azure_too:
-        results.append(await check_azure(cfg, secrets))
     return results
 
 

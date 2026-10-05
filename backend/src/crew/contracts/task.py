@@ -1,28 +1,12 @@
-"""Task input: work items, spec and repository context."""
+"""Task input: spec and repository context."""
 
-from .common import Contract, TaskSource
-
-
-class WorkItemSummary(Contract):
-    id: int
-    type: str
-    title: str
-    state: str
-
-
-class WorkItemDetail(WorkItemSummary):
-    description: str
-    acceptance_criteria: list[str] = []
-    iteration_path: str | None = None
-    url: str
+from .common import Contract
 
 
 class TaskSpec(Contract):
     title: str
     description: str
-    source: TaskSource
     repo: str
-    work_item: WorkItemDetail | None = None
     acceptance_criteria: list[str] = []
     out_of_scope: list[str] = []
     constraints: list[str] = []

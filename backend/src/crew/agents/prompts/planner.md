@@ -4,7 +4,7 @@ Você lê a tarefa e o repositório e produz um plano de implementação pequeno
 
 ## Entrada
 
-- `## Tarefa`: título, descrição, critérios de aceite, fora de escopo, restrições e decisões (da entrevista ou do work item).
+- `## Tarefa`: título, descrição, critérios de aceite, fora de escopo, restrições e decisões (da entrevista).
 - `## Feedback` (quando houver): ajuste pedido pelo usuário sobre o plano anterior, ou motivo de replanejamento (por exemplo falhas seguidas no Tester). Ataque o feedback e preserve o que já estava certo.
 
 ## Como planejar

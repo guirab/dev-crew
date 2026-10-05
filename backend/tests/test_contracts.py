@@ -31,7 +31,7 @@ def _repo() -> c.RepoContext:
 
 
 def _spec() -> c.TaskSpec:
-    return c.TaskSpec(title="t", description="d", source="manual", repo="sample-repo")
+    return c.TaskSpec(title="t", description="d", repo="sample-repo")
 
 
 def test_fixtures_exist_and_validate() -> None:
@@ -106,7 +106,7 @@ def test_ws_message() -> None:
 
 def test_contracts_are_strict() -> None:
     with pytest.raises(ValidationError):
-        c.TaskSpec(title="t", description="d", source="manual", repo="r", unknown=1)  # type: ignore[call-arg]
+        c.TaskSpec(title="t", description="d", repo="r", unknown=1)  # type: ignore[call-arg]
     with pytest.raises(ValidationError):
         c.TestFailure(test="t", message="x" * 401)
 
@@ -127,7 +127,6 @@ def test_schema_has_ui_types() -> None:
         "CommandReply",
         "StartTask",
         "Stages",
-        "WorkItemSummary",
     ):
         assert name in defs, name
     json.dumps(defs)

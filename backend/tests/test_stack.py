@@ -66,7 +66,6 @@ async def make_stack(nats_url: str, tmp_path: Path):  # type: ignore[no-untyped-
         stop = asyncio.Event()
         opts = StackOptions(
             fake_agents=True,
-            fake_azure=True,
             fake_speed=speed,
             fake_escalate=escalate,
             builtin_fakes=True,
@@ -95,17 +94,25 @@ async def make_stack(nats_url: str, tmp_path: Path):  # type: ignore[no-untyped-
             await asyncio.wait_for(st.task, 20)
 
 
-async def test_up_azure_path_with_plan_adjustment_to_done(make_stack) -> None:  # type: ignore[no-untyped-def]
+async def answer_interview(st: Stack, *, last: str | None = None) -> None:
+    """The builtin fake interviewer asks 3 questions; accept all but optionally override the last one."""
+    for i in range(3):
+        await st.until(
+            lambda v, n=i: (
+                v.interview is not None and v.interview.pending is not None and len(v.interview.turns) == n
+            )
+        )
+        body: dict[str, object] = {"type": "answer_interview", "text": last if i == 2 else None}
+        assert (await st.post(body)).status_code == 200
+
+
+async def test_up_plan_adjustment_to_done(make_stack) -> None:  # type: ignore[no-untyped-def]
     st: Stack = await make_stack()
     repos = (await st.http.get("/api/repos")).json()
     assert repos[0]["name"] == "sample-repo"
-    items = (await st.http.get("/api/azure/work-items")).json()
-    assert {i["id"] for i in items} == {4830, 4827, 4821, 4819}
-
-    start = await st.post(
-        {"type": "start_task", "source": "azure", "repo": "sample-repo", "work_item_id": 4821}
-    )
+    start = await st.post({"type": "start_task", "repo": "sample-repo", "title": "Filtro de datas"})
     assert start.status_code == 200
+    await answer_interview(st)
     await st.phase("awaiting_approval")
     adjust = await st.post({"type": "adjust_plan", "text": "sem tocar em auth"})
     assert adjust.status_code == 200
@@ -114,34 +121,26 @@ async def test_up_azure_path_with_plan_adjustment_to_done(make_stack) -> None:  
     )
     assert (await st.post({"type": "approve_plan"})).status_code == 200
     done = await st.phase("done")
-    assert done.final is not None and done.final.files and "AB#4821" in done.final.commit_message
+    assert done.final is not None and done.final.files and done.final.commit_message
     assert done.stages.done.status == "done" and done.review is not None and done.review.verdict == "approved"
 
 
 async def test_up_manual_path_with_interview_to_done(make_stack) -> None:  # type: ignore[no-untyped-def]
     st: Stack = await make_stack()
-    r = await st.post(
-        {"type": "start_task", "source": "manual", "repo": "sample-repo", "title": "Exportar CSV"}
-    )
+    r = await st.post({"type": "start_task", "repo": "sample-repo", "title": "Exportar CSV"})
     assert r.status_code == 200
-    for i in range(3):
-        await st.until(
-            lambda v, n=i: (
-                v.interview is not None and v.interview.pending is not None and len(v.interview.turns) == n
-            )
-        )
-        body: dict[str, object] = {"type": "answer_interview", "text": None if i != 2 else "sem libs novas"}
-        assert (await st.post(body)).status_code == 200
+    await answer_interview(st, last="sem libs novas")
     await st.phase("awaiting_approval")
     await st.post({"type": "approve_plan"})
     done = await st.phase("done")
-    assert done.source == "manual" and done.final is not None
+    assert done.final is not None
     assert done.interview is not None and done.interview.decisions[-1] == "Restrições: sem libs novas"
 
 
 async def test_up_escalation_then_instruct_to_done(make_stack) -> None:  # type: ignore[no-untyped-def]
     st: Stack = await make_stack(escalate=True)
-    await st.post({"type": "start_task", "source": "azure", "repo": "sample-repo", "work_item_id": 4830})
+    await st.post({"type": "start_task", "repo": "sample-repo", "title": "Erro 500 ao salvar"})
+    await answer_interview(st)
     await st.phase("awaiting_approval")
     await st.post({"type": "approve_plan"})
     esc = await st.phase("escalated")
@@ -156,14 +155,12 @@ async def test_up_escalation_then_instruct_to_done(make_stack) -> None:  # type:
 
 async def test_up_cancel_then_new_task(make_stack) -> None:  # type: ignore[no-untyped-def]
     st: Stack = await make_stack(speed=2.0)
-    await st.post({"type": "start_task", "source": "azure", "repo": "sample-repo", "work_item_id": 4819})
-    await st.phase("planning")
+    await st.post({"type": "start_task", "repo": "sample-repo", "title": "Exportar CSV"})
+    await st.phase("interviewing")
     assert (await st.post({"type": "cancel_task"})).status_code == 200
     cancelled = await st.phase("cancelled")
     assert cancelled.ended_at is not None
-    second = await st.post(
-        {"type": "start_task", "source": "manual", "repo": "sample-repo", "title": "outra"}
-    )
+    second = await st.post({"type": "start_task", "repo": "sample-repo", "title": "outra"})
     assert second.status_code == 200 and second.json()["view"]["task_id"] == "T-2"
 
 
@@ -171,9 +168,9 @@ async def test_up_cancel_then_new_task(make_stack) -> None:  # type: ignore[no-u
 
 
 def test_service_name_validation() -> None:
-    for ok in ("orchestrator", "gateway", "azure", "agent:planner"):
+    for ok in ("orchestrator", "gateway", "agent:planner"):
         assert validate_service_name(ok) == ok
-    for bad in ("agent:nobody", "web", ""):
+    for bad in ("agent:nobody", "azure", "web", ""):
         with pytest.raises(StackError):
             validate_service_name(bad)
 
@@ -240,7 +237,6 @@ async def test_cli_up_process_serves_the_gateway_with_fakes(nats_url: str, tmp_p
             "crew.cli",
             "up",
             "--fake-agents",
-            "--fake-azure",
             "--builtin-fakes",
             "--no-frontend",
         ],
@@ -253,7 +249,6 @@ async def test_cli_up_process_serves_the_gateway_with_fakes(nats_url: str, tmp_p
         await _wait_port(cfg.gateway.port, timeout=30)
         async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{cfg.gateway.port}", timeout=20) as http:
             assert (await http.get("/api/repos")).json()[0]["name"] == "sample-repo"
-            assert len((await http.get("/api/azure/work-items")).json()) == 4
             assert (await http.get("/api/task")).json() is None
     finally:
         proc.kill()

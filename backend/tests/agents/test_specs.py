@@ -15,9 +15,7 @@ from crew.agents.specs import (
     effective_test_globs,
     finalize_dev,
     finalize_interview,
-    finalize_review,
     finalize_test,
-    with_refs,
 )
 from crew.contracts import (
     AGENTS,
@@ -179,33 +177,12 @@ def test_finalize_test_fills_the_command_when_missing() -> None:
     assert keep.command == "pytest -x"
 
 
-def test_refs_footer_is_added_for_azure_work_items_only() -> None:
-    azure = make_job("reviewer", work_item=True)
-    manual = make_job("reviewer")
-    assert with_refs("feat: x", azure) == "feat: x\n\nRefs: AB#4821"
-    assert with_refs("feat: x\n\n- a\n", azure) == "feat: x\n\n- a\n\nRefs: AB#4821"
-    assert with_refs("feat: x\n\nRefs: AB#4821", azure) == "feat: x\n\nRefs: AB#4821"
-    assert with_refs("feat: x", manual) == "feat: x"
-    assert with_refs(None, azure) is None
-
-
-def test_finalize_review_adds_refs() -> None:
-    job = make_job("reviewer", work_item=True)
-    out = finalize_review(ReviewResult(verdict="approved", commit_message="feat: x"), job)
-    assert out.commit_message == "feat: x\n\nRefs: AB#4821"
-    declined = finalize_review(ReviewResult(verdict="changes_requested", comments=[MAJOR]), job)
-    assert declined.commit_message is None
-
-
 def test_finalize_interview_pins_identity_fields_to_the_job() -> None:
-    job = make_job("interviewer", work_item=True)
-    drifted = make_spec(
-        source="manual", repo="other-repo", decisions=["usar UTC"], acceptance_criteria=["ac"]
-    )
+    job = make_job("interviewer")
+    drifted = make_spec(repo="other-repo", decisions=["usar UTC"], acceptance_criteria=["ac"])
     out = finalize_interview(InterviewResult(kind="done", spec=drifted), job)
     assert out.spec is not None
-    assert (out.spec.source, out.spec.repo) == ("azure", "sample-repo")
-    assert out.spec.work_item == job.spec.work_item
+    assert out.spec.repo == "sample-repo"
     assert out.spec.decisions == ["usar UTC"]
     assert out.spec.acceptance_criteria == ["ac"]
     question = InterviewResult(kind="question", question=Q)

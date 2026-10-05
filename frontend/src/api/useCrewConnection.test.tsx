@@ -26,15 +26,14 @@ describe('CrewConnection (WS + REST via MSW)', () => {
 
     backend.handle({
       type: 'start_task',
-      source: 'azure',
       repo: 'portal-vendas',
-      work_item_id: 4821,
+      title: 'Filtro por intervalo de datas',
     })
     await waitFor(() => {
       expect(useCrewStore.getState().view?.task_id).toBe('T-107')
     })
     await waitFor(() => {
-      expect(useCrewStore.getState().view?.stages.approval.status).toBe('waiting')
+      expect(useCrewStore.getState().view?.stages.interviewer.status).toBe('waiting')
     })
     backend.dispose()
   })

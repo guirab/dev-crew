@@ -81,14 +81,6 @@ class CommitCfg(_Section):
     style: str = "conventional"
 
 
-class AzureCfg(_Section):
-    organization: str
-    project: str
-    team: str
-    auth: Literal["pat", "azcli"] = "pat"
-    mcp_version: str = "2.10.0"
-
-
 class RepoCfg(_Section):
     name: str
     path: Path
@@ -114,7 +106,6 @@ class Secrets(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     anthropic_api_key: SecretStr | None = None
-    azure_devops_pat_b64: SecretStr | None = None
 
 
 class CrewConfig(_Section):
@@ -124,7 +115,6 @@ class CrewConfig(_Section):
     limits: LimitsCfg = Field(default_factory=LimitsCfg)
     models: ModelsCfg = Field(default_factory=ModelsCfg)
     commit: CommitCfg = Field(default_factory=CommitCfg)
-    azure: AzureCfg | None = None
     repos: list[RepoCfg] = Field(default_factory=list)
 
     @field_validator("repos")

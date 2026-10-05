@@ -29,9 +29,8 @@ describe('FlowColumn', () => {
   })
 
   describe('sem tarefa (view null)', () => {
-    it('só os cards Azure/Manual ficam em pick; o resto idle, com as descrições fixas', () => {
+    it('só o card Manual fica em pick; o resto idle, com as descrições fixas', () => {
       renderWithClient(<FlowColumn view={null} />)
-      expect(card('azure')).toHaveAttribute('data-status', 'pick')
       expect(card('manual')).toHaveAttribute('data-status', 'pick')
       for (const key of [
         'interviewer',
@@ -48,13 +47,12 @@ describe('FlowColumn', () => {
       expect(screen.getByText('escolha a origem da tarefa ↑')).toBeInTheDocument()
     })
 
-    it('renderiza os 9 cards na ordem do fluxo vertical', () => {
+    it('renderiza os 8 cards na ordem do fluxo vertical', () => {
       renderWithClient(<FlowColumn view={null} />)
       const order = Array.from(document.querySelectorAll('[data-stage]')).map((el) =>
         el.getAttribute('data-stage'),
       )
       expect(order).toEqual([
-        'azure',
         'manual',
         'interviewer',
         'planner',
@@ -83,13 +81,15 @@ describe('FlowColumn', () => {
         within(card('planner')).getByText('Plano pronto · 4 passos, 3 arquivos'),
       ).toBeInTheDocument()
       expect(within(card('reviewer')).getByText(STAGE_META.reviewer.desc)).toBeInTheDocument()
-      expect(within(card('manual')).getByText(STAGE_META.manual.desc)).toBeInTheDocument()
+      expect(
+        within(card('manual')).getByText('Filtro por intervalo de datas no relatório de vendas'),
+      ).toBeInTheDocument()
     })
 
     it('estados visuais e conectores vêm de view.stages/edges', () => {
       renderWithClient(<FlowColumn view={fixture('reviewing')} />)
       expect(card('reviewer')).toHaveAttribute('data-status', 'active')
-      expect(card('interviewer')).toHaveAttribute('data-status', 'skipped')
+      expect(card('interviewer')).toHaveAttribute('data-status', 'done')
       expect(document.querySelector('[data-connector="test"]')).toHaveAttribute(
         'data-state',
         'active',
@@ -218,24 +218,7 @@ describe('FlowColumn', () => {
   })
 
   describe('origem (SourcePicker) em modo leitura com tarefa ativa', () => {
-    it('Azure: abre o resumo do work item, sem formulário', async () => {
-      const user = userEvent.setup()
-      renderWithClient(<FlowColumn view={fixture('escalated')} />)
-      await user.click(header('azure'))
-      const panel = screen.getByRole('region', { name: /Origem/ })
-      expect(within(panel).getByText('AB#4821')).toBeInTheDocument()
-      expect(within(panel).getByText(/Repo: sample-repo/)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Iniciar' })).not.toBeInTheDocument()
-    })
-
-    it('Manual numa tarefa do Azure: avisa que a origem é outra', async () => {
-      const user = userEvent.setup()
-      renderWithClient(<FlowColumn view={fixture('escalated')} />)
-      await user.click(header('manual'))
-      expect(screen.getByText('Tarefa iniciada por outra origem.')).toBeInTheDocument()
-    })
-
-    it('Manual numa tarefa manual: mostra título e descrição', async () => {
+    it('mostra título, descrição e repo, sem formulário', async () => {
       const user = userEvent.setup()
       const view = fixture('interviewing')
       renderWithClient(<FlowColumn view={view} />)
@@ -243,6 +226,8 @@ describe('FlowColumn', () => {
       const panel = screen.getByRole('region', { name: /Origem/ })
       expect(within(panel).getByText(view.title)).toBeInTheDocument()
       expect(within(panel).getByText(view.description)).toBeInTheDocument()
+      expect(within(panel).getByText(/Repo: sample-repo/)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Iniciar' })).not.toBeInTheDocument()
     })
   })
 })

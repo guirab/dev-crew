@@ -4,17 +4,15 @@ from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter
 
-from .common import Contract, TaskSource
+from .common import Contract
 from .view import TaskView
 
 
 class StartTask(Contract):
     type: Literal["start_task"] = "start_task"
-    source: TaskSource
     repo: str
-    work_item_id: int | None = None
-    title: str | None = None
-    description: str | None = None
+    title: str
+    description: str = ""
 
 
 class AnswerInterview(Contract):

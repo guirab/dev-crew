@@ -157,7 +157,6 @@ class FakeCrew:
         spec = TaskSpec(
             title=job.spec.title,
             description=job.spec.description,
-            source="manual",
             repo=job.spec.repo,
             acceptance_criteria=criteria,
             decisions=decisions,
@@ -274,9 +273,6 @@ class FakeCrew:
                     ),
                 ],
             )
-        wi = job.spec.work_item
         title = job.spec.title[:1].lower() + job.spec.title[1:]
         msg = f"feat: {title}\n\n- bind params na query e datas em UTC (review)"
-        if wi is not None:
-            msg += f"\n\nRefs: AB#{wi.id}"
         return ReviewResult(verdict="approved", comments=[], commit_message=msg)

@@ -125,9 +125,7 @@ def finalize_interview(r: InterviewResult, job: AgentJob) -> InterviewResult:
     if r.spec is None:
         return r
     # identity fields come from the job, never from the model
-    spec = r.spec.model_copy(
-        update={"source": job.spec.source, "repo": job.spec.repo, "work_item": job.spec.work_item}
-    )
+    spec = r.spec.model_copy(update={"repo": job.spec.repo})
     return r.model_copy(update={"spec": spec})
 
 
@@ -137,18 +135,6 @@ def finalize_dev(r: DevResult, job: AgentJob) -> DevResult:
 
 def finalize_test(r: TestResult, job: AgentJob) -> TestResult:
     return r if r.command.strip() else r.model_copy(update={"command": job.repo.test_cmd})
-
-
-def finalize_review(r: ReviewResult, job: AgentJob) -> ReviewResult:
-    return r.model_copy(update={"commit_message": with_refs(r.commit_message, job)})
-
-
-def with_refs(message: str | None, job: AgentJob) -> str | None:
-    """Append ``Refs: AB#<id>`` when the task came from Azure and the footer is missing."""
-    if not message or job.spec.work_item is None:
-        return message
-    ref = f"Refs: AB#{job.spec.work_item.id}"
-    return message if ref in message else f"{message.rstrip()}\n\n{ref}"
 
 
 _READ = ("Read", "Glob", "Grep")
@@ -226,7 +212,6 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         permission_mode="default",
         default_model="claude-opus-5-5",
         check=check_review,
-        finalize=finalize_review,
     ),
 }
 

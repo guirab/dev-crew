@@ -24,6 +24,22 @@ function wire(backend: ScenarioBackend): void {
 
 const SLOW = { timeout: 8000 }
 
+type User = ReturnType<typeof userEvent.setup>
+
+/** Inicia uma tarefa manual e aceita todas as recomendações da entrevista (3 perguntas no mock). */
+async function startAndAcceptInterview(user: User, title: string): Promise<void> {
+  await user.click(stageButton('manual'))
+  await user.type(screen.getByLabelText('título'), title)
+  await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+  await waitFor(() => {
+    expect(stageCard('interviewer')).toHaveAttribute('data-status', 'waiting')
+  })
+  await user.click(stageButton('interviewer'))
+  for (let i = 0; i < 3; i += 1) {
+    await user.click(await screen.findByRole('button', { name: 'Aceitar recomendação' }))
+  }
+}
+
 describe('App (UI + cenário mock, sem WS)', () => {
   let backend: ScenarioBackend
   let confirm: MockInstance<typeof window.confirm>
@@ -41,29 +57,25 @@ describe('App (UI + cenário mock, sem WS)', () => {
   it('mostra "conectando…" até o primeiro snapshot', () => {
     renderWithClient(<App />)
     expect(screen.getByText('conectando…')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Azure DevOps/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Manual/ })).not.toBeInTheDocument()
   })
 
   it('mostra a faixa "reconectando…" quando o WS cai, e mostra os cards mesmo sem snapshot', () => {
     useCrewStore.getState().setConnection('closed')
     renderWithClient(<App />)
     expect(screen.getByRole('status')).toHaveTextContent('reconectando…')
-    expect(stageCard('azure')).toHaveAttribute('data-status', 'pick')
+    expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
   })
 
-  it('fluxo Azure completo até a conclusão, com 1º teste falhando e 1º review pedindo mudanças', async () => {
+  it('fluxo completo até a conclusão, com 1º teste falhando e 1º review pedindo mudanças', async () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
 
-    // origem Azure: lista work items e inicia
-    await user.click(stageButton('azure'))
-    await user.click(await screen.findByRole('radio', { name: /Filtro por intervalo de datas/ }))
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    await startAndAcceptInterview(user, 'Filtro por intervalo de datas no relatório de vendas')
 
     expect(await screen.findByText('T-107')).toBeInTheDocument() // header
-    expect(stageCard('azure')).toHaveAttribute('data-status', 'done')
-    expect(stageCard('manual')).toHaveAttribute('data-status', 'skipped')
+    expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
     expect(screen.getByRole('button', { name: 'cancelar tarefa' })).toBeInTheDocument()
 
     // aprovação: waiting, fechada por padrão
@@ -88,7 +100,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
 
     // concluída: relatório + commit
     await user.click(stageButton('done'))
-    expect(screen.getByText(/^feat: filtro por intervalo/)).toHaveTextContent('Refs: AB#4821')
+    expect(screen.getByText(/^feat: filtro por intervalo/)).not.toHaveTextContent('Refs:')
 
     // tester mostra a 1ª execução que falhou
     await user.click(stageButton('tester'))
@@ -96,7 +108,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
 
     // "Nova tarefa" volta ao estado inicial (só origem em pick)
     await user.click(screen.getByRole('button', { name: 'Nova tarefa' }))
-    expect(stageCard('azure')).toHaveAttribute('data-status', 'pick')
+    expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
     expect(stageCard('done')).toHaveAttribute('data-status', 'idle')
     expect(screen.queryByText('T-107')).not.toBeInTheDocument()
   })
@@ -117,7 +129,6 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await waitFor(() => {
       expect(stageCard('interviewer')).toHaveAttribute('data-status', 'waiting')
     })
-    expect(stageCard('azure')).toHaveAttribute('data-status', 'skipped')
     expect(useCrewStore.getState().view?.repo).toBe('api-pedidos')
 
     await user.click(stageButton('interviewer'))
@@ -142,9 +153,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     const user = userEvent.setup()
     renderWithClient(<App />)
 
-    await user.click(stageButton('azure'))
-    await user.click(await screen.findByRole('radio', { name: /Filtro por intervalo/ }))
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    await startAndAcceptInterview(user, 'Filtro por intervalo de datas')
     await waitFor(() => {
       expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
     }, SLOW)
@@ -175,8 +184,8 @@ describe('App (UI + cenário mock, sem WS)', () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
-    await user.click(stageButton('azure'))
-    await user.click(await screen.findByRole('radio', { name: /Dashboard de metas/ }))
+    await user.click(stageButton('manual'))
+    await user.type(screen.getByLabelText('título'), 'Dashboard de metas')
     await user.click(screen.getByRole('button', { name: 'Iniciar' }))
     await user.click(await screen.findByRole('button', { name: 'cancelar tarefa' }))
 
@@ -216,24 +225,5 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Já existe uma tarefa ativa.')
     expect(screen.getByRole('button', { name: 'Iniciar' })).toBeEnabled()
     expect(screen.getByLabelText('título')).toHaveValue('Algo')
-  })
-
-  it('work items com erro mostram aviso e permitem tentar de novo', async () => {
-    wire(backend)
-    let calls = 0
-    server.use(
-      http.get('*/api/azure/work-items', () => {
-        calls += 1
-        return calls === 1
-          ? new HttpResponse(null, { status: 500 })
-          : HttpResponse.json([{ id: 1, type: 'Bug', title: 'Item único', state: 'Active' }])
-      }),
-    )
-    const user = userEvent.setup()
-    renderWithClient(<App />)
-    await user.click(stageButton('azure'))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível listar')
-    await user.click(screen.getByRole('button', { name: 'Tentar de novo' }))
-    expect(await screen.findByRole('radio', { name: /Item único/ })).toBeInTheDocument()
   })
 })

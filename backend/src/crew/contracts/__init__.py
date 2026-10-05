@@ -25,7 +25,6 @@ from .common import (
     StageKey,
     StageStatus,
     TaskPhase,
-    TaskSource,
 )
 from .events import EVENT_PAYLOADS, AgentFailedEvt, AgentProgress, AgentResultEvt, Envelope, EventKind
 from .jobs import AgentJob, Feedback
@@ -42,7 +41,7 @@ from .outputs import (
     TestFailure,
     TestResult,
 )
-from .task import RepoContext, RepoInfo, TaskSpec, WorkItemDetail, WorkItemSummary
+from .task import RepoContext, RepoInfo, TaskSpec
 from .view import (
     Counters,
     Escalation,
@@ -106,13 +105,10 @@ __all__ = [
     "Stages",
     "StartTask",
     "TaskPhase",
-    "TaskSource",
     "TaskSpec",
     "TaskView",
     "TestFailure",
     "TestResult",
-    "WorkItemDetail",
-    "WorkItemSummary",
     "WsMessage",
     "WsProgress",
     "WsView",
