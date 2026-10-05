@@ -3,6 +3,7 @@ import { FlowColumn } from '../flow/FlowColumn'
 import { selectActiveView, useCrewStore } from '../store/crew'
 import { Header } from './Header'
 import { ReconnectBanner } from './ReconnectBanner'
+import { useTabStatus } from './tabStatus'
 import styles from './App.module.css'
 
 // Só existe no modo mock: `import.meta.env.MODE` é constante em build, então o bundle de
@@ -12,6 +13,7 @@ const DemoBar = import.meta.env.MODE === 'mock' ? lazy(() => import('../mocks/De
 /** Layout: header + fluxo vertical. Render puro do store; a conexão WS é montada em `main.tsx`. */
 export function App() {
   const view = useCrewStore(selectActiveView)
+  useTabStatus(view)
   const hydrated = useCrewStore((s) => s.hydrated)
   const connection = useCrewStore((s) => s.connection)
   // Sem snapshot ainda e WS tentando conectar: não pisca os cards de origem clicáveis.
