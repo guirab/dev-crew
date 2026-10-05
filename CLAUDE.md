@@ -10,6 +10,11 @@ dev-crew: equipe de desenvolvimento multi-agente local. O usuário entrega uma t
 - Comece por `_index.md`, depois `plan/00-overview.md`.
 - Use a skill `obsidian-project-expert` pra carregar o contexto e salvar a sessão no fim.
 
+**Memória = vault.** Neste projeto a memória persistente é o vault, não a auto-memória do Claude Code.
+- O hook `SessionStart` (`.claude/settings.json`) já injeta `_index.md` + `sessions/_recent.md` no início de toda sessão.
+- Fatos, decisões, status e próximos passos do projeto: grave no vault (read-modify-write), nunca na auto-memória.
+- Ao fim de cada sessão (ou quando o usuário disser "pode salvar"): skill `obsidian-project-expert` fase 3 — sessão em `sessions/`, `_recent.md`, `_index.md`, features e `architecture/decisions.md`.
+
 Estado atual: só plano e mockup. O código começa no M0 (`plan/01-contracts.md`); o passo a passo está em `plan/06-runbook.md`.
 
 ## Arquitetura (resumo)
