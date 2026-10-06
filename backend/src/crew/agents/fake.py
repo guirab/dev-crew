@@ -20,6 +20,7 @@ from ..contracts import (
     AgentName,
     AgentOutput,
     DevResult,
+    Epic,
     InterviewQuestion,
     InterviewResult,
     Plan,
@@ -121,6 +122,84 @@ SAMPLE_PLAN_FILES: tuple[PlanFile, ...] = (
 )
 
 
+EPIC_KEYWORDS = ("épicos", "epicos", "epics")
+CONFLICT_KEYWORDS = ("conflito", "conflict")
+CONFLICT_FILE = "NOTES.md"
+CONFLICT_MARKER = "<<<<<<<"
+
+
+def _mentions(job: AgentJob, words: tuple[str, ...]) -> bool:
+    text = f"{job.spec.title} {job.spec.description}".lower()
+    return any(w in text for w in words)
+
+
+def _epic_plan(job: AgentJob, criteria: list[str]) -> Plan:
+    """Scripted split plan: E1 and E2 in parallel (disjoint files), E3 after both."""
+    e1 = Epic(
+        id="E1",
+        title="Núcleo do domínio",
+        goal="Modelo e regras do domínio, testados sozinhos.",
+        steps=["Criar o modelo", "Cobrir as regras com testes"],
+        files=[PlanFile(path="feature/core.py", change="A")],
+        acceptance_criteria=["Regras do domínio cobertas por testes"],
+        size="S",
+    )
+    e2 = Epic(
+        id="E2",
+        title="Relatórios",
+        goal="Relatório que não depende do núcleo.",
+        steps=["Criar o relatório", "Testar formatos de saída"],
+        files=[PlanFile(path="feature/reports.py", change="A")],
+        acceptance_criteria=["Relatório gerado nos formatos pedidos"],
+        size="S",
+    )
+    e3 = Epic(
+        id="E3",
+        title="Integração",
+        goal="Liga núcleo e relatórios num ponto de entrada.",
+        steps=["Criar o ponto de entrada", "Teste ponta a ponta"],
+        files=[PlanFile(path="feature/app.py", change="A")],
+        depends_on=["E1", "E2"],
+        acceptance_criteria=["Fluxo completo funciona de ponta a ponta"],
+        size="M",
+    )
+    epics = [e1, e2, e3]
+    return Plan(
+        summary=f'Implementar "{job.spec.title}" em três épicos.',
+        steps=["E1 e E2 em paralelo", "E3 depois dos dois"],
+        files=[f for e in epics for f in e.files],
+        acceptance_criteria=criteria,
+        test_strategy="Cada épico com seus testes; E3 com um teste ponta a ponta.",
+        execution="epics",
+        split_rationale="E1 e E2 não compartilham arquivos e rodam em paralelo; E3 junta os dois.",
+        epics=epics,
+    )
+
+
+def _epic_of(job: AgentJob) -> Epic | None:
+    if job.plan is None or job.epic_id is None:
+        return None
+    return next((e for e in job.plan.epics if e.id == job.epic_id), None)
+
+
+def _resolve_conflicts(root: Path) -> list[PlanFile]:
+    """Integration lane: keep both sides of every conflicted file (drop the git markers)."""
+    fixed: list[PlanFile] = []
+    for path in sorted(root.rglob("*")):
+        if ".git" in path.parts or not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if CONFLICT_MARKER not in text:
+            continue
+        kept = [ln for ln in text.splitlines() if not ln.startswith(("<<<<<<<", "=======", ">>>>>>>"))]
+        path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+        fixed.append(PlanFile(path=path.relative_to(root).as_posix(), change="M"))
+    return fixed
+
+
 def _plan_files(job: AgentJob) -> list[PlanFile]:
     """Plan files that exist in the worktree when it is the sample repo; the mockup's otherwise."""
     if job.workspace_path and (Path(job.workspace_path) / "shop" / "report.py").is_file():
@@ -164,7 +243,8 @@ class ScriptedRunner:
                 output = await self._tester(job, steps)
             case "reviewer":
                 output = await self._reviewer(job, steps)
-        if spec.check is not None and (problem := spec.check(output)):
+        check = spec.check_for(job)
+        if check is not None and (problem := check(output)):
             raise FatalJobError(f"cenário fake inconsistente: {problem}")
         if spec.finalize is not None:
             output = spec.finalize(output, job)
@@ -199,6 +279,8 @@ class ScriptedRunner:
         criteria = [*job.spec.acceptance_criteria, "Sem regressão na suíte existente"]
         if not job.spec.acceptance_criteria:
             criteria.insert(0, job.spec.title)
+        if _mentions(job, EPIC_KEYWORDS):
+            return _epic_plan(job, criteria)
         return Plan(
             summary=(
                 f'Implementar "{job.spec.title}" seguindo os padrões do repo, '
@@ -220,9 +302,20 @@ class ScriptedRunner:
     async def _developer(self, job: AgentJob, steps: _Steps) -> DevResult:
         jail = PathJail(job.workspace_path) if job.workspace_path else None
         fb = job.feedback
+        if fb is not None and fb.kind == "merge_conflict":
+            await steps.step("Resolvendo o conflito de merge", 1.2)
+            fixed = _resolve_conflicts(Path(jail.root)) if jail is not None else []
+            return DevResult(
+                round=job.attempt,
+                summary=f"Resolve o conflito de merge em {len(fixed)} arquivo(s).",
+                files_changed=fixed or [PlanFile(path=CONFLICT_FILE, change="M")],
+            )
         if fb is not None:
             await steps.step(_fix_reason(job), 1.2)
-        files = list(job.plan.files) if job.plan else list(DEFAULT_PLAN_FILES)
+        epic = _epic_of(job)
+        files = list(epic.files) if epic else list(job.plan.files) if job.plan else list(DEFAULT_PLAN_FILES)
+        if epic is not None and fb is None and _mentions(job, CONFLICT_KEYWORDS) and epic.id in ("E1", "E2"):
+            files.append(PlanFile(path=CONFLICT_FILE, change="A"))  # both parallel epics: add/add conflict
         changed: list[PlanFile] = []
         for pf in files:
             if (
@@ -273,7 +366,9 @@ class ScriptedRunner:
     async def _reviewer(self, job: AgentJob, steps: _Steps) -> ReviewResult:
         await steps.step("$ git diff — lendo alterações", 1.1)
         await steps.step("Checando segurança, padrões do repo e aderência ao plano", 1.3)
-        paths = [f.path for f in job.plan.files] if job.plan else [f.path for f in DEFAULT_PLAN_FILES]
+        epic = _epic_of(job)
+        source = epic.files if epic else job.plan.files if job.plan else list(DEFAULT_PLAN_FILES)
+        paths = [f.path for f in source]
         previous = job.feedback.review.comments if job.feedback and job.feedback.review else []
         if job.attempt == 1 and not previous:
             return ReviewResult(
@@ -401,7 +496,8 @@ def _apply(jail: PathJail, pf: PlanFile, attempt: int, correction: bool) -> bool
 
 def _write_acceptance_test(job: AgentJob) -> list[str]:
     """The Tester's new test file (only in the worktree, only on the first attempt)."""
-    rel = f"tests/test_{slug(job.spec.title)[:40]}_acceptance.py"
+    lane = f"_{job.epic_id.lower()}" if job.epic_id else ""  # parallel lanes must not collide
+    rel = f"tests/test_{slug(job.spec.title)[:40]}{lane}_acceptance.py"
     if not job.workspace_path:
         return [rel]
     jail = PathJail(job.workspace_path)

@@ -21,6 +21,7 @@ class RepoContext(Contract):
     test_globs: list[str]
     commit_language: str = "pt-BR"
     sandbox: bool = False  # True: commands run in the task's Docker container (tool `run`, not Bash)
+    new_project: bool = False  # created by dev-crew from scratch (D58): the Planner defines the setup
 
 
 class RepoInfo(Contract):

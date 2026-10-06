@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from .. import plan_graph
 from ..contracts import (
     AgentJob,
     AgentName,
@@ -57,11 +58,23 @@ class AgentSpec[OutT: BaseModel]:
     permission_mode: PermissionMode
     default_model: str
     check: Callable[[OutT], str | None] | None = None
+    job_check: Callable[[OutT, AgentJob], str | None] | None = None  # rules that depend on the job
     finalize: Callable[[OutT, AgentJob], OutT] | None = None
 
     @property
     def writes_files(self) -> bool:
         return self.write != "none"
+
+    def check_for(self, job: AgentJob) -> Callable[[OutT], str | None] | None:
+        """The semantic check of a submit for ``job`` (``check`` then ``job_check``)."""
+        check, job_check = self.check, self.job_check
+        if job_check is None:
+            return check
+
+        def combined(out: OutT) -> str | None:
+            return (check(out) if check is not None else None) or job_check(out, job)
+
+        return combined
 
 
 # ---------------- semantic checks (run after Pydantic validation) ----------------
@@ -86,11 +99,14 @@ def check_interview(r: InterviewResult) -> str | None:
 
 
 def check_plan(r: Plan) -> str | None:
-    if not r.steps:
-        return "steps não pode ser vazio."
     if not r.acceptance_criteria:
         return "acceptance_criteria não pode ser vazio."
-    return None
+    return plan_graph.validate(r)
+
+
+def check_plan_for_job(r: Plan, job: AgentJob) -> str | None:
+    """A brand-new project (D58) needs ``project_setup`` and, when split, the E0 foundation."""
+    return plan_graph.validate(r, new_project=job.repo.new_project) if job.repo.new_project else None
 
 
 def check_dev(r: DevResult) -> str | None:
@@ -171,6 +187,7 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         permission_mode="default",
         default_model="claude-opus-5-5",
         check=check_plan,
+        job_check=check_plan_for_job,
     ),
     "developer": AgentSpec(
         name="developer",

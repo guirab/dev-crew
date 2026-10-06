@@ -13,7 +13,8 @@
       "**/test_*.py"
     ],
     "commit_language": "pt-BR",
-    "sandbox": false
+    "sandbox": false,
+    "new_project": false
   },
   "spec": {
     "title": "Filtro por intervalo de datas no relatório de vendas",

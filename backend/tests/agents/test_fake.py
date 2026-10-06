@@ -373,3 +373,66 @@ async def test_zero_or_negative_speed_does_not_divide_by_zero() -> None:
 
 def test_fake_job_type_is_the_contract_job() -> None:
     assert isinstance(make_job("planner"), AgentJob)
+
+
+# ---------------------------------------------------------------------------------- split plans (D53)
+
+
+def _epics_job(
+    agent: str, worktree: Path | None, *, title: str = "Agenda em épicos", **kw: object
+) -> AgentJob:
+    spec = make_spec().model_copy(update={"title": title})
+    return make_job(agent, workspace=worktree, spec=spec, **kw)  # type: ignore[arg-type]
+
+
+async def _split_plan(rec: Recorder) -> Plan:
+    out = (await runner(rec).run(_epics_job("planner", None), rec.emit)).output
+    assert isinstance(out, Plan)
+    return out
+
+
+async def test_planner_splits_when_the_task_asks_for_epics() -> None:
+    plan = await _split_plan(Recorder())
+    assert plan.execution == "epics" and [e.id for e in plan.epics] == ["E1", "E2", "E3"]
+    assert plan.epics[2].depends_on == ["E1", "E2"]
+    check = SPECS["planner"].check_for(make_job("planner"))
+    assert check is not None and check(plan) is None
+
+
+async def test_epic_developer_touches_only_its_epic(tmp_path: Path) -> None:
+    rec = Recorder()
+    plan = await _split_plan(rec)
+    job = _epics_job("developer", tmp_path).model_copy(update={"plan": plan, "epic_id": "E2"})
+    out = (await runner(rec).run(job, rec.emit)).output
+    assert isinstance(out, DevResult)
+    assert [f.path for f in out.files_changed] == ["feature/reports.py"]
+    assert (tmp_path / "feature" / "reports.py").is_file() and not (tmp_path / "feature" / "core.py").exists()
+
+
+async def test_conflict_scenario_makes_parallel_epics_touch_the_same_file(tmp_path: Path) -> None:
+    rec = Recorder()
+    plan = await _split_plan(rec)
+    job = _epics_job("developer", tmp_path, title="Agenda em épicos com conflito")
+    out = (await runner(rec).run(job.model_copy(update={"plan": plan, "epic_id": "E1"}), rec.emit)).output
+    assert isinstance(out, DevResult) and "NOTES.md" in [f.path for f in out.files_changed]
+
+
+async def test_integration_developer_resolves_conflict_markers(tmp_path: Path) -> None:
+    (tmp_path / "NOTES.md").write_text("<<<<<<< HEAD\nfrom E1\n=======\nfrom E2\n>>>>>>> crew/T-1-E2\n")
+    job = _epics_job("developer", tmp_path, feedback=Feedback(kind="merge_conflict", text="NOTES.md"))
+    rec = Recorder()
+    out = (await runner(rec).run(job, rec.emit)).output
+    assert isinstance(out, DevResult) and [f.path for f in out.files_changed] == ["NOTES.md"]
+    assert (tmp_path / "NOTES.md").read_text() == "from E1\nfrom E2\n"
+
+
+async def test_parallel_testers_write_different_files(tmp_path: Path) -> None:
+    rec = Recorder()
+    plan = await _split_plan(rec)
+    names = []
+    for epic_id in ("E1", "E2"):
+        job = _epics_job("tester", tmp_path).model_copy(update={"plan": plan, "epic_id": epic_id})
+        out = (await runner(rec).run(job, rec.emit)).output
+        assert isinstance(out, TestResult)
+        names += out.tests_written
+    assert len(set(names)) == 2

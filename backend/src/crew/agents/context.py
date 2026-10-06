@@ -11,7 +11,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from ..contracts import AgentJob, Feedback, InterviewTurn, Plan, TaskSpec
+from ..contracts import AgentJob, Epic, Feedback, InterviewTurn, Plan, TaskSpec
 from .specs import AgentSpec, effective_test_globs
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -76,13 +76,38 @@ def _turn_line(i: int, turn: InterviewTurn) -> str:
     return f"{i}. [{turn.question.topic}] {turn.question.question}\n   Resposta{accepted}: {turn.answer}"
 
 
-def _plan_section(plan: Plan) -> str:
+def _plan_section(plan: Plan, epic_id: str | None = None) -> str:
+    epic = next((e for e in plan.epics if e.id == epic_id), None)
+    if epic is not None:  # a lane of a split plan only gets its own slice (D53)
+        return _epic_section(plan, epic)
     steps = "\n".join(f"{i}. {step}" for i, step in enumerate(plan.steps, 1))
     files = "\n".join(f"- {f.change} {f.path}" for f in plan.files)
     lines = ["## Plano", plan.summary, "Passos:", steps, "Arquivos:", files]
     lines += ["Critérios de aceite:", _bullets(plan.acceptance_criteria)]
     if plan.risks:
         lines += ["Riscos:", _bullets(plan.risks)]
+    lines += ["Estratégia de teste:", plan.test_strategy]
+    return "\n".join(lines)
+
+
+def _epic_section(plan: Plan, epic: Epic) -> str:
+    others = [f"{e.id} ({e.title})" for e in plan.epics if e.id != epic.id]
+    lines = [
+        "## Plano",
+        plan.summary,
+        f"Seu épico: {epic.id} · {epic.title}",
+        f"Objetivo: {epic.goal}",
+        "Passos:",
+        "\n".join(f"{i}. {step}" for i, step in enumerate(epic.steps, 1)),
+        "Arquivos (só estes; os outros épicos cuidam do resto):",
+        "\n".join(f"- {f.change} {f.path}" for f in epic.files),
+        "Critérios de aceite do épico:",
+        _bullets(epic.acceptance_criteria),
+    ]
+    if epic.depends_on:
+        lines.append(f"Já está no código: os épicos dos quais este depende ({', '.join(epic.depends_on)}).")
+    if others:
+        lines.append(f"Outros épicos do plano (não mexa no que é deles): {', '.join(others)}.")
     lines += ["Estratégia de teste:", plan.test_strategy]
     return "\n".join(lines)
 
@@ -124,6 +149,13 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
     ]
     if spec.writes_files and job.workspace_path:
         lines.append(f"- Worktree (seu diretório de trabalho): {job.workspace_path}")
+    if job.repo.new_project:
+        lines.append(
+            "- Projeto novo: o repositório acabou de ser criado e está vazio. Defina a stack e os comandos "
+            "em `project_setup`; se dividir em épicos, comece por E0 (fundação)."
+        )
+    if job.epic_id:
+        lines.append(f"- Você trabalha no épico {job.epic_id}: faça só o que o plano atribui a ele.")
     if job.repo.sandbox and spec.bash != "none":
         lines.append(
             "- Comandos: use a tool `run` (container Linux isolado, cwd /work = o worktree, sem internet). "
@@ -173,7 +205,7 @@ def build_prompt(job: AgentJob, spec: AgentSpec[Any], *, resumed: bool) -> str:
     else:
         sections.append(_task_section(job))
         if job.plan is not None:
-            sections.append(_plan_section(job.plan))
+            sections.append(_plan_section(job.plan, job.epic_id))
         if job.feedback is not None:
             sections.append(feedback_section(job.feedback))
     sections.append(_rules_section(job, spec))

@@ -261,7 +261,7 @@ class SdkRunner:
     async def _session(
         self, job: AgentJob, spec: AgentSpec[Any], workspace: str, emit: ProgressSink, *, resumed: bool
     ) -> RunOutcome:
-        submit = make_submit_tool(spec.output, spec.submit_name, check=spec.check)
+        submit = make_submit_tool(spec.output, spec.submit_name, check=spec.check_for(job))
         throttle = ProgressThrottle(emit)
 
         async def on_block(reason: str) -> None:

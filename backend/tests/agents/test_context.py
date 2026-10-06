@@ -20,7 +20,7 @@ from crew.contracts import (
     TestResult,
 )
 
-from .factories import POSIX_WS, make_job, make_repo, make_spec, make_turn
+from .factories import POSIX_WS, make_job, make_plan, make_repo, make_spec, make_turn
 
 PLANNER_MANUAL = """\
 ## Tarefa
@@ -240,3 +240,32 @@ def test_system_prompt_has_shared_rules_and_the_role(agent: str) -> None:
 @pytest.mark.parametrize("agent", AGENTS)
 def test_every_prompt_names_its_submit_tool(agent: str) -> None:
     assert SPECS[agent].submit_name in system_prompt_text(agent)
+
+
+def test_lane_prompt_only_shows_its_epic() -> None:
+    from crew.contracts import Epic, PlanFile
+
+    def epic(epic_id: str, path: str, deps: list[str] | None = None) -> Epic:
+        return Epic(
+            id=epic_id,
+            title=f"título {epic_id}",
+            goal=f"objetivo {epic_id}",
+            steps=[f"passo {epic_id}"],
+            files=[PlanFile(path=path, change="A")],
+            depends_on=deps or [],
+            acceptance_criteria=[f"critério {epic_id}"],
+        )
+
+    plan = make_plan().model_copy(
+        update={
+            "execution": "epics",
+            "epics": [epic("E1", "a.py"), epic("E2", "b.py"), epic("E3", "c.py", ["E1", "E2"])],
+        }
+    )
+    job = make_job("developer", workspace=POSIX_WS).model_copy(update={"plan": plan, "epic_id": "E3"})
+    prompt = build_prompt(job, SPECS["developer"], resumed=False)
+    assert "Seu épico: E3 · título E3" in prompt and "- A c.py" in prompt
+    assert "- A a.py" not in prompt and "passo E1" not in prompt
+    assert "épicos dos quais este depende (E1, E2)" in prompt
+    assert "Outros épicos do plano (não mexa no que é deles): E1 (título E1), E2 (título E2)." in prompt
+    assert "Você trabalha no épico E3" in prompt
