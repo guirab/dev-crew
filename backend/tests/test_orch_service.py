@@ -256,34 +256,6 @@ async def test_workspace_failure_fails_the_task(nats_url: str, tmp_path: Path) -
         await rig.aclose()
 
 
-async def test_job_timeout_escalates_when_nobody_answers(nats_url: str, tmp_path: Path) -> None:
-    rig = await start_rig(nats_url, tmp_path, agents=False, job_timeout_min=0.01)  # 0.6 s
-    try:
-        await rig.ok(START_MANUAL)
-        esc = await rig.wait_phase("escalated")
-        assert esc.escalation is not None and esc.escalation.stage == "interviewer"
-        assert "sem resposta" in esc.escalation.reason
-    finally:
-        await rig.aclose()
-
-
-async def test_budget_exhaustion_escalates_and_more_attempts_resumes(nats_url: str, tmp_path: Path) -> None:
-    # each fake job costs 0.05: interview (4 jobs) + planner + developer = 0.30, the tester tips it over
-    rig = await start_rig(nats_url, tmp_path, budget_usd_per_task=0.32)
-    try:
-        await start_to_plan(rig)
-        await rig.ok(c.ApprovePlan())
-        esc = await rig.wait_phase("escalated")
-        assert "orçamento" in (esc.escalation.reason if esc.escalation else "")
-        blocked = await rig.cmd(c.EscalationAction(action="instruct", text="x"))
-        assert blocked.error == m.ERR_BUDGET
-        await rig.ok(c.EscalationAction(action="more_attempts"))
-        # keeps going; may escalate again for budget on a later step, but must have made progress
-        await rig.wait_for(lambda v: v.cost_usd >= 0.4)
-    finally:
-        await rig.aclose()
-
-
 async def test_everything_is_persisted_and_event_logged(rig: Rig) -> None:
     await start_to_plan(rig)
     saved = rig.store.load_task("T-1")

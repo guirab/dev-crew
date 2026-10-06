@@ -3,6 +3,7 @@ import type { StageKey } from '../contracts/aliases'
 import type { TaskView } from '../contracts/generated'
 import { useCrewStore } from '../store/crew'
 import { Connector } from './Connector'
+import { LimitBanner } from './LimitBanner'
 import { LoopRail } from './LoopRail'
 import { SourcePicker } from './SourcePicker'
 import type { SourceKey } from './SourcePicker'
@@ -79,6 +80,7 @@ export function FlowColumn({ view }: { view: TaskView | null }) {
 
   return (
     <div>
+      {view?.phase === 'limited' && view.limit && <LimitBanner limit={view.limit} />}
       <SourcePicker view={view} open={sourceOpen} onOpenChange={setSourceOpen} />
       <Connector id="source" edges={edges} />
       {card('interviewer')}

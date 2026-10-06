@@ -128,6 +128,7 @@
           "approve_plan": "#/$defs/ApprovePlan",
           "cancel_task": "#/$defs/CancelTask",
           "escalation": "#/$defs/EscalationAction",
+          "resume_after_limit": "#/$defs/ResumeAfterLimit",
           "start_task": "#/$defs/StartTask"
         },
         "propertyName": "type"
@@ -150,6 +151,9 @@
         },
         {
           "$ref": "#/$defs/CancelTask"
+        },
+        {
+          "$ref": "#/$defs/ResumeAfterLimit"
         }
       ],
       "title": "Command"
@@ -602,6 +606,22 @@
       "title": "RepoInfo",
       "type": "object"
     },
+    "ResumeAfterLimit": {
+      "additionalProperties": false,
+      "description": "Re-run the jobs stopped by the subscription usage limit (D50).",
+      "properties": {
+        "type": {
+          "const": "resume_after_limit",
+          "default": "resume_after_limit",
+          "type": "string"
+        }
+      },
+      "title": "ResumeAfterLimit",
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    },
     "ReviewComment": {
       "additionalProperties": false,
       "properties": {
@@ -822,6 +842,7 @@
             "testing",
             "reviewing",
             "escalated",
+            "limited",
             "done",
             "cancelled",
             "failed"
@@ -968,6 +989,21 @@
         "cost_usd": {
           "default": 0.0,
           "type": "number"
+        },
+        "tokens": {
+          "default": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UsageLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -989,7 +1025,9 @@
         "final",
         "started_at",
         "ended_at",
-        "cost_usd"
+        "cost_usd",
+        "tokens",
+        "limit"
       ],
       "title": "TaskView",
       "type": "object"
@@ -1072,6 +1110,44 @@
         "type"
       ],
       "title": "TestResult",
+      "type": "object"
+    },
+    "UsageLimit": {
+      "additionalProperties": false,
+      "description": "The subscription usage limit was hit (D50): work stops until ``resets_at``.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "session",
+            "weekly",
+            "weekly_opus",
+            "weekly_sonnet",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "resets_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "resets_at",
+        "message"
+      ],
+      "title": "UsageLimit",
       "type": "object"
     },
     "WsMessage": {

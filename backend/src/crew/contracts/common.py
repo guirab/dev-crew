@@ -44,6 +44,7 @@ TaskPhase = Literal[
     "testing",
     "reviewing",
     "escalated",
+    "limited",  # subscription usage limit hit: waits for the user to resume after the reset (D50)
     "done",
     "cancelled",
     "failed",

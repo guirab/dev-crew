@@ -120,7 +120,6 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
     lines = [
         "## Regras do job",
         f"- Rodada {job.attempt} deste agente na tarefa {job.task_id}.",
-        f"- Orçamento restante da tarefa: US$ {job.budget_usd:.2f}.",
         f"- Termine chamando `{spec.submit_name}`.",
     ]
     if spec.writes_files and job.workspace_path:

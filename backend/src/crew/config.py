@@ -61,8 +61,9 @@ class WorkspaceCfg(_Section):
 class LimitsCfg(_Section):
     max_test_attempts: int = Field(default=3, ge=1)
     max_review_rounds: int = Field(default=2, ge=1)
-    budget_usd_per_task: float = Field(default=5.0, gt=0)
-    job_timeout_min: float = Field(default=20.0, gt=0)
+    # Ignored since D51 (no cost/time cap). Still accepted so an older crew.toml keeps loading.
+    budget_usd_per_task: float | None = None
+    job_timeout_min: float | None = None
 
 
 class ModelsCfg(_Section):

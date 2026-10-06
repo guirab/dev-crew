@@ -29,6 +29,7 @@ const PHASES: readonly TaskPhase[] = [
   'testing',
   'reviewing',
   'escalated',
+  'limited',
   'done',
   'cancelled',
   'failed',

@@ -158,7 +158,6 @@ async def offline_submit_and_hooks() -> None:
             attempt=1,
             repo=RepoContext(name="r", base_branch="main", test_cmd="pytest", test_globs=["tests/**"]),
             spec=TaskSpec(title="t", description="d", source="manual", repo="r"),
-            budget_usd=1.0,
         )
 
     tool = make_submit_tool(Plan, "submit_plan")

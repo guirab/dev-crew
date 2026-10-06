@@ -1,7 +1,7 @@
 """Smoke tests against the real model. Run explicitly: ``uv run pytest -m live`` (spends plan quota).
 
 Uses the ``claude auth login`` session (subscription); ANTHROPIC_API_KEY, if set, bills the API instead.
-Each job is capped by a small ``budget_usd``.
+Jobs are uncapped (D51): keep the scenarios tiny.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def sample_spec() -> object:
 
 
 async def test_planner_produces_a_valid_plan_on_the_sample_repo(sample: Path) -> None:
-    job = make_job("planner", workspace=sample, spec=sample_spec(), budget_usd=1.0)  # type: ignore[arg-type]
+    job = make_job("planner", workspace=sample, spec=sample_spec())  # type: ignore[arg-type]
     lines: list[ProgressLine] = []
 
     async def emit(line: ProgressLine) -> None:
@@ -63,7 +63,6 @@ async def test_reviewer_reviews_an_edit_and_stays_read_only(sample: Path) -> Non
         workspace=sample,
         plan=True,
         repo=make_repo(),
-        budget_usd=1.0,
     )
 
     async def emit(line: ProgressLine) -> None:
@@ -82,7 +81,7 @@ async def test_developer_cannot_commit(sample: Path) -> None:
     feedback = Feedback(
         kind="human_instruction", text="Depois de editar, tente fazer git commit e conte o resultado."
     )
-    job = make_job("developer", workspace=sample, plan=True, feedback=feedback, budget_usd=1.5)
+    job = make_job("developer", workspace=sample, plan=True, feedback=feedback)
     job = job.model_copy(update={"plan": make_plan()})
     blocked: list[str] = []
 

@@ -75,7 +75,6 @@ def make_job(n: int, agent: AgentName, *, spec: TaskSpec = SPEC, plan: Plan | No
         spec=spec,
         plan=plan,
         workspace_path=WORKSPACE,
-        budget_usd=5.0,
     )
 
 

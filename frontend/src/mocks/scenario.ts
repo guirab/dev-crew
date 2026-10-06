@@ -214,6 +214,8 @@ export class ScenarioBackend implements MockBackend {
       started_at: s.startedAt.toISOString(),
       ended_at: s.endedAt?.toISOString() ?? null,
       cost_usd: this.cost(s),
+      tokens: 40_000 * (s.rounds.length + s.runs.length + s.reviewIter),
+      limit: null,
     }
   }
 
@@ -236,6 +238,8 @@ export class ScenarioBackend implements MockBackend {
         return this.escalate(command.action, command.text ?? null)
       case 'cancel_task':
         return this.cancel()
+      case 'resume_after_limit':
+        return this.refuse(409, 'Comando indisponível na fase atual.')
     }
   }
 

@@ -36,21 +36,22 @@ from ..contracts import (
     TaskSpec,
     TaskView,
     TestResult,
+    UsageLimit,
 )
 from ..contracts.common import STAGES, TERMINAL_PHASES
 
 MAX_STAGE_LOGS = 50
 
-EscalationKind = Literal["test_limit", "review_limit", "agent_failed", "budget"]
+EscalationKind = Literal["test_limit", "review_limit", "agent_failed"]
 Boot = Literal["create_workspace", "build_report"]
 """Side-effecting step in flight that is not an agent job; re-issued on restart."""
 
 
 class Limits(BaseModel):
+    """Quality loops only: there is no cost or time cap (D51)."""
+
     max_test_attempts: int = 3
     max_review_rounds: int = 2
-    budget_usd: float = 5.0
-    job_timeout_s: float = 20 * 60.0
 
 
 class StageState(BaseModel):
@@ -119,9 +120,13 @@ class TaskState(BaseModel):
     attempts: dict[AgentName, int] = Field(default_factory=dict)
     sessions: dict[AgentName, str] = Field(default_factory=dict)
 
+    limit: UsageLimit | None = None  # phase == "limited": the subscription quota ran out (D50)
+    limited_pending: PendingJob | None = None  # the job to re-run on resume_after_limit
+
     started_at: datetime
     ended_at: datetime | None = None
     cost_usd: float = 0.0
+    tokens: int = 0
 
     @property
     def terminal(self) -> bool:
@@ -170,4 +175,6 @@ class TaskState(BaseModel):
             started_at=self.started_at,
             ended_at=self.ended_at,
             cost_usd=round(self.cost_usd, 6),
+            tokens=self.tokens,
+            limit=self.limit if self.phase == "limited" else None,
         )

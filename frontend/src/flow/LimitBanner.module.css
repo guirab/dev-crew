@@ -1,0 +1,25 @@
+.banner {
+  background: var(--err-soft);
+  border: 1px solid var(--err);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+}
+
+.title {
+  margin: 0 0 6px;
+  font: 600 15px var(--sans);
+  color: var(--err);
+}
+
+.text {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  color: var(--fg);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

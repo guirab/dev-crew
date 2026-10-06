@@ -14,17 +14,21 @@ from claude_agent_sdk import (
     CLINotFoundError,
     Message,
     ProcessError,
+    RateLimitEvent,
     ResultMessage,
+    ToolResultBlock,
     ToolUseBlock,
+    UserMessage,
 )
+from claude_agent_sdk.types import RateLimitInfo
 
 from crew.agents import runner as runner_module
 from crew.agents.progress import ProgressLine
-from crew.agents.runner import SdkRunner, build_options, failure_for
+from crew.agents.runner import SdkRunner, build_options, failure_for, limit_from_event, token_usage
 from crew.agents.settings import AgentRuntimeSettings
 from crew.agents.specs import SPECS
 from crew.agents.submit import SubmitTool, make_submit_tool
-from crew.bus import FatalJobError, RetryableJobError
+from crew.bus import FatalJobError, RetryableJobError, UsageLimitJobError
 from crew.contracts import (
     DevResult,
     Feedback,
@@ -264,7 +268,20 @@ def make_result(**kw: Any) -> ResultMessage:
     [
         ({}, None, None, "", None),
         ({"error": True, "subtype": "error_max_turns"}, None, FatalJobError, "turnos", None),
-        ({"error": True, "subtype": "error_max_budget_usd"}, None, FatalJobError, "orçamento", None),
+        (
+            {"error": True, "api_error_status": 429, "result": "Claude AI usage limit reached|1760000000"},
+            None,
+            UsageLimitJobError,
+            "Limite de uso",
+            None,
+        ),
+        (
+            {"error": True, "result": "You've hit your limit"},
+            "rate_limit",
+            UsageLimitJobError,
+            "Limite",
+            None,
+        ),
         ({"error": True, "api_error_status": 401}, None, FatalJobError, "ANTHROPIC_API_KEY", None),
         ({"error": True}, "authentication_failed", FatalJobError, "ANTHROPIC_API_KEY", None),
         ({"error": True}, "billing_error", FatalJobError, "cobrança", None),
@@ -359,13 +376,123 @@ async def test_sdk_exceptions_map_to_bus_errors(
     assert harness.clients[0].disconnected
 
 
-async def test_job_without_workspace_or_budget_fails_fast(harness: Any) -> None:
+async def test_job_without_workspace_fails_fast(harness: Any) -> None:
     runner = harness.runner([submit_ok(PLAN_ARGS)])
     with pytest.raises(FatalJobError, match="workspace_path"):
         await runner.run(make_job("planner"), harness.emit)
-    with pytest.raises(FatalJobError, match="orçamento"):
-        await runner.run(make_job("planner", workspace=POSIX_WS, budget_usd=0), harness.emit)
     assert harness.clients == []
+
+
+# ---------------------------------------------------------------------------------- usage (D50, D51)
+def rate_limit(status: str, kind: str | None = "five_hour", **kw: Any) -> RateLimitEvent:
+    info = RateLimitInfo(status=status, rate_limit_type=kind, raw={}, **kw)  # type: ignore[arg-type]
+    return RateLimitEvent(rate_limit_info=info, uuid="u", session_id="s")
+
+
+def test_limit_from_event_only_on_rejected() -> None:
+    assert limit_from_event(rate_limit("allowed").rate_limit_info) is None
+    assert limit_from_event(rate_limit("allowed_warning", utilization=0.9).rate_limit_info) is None
+    limit = limit_from_event(rate_limit("rejected", resets_at=1_760_000_000).rate_limit_info)
+    assert limit is not None and limit.kind == "session" and "sessão de 5 h" in limit.message
+    assert limit.resets_at is not None and limit.resets_at.timestamp() == 1_760_000_000
+    weekly = limit_from_event(rate_limit("rejected", "seven_day").rate_limit_info)
+    assert weekly is not None and (weekly.kind, weekly.resets_at) == ("weekly", None)
+
+
+async def test_rejected_rate_limit_event_stops_the_job_as_usage_limit(harness: Any) -> None:
+    async def turn(client: ScriptedClient) -> AsyncIterator[Message]:
+        yield assistant(tool_use("Read", file_path=f"{POSIX_WS}/a.py"))
+        yield rate_limit("rejected", resets_at=1_760_000_000)
+        yield result_msg(error=True, result="limit")
+
+    with pytest.raises(UsageLimitJobError) as info:
+        await harness.runner([turn]).run(make_job("planner", workspace=POSIX_WS), harness.emit)
+    assert info.value.limit.kind == "session"
+    assert any("Limite de uso da assinatura atingido" in t for t in harness.texts)
+
+
+async def test_warning_is_shown_and_the_job_goes_on(harness: Any) -> None:
+    async def turn(client: ScriptedClient) -> AsyncIterator[Message]:
+        yield rate_limit("allowed_warning", utilization=0.82)
+        yield assistant(tool_use("mcp__crew__submit_plan", **PLAN_ARGS))
+        await client.submit.handle(PLAN_ARGS)
+        yield result_msg()
+
+    outcome = await harness.runner([turn]).run(make_job("planner", workspace=POSIX_WS), harness.emit)
+    assert isinstance(outcome.output, Plan)
+    assert "Perto do limite de uso da assinatura (82%)" in harness.texts
+
+
+def test_token_usage_reads_model_usage() -> None:
+    usage = {
+        "claude-opus-5-5": {
+            "inputTokens": 1000,
+            "outputTokens": 200,
+            "cacheReadInputTokens": 5000,
+            "cacheCreationInputTokens": 300,
+            "webSearchRequests": 0,
+            "costUSD": 0.42,
+            "contextWindow": 200000,
+            "maxOutputTokens": 32000,
+        }
+    }
+    (u,) = token_usage(result_msg(model_usage=usage))
+    assert (u.model, u.input_tokens, u.output_tokens, u.cache_read_tokens, u.cache_write_tokens) == (
+        "claude-opus-5-5",
+        1000,
+        200,
+        5000,
+        300,
+    )
+    assert u.cost_usd == 0.42
+    assert token_usage(result_msg()) == ()
+
+
+async def test_outcome_carries_the_token_usage(harness: Any) -> None:
+    usage = {"m": {"inputTokens": 10, "outputTokens": 5, "costUSD": 0.01}}
+
+    async def turn(client: ScriptedClient) -> AsyncIterator[Message]:
+        yield assistant(tool_use("mcp__crew__submit_plan", **PLAN_ARGS))
+        await client.submit.handle(PLAN_ARGS)
+        yield result_msg(model_usage=usage)
+
+    outcome = await harness.runner([turn]).run(make_job("planner", workspace=POSIX_WS), harness.emit)
+    assert [(u.model, u.input_tokens, u.output_tokens) for u in outcome.usage] == [("m", 10, 5)]
+
+
+# ---------------------------------------------------------------------------------- stall watchdog (D52)
+def _runner_with_stall(harness: Any, turn: Turn, stall: float) -> SdkRunner:
+    runner = harness.runner([turn])
+    runner._stall_timeout_s = stall
+    return runner
+
+
+async def test_silence_between_tools_is_a_stall(harness: Any) -> None:
+    async def turn(client: ScriptedClient) -> AsyncIterator[Message]:
+        yield assistant(tool_use("Read", file_path=f"{POSIX_WS}/a.py"))
+        yield UserMessage(content=[ToolResultBlock(tool_use_id="tu-Read", content="ok")])
+        await asyncio.sleep(1)  # nothing running and nothing said
+        yield result_msg()
+
+    with pytest.raises(FatalJobError, match="sem nenhuma atividade"):
+        await _runner_with_stall(harness, turn, 0.05).run(
+            make_job("planner", workspace=POSIX_WS), harness.emit
+        )
+
+
+async def test_a_long_running_tool_is_not_a_stall(harness: Any) -> None:
+    async def turn(client: ScriptedClient) -> AsyncIterator[Message]:
+        yield assistant(tool_use("Bash", command="npm test"))
+        await asyncio.sleep(0.2)  # the suite runs silently, longer than the stall window
+        yield UserMessage(content=[ToolResultBlock(tool_use_id="tu-Bash", content="ok")])
+        yield assistant(tool_use("mcp__crew__submit_plan", **PLAN_ARGS))
+        await client.submit.handle(PLAN_ARGS)
+        yield result_msg()
+
+    outcome = await _runner_with_stall(harness, turn, 0.05).run(
+        make_job("planner", workspace=POSIX_WS), harness.emit
+    )
+    assert isinstance(outcome.output, Plan)
 
 
 # ---------------------------------------------------------------------------------- cancellation
@@ -488,7 +615,7 @@ async def test_blocked_tool_call_becomes_a_status_line(harness: Any) -> None:
 @pytest.mark.parametrize("agent", ["interviewer", "planner", "developer", "tester", "reviewer"])
 def test_build_options_per_agent(agent: str) -> None:
     spec = SPECS[agent]  # type: ignore[index]
-    job = make_job(agent, workspace=POSIX_WS, budget_usd=5.0)  # type: ignore[arg-type]
+    job = make_job(agent, workspace=POSIX_WS)  # type: ignore[arg-type]
     submit = make_submit_tool(spec.output, spec.submit_name, check=spec.check)
     opts = build_options(spec, job, AgentRuntimeSettings(model="m-x"), POSIX_WS, submit, resumed=False)
 
@@ -501,8 +628,8 @@ def test_build_options_per_agent(agent: str) -> None:
     assert opts.setting_sources == []
     assert opts.strict_mcp_config is True
     assert opts.resume is None
-    assert opts.max_turns == spec.max_turns
-    assert opts.max_budget_usd == spec.budget_cap_usd
+    assert opts.max_turns is None  # no caps (D51)
+    assert opts.max_budget_usd is None
     assert set(opts.disallowed_tools) >= {"WebFetch", "WebSearch", "PowerShell"}
     assert opts.env["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] == "1"
     git_bash = opts.env.get("CLAUDE_CODE_GIT_BASH_PATH", "")
@@ -524,29 +651,6 @@ def _role(agent: str) -> str:
         "tester": "Tester",
         "reviewer": "Reviewer",
     }[agent]
-
-
-def test_budget_is_the_smaller_of_cap_and_remaining() -> None:
-    spec = SPECS["developer"]
-    submit = make_submit_tool(spec.output, spec.submit_name)
-    low = build_options(
-        spec,
-        make_job("developer", budget_usd=0.4),
-        AgentRuntimeSettings(model="m"),
-        POSIX_WS,
-        submit,
-        resumed=False,
-    )
-    high = build_options(
-        spec,
-        make_job("developer", budget_usd=99),
-        AgentRuntimeSettings(model="m"),
-        POSIX_WS,
-        submit,
-        resumed=False,
-    )
-    assert low.max_budget_usd == 0.4
-    assert high.max_budget_usd == spec.budget_cap_usd
 
 
 def test_settings_override_max_turns_and_resume_is_set_only_when_resumed() -> None:

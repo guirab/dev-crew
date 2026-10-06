@@ -35,30 +35,28 @@ from .factories import make_job, make_plan, make_repo, make_spec
 def test_every_agent_has_a_spec_with_the_table_values() -> None:
     assert set(SPECS) == set(AGENTS)
     table = {
-        # agent: (model, tools, bash, write, max_turns)
-        "interviewer": ("claude-sonnet-5-5", ("Read", "Glob", "Grep"), "none", "none", 15),
-        "planner": ("claude-opus-5-5", ("Read", "Glob", "Grep", "Bash"), "readonly", "none", 30),
+        # agent: (model, tools, bash, write); no max_turns cap since D51
+        "interviewer": ("claude-sonnet-5-5", ("Read", "Glob", "Grep"), "none", "none"),
+        "planner": ("claude-opus-5-5", ("Read", "Glob", "Grep", "Bash"), "readonly", "none"),
         "developer": (
             "claude-sonnet-5-5",
             ("Read", "Glob", "Grep", "Write", "Edit", "Bash"),
             "full",
             "workspace",
-            60,
         ),
         "tester": (
             "claude-sonnet-5-5",
             ("Read", "Glob", "Grep", "Write", "Edit", "Bash"),
             "full",
             "tests_only",
-            40,
         ),
-        "reviewer": ("claude-opus-5-5", ("Read", "Glob", "Grep", "Bash"), "readonly", "none", 30),
+        "reviewer": ("claude-opus-5-5", ("Read", "Glob", "Grep", "Bash"), "readonly", "none"),
     }
-    for agent, (model, tools, bash, write, turns) in table.items():
+    for agent, (model, tools, bash, write) in table.items():
         spec = SPECS[agent]  # type: ignore[index]
         assert spec.default_model == model
         assert set(spec.tools) == set(tools)
-        assert (spec.bash, spec.write, spec.max_turns) == (bash, write, turns)
+        assert (spec.bash, spec.write, spec.max_turns) == (bash, write, None)
         assert spec.resume_across_rounds is True
         assert spec.name == agent
 
@@ -75,10 +73,6 @@ def test_submit_names_are_unique_and_prefixed() -> None:
     names = [s.submit_name for s in SPECS.values()]
     assert len(set(names)) == 5
     assert all(n.startswith("submit_") for n in names)
-
-
-def test_budget_caps_fit_inside_the_default_task_budget() -> None:
-    assert all(0 < s.budget_cap_usd <= 5.0 for s in SPECS.values())
 
 
 def test_only_the_tester_writes_tests_only() -> None:

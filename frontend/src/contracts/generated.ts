@@ -4,7 +4,8 @@
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "Command".
  */
-export type Command = StartTask | AnswerInterview | ApprovePlan | AdjustPlan | EscalationAction | CancelTask;
+export type Command =
+  StartTask | AnswerInterview | ApprovePlan | AdjustPlan | EscalationAction | CancelTask | ResumeAfterLimit;
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "WsMessage".
@@ -79,6 +80,15 @@ export interface EscalationAction {
   text?: string | null;
 }
 /**
+ * Re-run the jobs stopped by the subscription usage limit (D50).
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "ResumeAfterLimit".
+ */
+export interface ResumeAfterLimit {
+  type: "resume_after_limit";
+}
+/**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "CommandReply".
  */
@@ -104,6 +114,7 @@ export interface TaskView {
     | "testing"
     | "reviewing"
     | "escalated"
+    | "limited"
     | "done"
     | "cancelled"
     | "failed";
@@ -123,6 +134,8 @@ export interface TaskView {
   started_at: string;
   ended_at: string | null;
   cost_usd: number;
+  tokens: number;
+  limit: UsageLimit | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -303,6 +316,17 @@ export interface FinalFile {
   status: "A" | "M" | "D";
   added: number;
   removed: number;
+}
+/**
+ * The subscription usage limit was hit (D50): work stops until ``resets_at``.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "UsageLimit".
+ */
+export interface UsageLimit {
+  kind: "session" | "weekly" | "weekly_opus" | "weekly_sonnet" | "unknown";
+  resets_at: string | null;
+  message: string;
 }
 /**
  * Repository as exposed to the UI (GET /api/repos).

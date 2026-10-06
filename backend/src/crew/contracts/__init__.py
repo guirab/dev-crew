@@ -1,4 +1,7 @@
-"""Wire contracts shared by orchestrator, agents, gateway and UI. Frozen after M0."""
+"""Wire contracts shared by orchestrator, agents, gateway and UI.
+
+Frozen after M0; reopened only by the user (D38/D39, M6).
+"""
 
 from .commands import (
     AdjustPlan,
@@ -9,6 +12,7 @@ from .commands import (
     CommandAdapter,
     CommandReply,
     EscalationAction,
+    ResumeAfterLimit,
     StartTask,
 )
 from .common import (
@@ -42,6 +46,7 @@ from .outputs import (
     TestResult,
 )
 from .task import RepoContext, RepoInfo, TaskSpec
+from .usage import TokenUsage, UsageLimit, UsageLimitKind
 from .view import (
     Counters,
     Escalation,
@@ -97,6 +102,7 @@ __all__ = [
     "PlanFile",
     "RepoContext",
     "RepoInfo",
+    "ResumeAfterLimit",
     "ReviewComment",
     "ReviewResult",
     "StageKey",
@@ -109,6 +115,9 @@ __all__ = [
     "TaskView",
     "TestFailure",
     "TestResult",
+    "TokenUsage",
+    "UsageLimit",
+    "UsageLimitKind",
     "WsMessage",
     "WsProgress",
     "WsView",

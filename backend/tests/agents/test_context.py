@@ -37,7 +37,6 @@ Decisões já tomadas:
 
 ## Regras do job
 - Rodada 1 deste agente na tarefa T-1.
-- Orçamento restante da tarefa: US$ 5.00.
 - Termine chamando `submit_plan`.
 """
 
@@ -85,7 +84,6 @@ Falhas de teste (46/48 passaram; comando: `python -m pytest -q`):
 
 ## Regras do job
 - Rodada 2 deste agente na tarefa T-1.
-- Orçamento restante da tarefa: US$ 3.50.
 - Termine chamando `submit_dev_result`.
 - Worktree (seu diretório de trabalho): /work/crew/T-1
 - `round` do resultado: 2.
@@ -113,7 +111,6 @@ def test_developer_round_two_snapshot() -> None:
         workspace=POSIX_WS,
         attempt=2,
         feedback=failing_feedback(),
-        budget_usd=3.5,
     )
     assert build_prompt(job, SPECS["developer"], resumed=False) == DEVELOPER_ROUND2
 
@@ -126,7 +123,6 @@ Falhas de teste (46/48 passaram; comando: `python -m pytest -q`):
 
 ## Regras do job
 - Rodada 2 deste agente na tarefa T-1.
-- Orçamento restante da tarefa: US$ 3.50.
 - Termine chamando `submit_dev_result`.
 - Worktree (seu diretório de trabalho): /work/crew/T-1
 - `round` do resultado: 2.
@@ -135,7 +131,7 @@ Falhas de teste (46/48 passaram; comando: `python -m pytest -q`):
 
 
 def test_resumed_prompt_has_only_feedback_and_rules() -> None:
-    job = make_job("developer", workspace=POSIX_WS, attempt=2, feedback=failing_feedback(), budget_usd=3.5)
+    job = make_job("developer", workspace=POSIX_WS, attempt=2, feedback=failing_feedback())
     assert build_prompt(job, SPECS["developer"], resumed=True) == RESUMED_DEVELOPER
 
 
@@ -151,7 +147,6 @@ exportar os pedidos em CSV
 
 ## Regras do job
 - Rodada 1 deste agente na tarefa T-1.
-- Orçamento restante da tarefa: US$ 5.00.
 - Termine chamando `submit_interview`.
 - Perguntas já respondidas: 0. Pare só quando não restar decisão em aberto na árvore.
 """

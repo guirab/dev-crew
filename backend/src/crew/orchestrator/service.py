@@ -1,6 +1,6 @@
 """Orchestrator service: the I/O shell around ``machine.decide``.
 
-All inputs (commands, agent results, progress, async effect completions, timeouts) go through ONE inbox
+All inputs (commands, agent results, progress, async effect completions) go through ONE inbox
 consumed by ONE worker, so ``decide`` always sees a consistent state. Slow effects (worktree,
 diff report) run as background tasks and post their completion back into the inbox.
 """
@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
 
 import structlog
 from nats.aio.msg import Msg
@@ -53,7 +52,6 @@ from .events import (
     AgentResult,
     CommandReceived,
     Event,
-    JobTimedOut,
     ReportBuilt,
     StartParams,
     WorkspaceFailed,
@@ -98,7 +96,6 @@ class OrchestratorService:
         self.state: TaskState | None = None
         self._inbox: asyncio.Queue[_Item] = asyncio.Queue()
         self._bg: set[asyncio.Task[None]] = set()
-        self._timers: dict[str, asyncio.Task[None]] = {}
 
     # ================================================================= lifecycle
 
@@ -123,7 +120,7 @@ class OrchestratorService:
             log.info("orchestrator_started", task=self.state.task_id if self.state else None)
             await stop.wait()
         finally:
-            pending = [*loops, *self._bg, *self._timers.values()]
+            pending = [*loops, *self._bg]
             for t in pending:
                 t.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
@@ -142,8 +139,6 @@ class OrchestratorService:
         if latest.terminal:
             return
         log.info("recovering_task", task_id=latest.task_id, phase=latest.phase, boot=latest.boot)
-        if latest.current_job_id is not None and latest.current_agent is not None:
-            self._arm_timer(latest.task_id, latest.current_job_id, latest.limits.job_timeout_s)
         for effect in machine.recovery_effects(latest):
             await self._run_effect(effect)
 
@@ -275,10 +270,7 @@ class OrchestratorService:
                 task_id=self.store.next_task_id(),
                 repo=self.cfg.repo_context(cmd.repo),
                 limits=Limits(
-                    max_test_attempts=lim.max_test_attempts,
-                    max_review_rounds=lim.max_review_rounds,
-                    budget_usd=lim.budget_usd_per_task,
-                    job_timeout_s=lim.job_timeout_min * 60,
+                    max_test_attempts=lim.max_test_attempts, max_review_rounds=lim.max_review_rounds
                 ),
             )
             return dataclasses.replace(event, start=params)
@@ -291,13 +283,11 @@ class OrchestratorService:
             self.store.log_event(state.task_id, kind, payload)
 
     def _after_event(self, event: Event) -> None:
-        """Bookkeeping that does not depend on the decision: job rows and timers."""
+        """Bookkeeping that does not depend on the decision: job rows."""
         if isinstance(event, AgentResult):
-            self._disarm_timer(str(event.evt.job_id))
-            self.store.finish_job(str(event.evt.job_id), "done", event.evt.cost_usd)
+            self.store.finish_job(str(event.evt.job_id), "done", event.evt.cost_usd, event.evt.usage)
         elif isinstance(event, AgentFailed) and not event.evt.retryable:
-            self._disarm_timer(str(event.evt.job_id))
-            self.store.finish_job(str(event.evt.job_id), "failed")
+            self.store.finish_job(str(event.evt.job_id), "limited" if event.evt.limit else "failed")
 
     # ================================================================= effects
 
@@ -337,8 +327,6 @@ class OrchestratorService:
             )
             await self._inbox.put(_Item(AgentFailed(job.task_id, failed, self.clock())))
             return
-        limits = self.state.limits.job_timeout_s if self.state is not None else Limits().job_timeout_s
-        self._arm_timer(job.task_id, job.job_id, limits)
         log.info(
             "job_dispatched",
             task_id=job.task_id,
@@ -355,7 +343,6 @@ class OrchestratorService:
                 await self.bus.js.purge_stream(s.STREAM_JOBS, subject=s.job_subject(effect.agent))
         for job in await asyncio.to_thread(self.store.jobs, effect.task_id):
             if job.status == "dispatched":
-                self._disarm_timer(job.job_id)
                 await asyncio.to_thread(self.store.finish_job, job.job_id, "cancelled")
         log.info("jobs_cancelled", task_id=effect.task_id, agent=effect.agent)
 
@@ -392,24 +379,6 @@ class OrchestratorService:
             event = ReportBuilt(effect.task_id, [], at(), error=str(e))
         await self._inbox.put(_Item(event))
 
-    # ----------------------------------------------------------------- job timeout
-
-    def _arm_timer(self, task_id: str, job_id: UUID, seconds: float) -> None:
-        key = str(job_id)
-        self._disarm_timer(key)
-
-        async def _fire() -> None:
-            await asyncio.sleep(seconds)
-            self._timers.pop(key, None)
-            await self._inbox.put(_Item(JobTimedOut(task_id, job_id, self.clock())))
-
-        self._timers[key] = asyncio.create_task(_fire(), name=f"job-timeout-{key[:8]}")
-
-    def _disarm_timer(self, key: str) -> None:
-        t = self._timers.pop(key, None)
-        if t is not None:
-            t.cancel()
-
 
 # ===================================================================== helpers
 
@@ -428,8 +397,6 @@ def _loggable(event: Event) -> tuple[str | None, str]:
             return "result", event.evt.model_dump_json()
         case AgentFailed():
             return "failed", event.evt.model_dump_json()
-        case JobTimedOut():
-            return "timeout", json.dumps({"job_id": str(event.job_id)})
         case WorkspaceReady():
             return "workspace_ready", json.dumps({"path": event.path, "branch": event.branch})
         case WorkspaceFailed():

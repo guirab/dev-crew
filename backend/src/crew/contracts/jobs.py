@@ -27,4 +27,3 @@ class AgentJob(Contract):
     interview_history: list[InterviewTurn] = []
     workspace_path: str | None = None
     resume_session_id: str | None = None
-    budget_usd: float

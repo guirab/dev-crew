@@ -14,8 +14,7 @@ mode = "worktree"            # "worktree" | "inplace"
 [limits]
 max_test_attempts = 3        # falhas consecutivas de teste antes de escalar
 max_review_rounds = 2
-budget_usd_per_task = 5.00
-job_timeout_min = 20
+# sem teto de custo ou de tempo (D51); agente sem nenhuma atividade por 30 min escala sozinho (D52)
 
 [models]
 interviewer = "claude-sonnet-5-5"

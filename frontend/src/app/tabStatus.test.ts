@@ -43,6 +43,13 @@ describe('tabStatus', () => {
     })
   })
 
+  it('limited avisa que bateu o limite de uso', () => {
+    expect(tabStatus(view({ phase: 'limited' }))).toEqual({
+      title: '● Precisa de você: limite de uso atingido · Exportar CSV · Dev Crew',
+      favicon: 'error',
+    })
+  })
+
   it('escalated usa o nome do estágio', () => {
     const escalation = { stage: 'tester' as const, reason: 'sem progresso' }
     expect(tabStatus(view({ phase: 'escalated', escalation }))).toEqual({

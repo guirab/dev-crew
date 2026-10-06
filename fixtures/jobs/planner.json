@@ -39,6 +39,5 @@
   "feedback": null,
   "interview_history": [],
   "workspace_path": "fixtures/sample-repo",
-  "resume_session_id": null,
-  "budget_usd": 5.0
+  "resume_session_id": null
 }

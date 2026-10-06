@@ -565,25 +565,6 @@ def test_replan_after_agent_failure_in_developer_goes_to_planner() -> None:
     assert d.job.agent == "planner"
 
 
-def test_job_timeout_escalates_and_cancels_jobs() -> None:
-    d = Driver()
-    d.to_developing()
-    job_id = d.s.current_job_id
-    assert job_id is not None
-    fx = d.feed(ev.JobTimedOut(task_id="T-107", job_id=job_id, at=d.tick()))
-    assert CancelJobs("T-107", "developer") in fx
-    assert d.s.phase == "escalated" and d.s.escalation is not None
-    assert d.s.escalation.reason == "developer falhou: sem resposta após 20 min"
-
-
-def test_timeout_of_old_job_is_ignored() -> None:
-    d = Driver()
-    d.to_developing()
-    before = d.s
-    fx = d.feed(ev.JobTimedOut(task_id="T-107", job_id=uuid4(), at=d.tick()))
-    assert d.s is before and [type(e) for e in fx] == [LogStale]
-
-
 @pytest.mark.parametrize(
     ("setup", "wrong", "expected"),
     [
@@ -600,68 +581,6 @@ def test_wrong_output_type_for_agent_escalates(setup: str, wrong: c.AgentOutput,
     d.result(wrong)
     assert d.s.phase == "escalated" and d.s.escalation is not None
     assert d.s.escalation.stage == stage and expected in d.s.escalation.reason
-
-
-# ------------------------------------------------------------------ budget
-
-
-def test_budget_exhausted_blocks_next_dispatch_and_escalates_next_stage() -> None:
-    d = Driver(limits=Limits(budget_usd=1.0))
-    d.to_testing()
-    fx = d.result(fail_run(), cost=1.0)  # spends everything, would go back to the developer
-    assert not any(isinstance(e, DispatchJob) for e in fx)
-    s = d.s
-    assert s.phase == "escalated" and s.escalation is not None
-    assert (s.escalation.kind, s.escalation.stage) == ("budget", "developer")
-    assert "orçamento" in s.escalation.reason and s.escalation.pending is not None
-    assert s.escalation.pending.agent == "developer" and s.escalation.pending.edge == "ts-dv"
-    assert s.stages["developer"].status == "error"
-    assert s.dev_round == 1, "the dispatch that did not happen is not counted"
-
-
-def test_budget_more_attempts_gives_50_percent_headroom_and_resumes() -> None:
-    d = Driver(limits=Limits(budget_usd=0.3))
-    d.to_testing()  # spent 0.2
-    d.result(fail_run(), cost=0.1)  # 0.3 == budget -> blocked
-    assert d.s.phase == "escalated"
-    d.command(c.EscalationAction(action="more_attempts"))
-    assert d.s.limits.budget_usd == pytest.approx(0.45)
-    assert d.job.agent == "developer" and d.job.budget_usd == pytest.approx(0.15)
-    assert d.s.dev_round == 2 and d.s.edges["ts-dv"] == "active" and d.s.phase == "developing"
-
-
-@pytest.mark.parametrize("action", ["instruct", "replan"])
-def test_budget_blocks_other_actions(action: str) -> None:
-    d = Driver(limits=Limits(budget_usd=1.0))
-    d.to_testing()
-    d.result(fail_run(), cost=1.0)
-    d.command(c.EscalationAction(action=action, text="x"))
-    assert d.effects == [Reject(m.ERR_BUDGET)]
-
-
-def test_last_review_approval_completes_even_if_budget_is_gone() -> None:
-    d = Driver(limits=Limits(budget_usd=0.35))
-    d.to_reviewing()  # 0.3 spent, reviewer still dispatched
-    d.result(review_ok(), cost=0.5)
-    assert d.has(BuildFinalReport) and d.s.phase == "reviewing" and d.s.boot == "build_report"
-
-
-def test_job_budget_is_what_remains() -> None:
-    d = Driver(limits=Limits(budget_usd=2.0))
-    d.to_planner()
-    assert d.job.budget_usd == pytest.approx(2.0)
-    d.result(plan(), cost=0.75)
-    d.command(c.ApprovePlan())
-    assert d.job.budget_usd == pytest.approx(1.25)
-
-
-def test_overspend_still_boosts_above_cost() -> None:
-    d = Driver(limits=Limits(budget_usd=1.0))
-    d.to_testing()
-    d.result(fail_run(), cost=3.0)
-    d.command(c.EscalationAction(action="more_attempts"))
-    assert d.s.limits.budget_usd > d.s.cost_usd
-    assert d.s.phase == "developing"
 
 
 # ------------------------------------------------------------------ sessions / attempts / ids
@@ -894,26 +813,67 @@ def test_decide_never_mutates_input_state() -> None:
     assert state.model_dump() == snapshot
 
 
-def test_job_stopped_by_its_cap_escalates_as_budget_and_more_attempts_raises_the_budget() -> None:
-    from crew.bus import JOB_BUDGET_EXCEEDED
+# ------------------------------------------------------------------ usage limit (D50) / tokens
 
-    d = Driver(limits=Limits(budget_usd=2.0))
+
+def _limit() -> c.UsageLimit:
+    return c.UsageLimit(kind="session", message="Limite de uso da assinatura atingido (sessão de 5 h)")
+
+
+def test_usage_limit_parks_the_job_and_shows_the_limit() -> None:
+    d = Driver()
     d.to_developing()
-    d.failed(JOB_BUDGET_EXCEEDED)
+    round_before = d.s.dev_round
+    fx = d.failed("Limite de uso da assinatura atingido (sessão de 5 h)", limit=_limit())
     s = d.s
-    assert s.escalation is not None and (s.escalation.kind, s.escalation.stage) == ("budget", "developer")
-    assert s.dev_round == 0, "the round that did not finish is given back"
-    d.command(c.EscalationAction(action="more_attempts"))
-    assert d.s.limits.budget_usd == pytest.approx(3.0)
-    assert d.job.agent == "developer" and d.job.budget_usd > 2.0
+    assert s.phase == "limited" and s.limit == _limit()
+    assert s.limited_pending is not None and s.limited_pending.agent == "developer"
+    assert s.current_job_id is None and s.dev_round == round_before - 1
+    assert s.stages["developer"].status == "error"
+    view = s.to_view()
+    assert view.phase == "limited" and view.limit == _limit() and view.escalation is None
+    assert not any(isinstance(e, DispatchJob) for e in fx)
 
 
-def test_legacy_agent_failed_with_the_budget_error_also_boosts() -> None:
-    from crew.bus import JOB_BUDGET_EXCEEDED
-
-    d = Driver(limits=Limits(budget_usd=2.0))
+def test_resume_after_limit_reruns_the_parked_job() -> None:
+    d = Driver()
     d.to_developing()
-    m._fail_job(d.state, d.tick(), "developer", JOB_BUDGET_EXCEEDED, d.s.inflight)  # type: ignore[arg-type]
-    assert d.s.escalation is not None and d.s.escalation.kind == "agent_failed"
-    d.command(c.EscalationAction(action="more_attempts"))
-    assert d.s.limits.budget_usd == pytest.approx(3.0)
+    first = d.job
+    d.failed("limite", limit=_limit())
+    d.command(c.ResumeAfterLimit())
+    s = d.s
+    assert s.phase == "developing" and s.limit is None and s.limited_pending is None
+    assert d.job.agent == "developer" and d.job.job_id != first.job_id
+    assert s.to_view().limit is None
+
+
+def test_resume_after_limit_outside_limited_is_rejected() -> None:
+    d = Driver()
+    d.to_developing()
+    assert d.command(c.ResumeAfterLimit()) == [Reject(m.ERR_WRONG_PHASE)]
+
+
+def test_escalation_actions_do_not_apply_while_limited() -> None:
+    d = Driver()
+    d.to_developing()
+    d.failed("limite", limit=_limit())
+    assert d.command(c.EscalationAction(action="more_attempts")) == [Reject(m.ERR_WRONG_PHASE)]
+
+
+def test_cancel_while_limited() -> None:
+    d = Driver()
+    d.to_developing()
+    d.failed("limite", limit=_limit())
+    d.command(c.CancelTask())
+    assert d.s.phase == "cancelled"
+
+
+def test_tokens_add_up_across_jobs() -> None:
+    d = Driver()
+    d.to_awaiting_approval()
+    before = d.s.tokens
+    d.command(c.ApprovePlan())
+    usage = [c.TokenUsage(model="m", input_tokens=1000, output_tokens=250, cache_read_tokens=9999)]
+    d.result(c.DevResult(round=1, summary="ok", files_changed=[]), usage=usage)
+    assert d.s.tokens == before + 1250  # cache reads are not new work
+    assert d.s.to_view().tokens == d.s.tokens

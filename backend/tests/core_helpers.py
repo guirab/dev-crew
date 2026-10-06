@@ -153,6 +153,7 @@ class Driver:
         cost: float = 0.1,
         session: str | None = None,
         job_id: UUID | None = None,
+        usage: list[c.TokenUsage] | None = None,
     ) -> list[Effect]:
         s = self.s
         assert s.current_agent is not None and s.current_job_id is not None
@@ -163,16 +164,26 @@ class Driver:
             cost_usd=cost,
             session_id=session,
             duration_s=1.0,
+            usage=usage or [],
         )
         return self.feed(ev.AgentResult(task_id=s.task_id, evt=evt, at=self.tick()))
 
     def failed(
-        self, error: str = "boom", *, retryable: bool = False, job_id: UUID | None = None
+        self,
+        error: str = "boom",
+        *,
+        retryable: bool = False,
+        job_id: UUID | None = None,
+        limit: c.UsageLimit | None = None,
     ) -> list[Effect]:
         s = self.s
         assert s.current_agent is not None and s.current_job_id is not None
         evt = c.AgentFailedEvt(
-            agent=s.current_agent, job_id=job_id or s.current_job_id, error=error, retryable=retryable
+            agent=s.current_agent,
+            job_id=job_id or s.current_job_id,
+            error=error,
+            retryable=retryable,
+            limit=limit,
         )
         return self.feed(ev.AgentFailed(task_id=s.task_id, evt=evt, at=self.tick()))
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import UUID
 
 from ..contracts import (
     AgentFailedEvt,
@@ -77,13 +76,6 @@ class ReportBuilt:
     error: str | None = None
 
 
-@dataclass(frozen=True)
-class JobTimedOut:
-    task_id: str
-    job_id: UUID
-    at: datetime
-
-
 Event = (
     CommandReceived
     | AgentResult
@@ -92,5 +84,4 @@ Event = (
     | WorkspaceReady
     | WorkspaceFailed
     | ReportBuilt
-    | JobTimedOut
 )

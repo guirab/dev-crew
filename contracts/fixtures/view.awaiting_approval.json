@@ -133,5 +133,7 @@
   "final": null,
   "started_at": "2026-10-01T12:00:00Z",
   "ended_at": null,
-  "cost_usd": 0.0
+  "cost_usd": 0.0,
+  "tokens": 0,
+  "limit": null
 }

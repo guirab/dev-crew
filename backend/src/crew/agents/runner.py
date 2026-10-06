@@ -11,7 +11,8 @@ import contextlib
 import os
 import sys
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 import structlog
@@ -25,13 +26,17 @@ from claude_agent_sdk import (
     CLINotFoundError,
     Message,
     ProcessError,
+    RateLimitEvent,
     ResultMessage,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
     create_sdk_mcp_server,
 )
-from claude_agent_sdk.types import SystemPromptPreset
+from claude_agent_sdk.types import RateLimitInfo, SystemPromptPreset
 
-from ..bus import JOB_BUDGET_EXCEEDED, FatalJobError, RetryableJobError
-from ..contracts import AgentJob, AgentOutput
+from ..bus import FatalJobError, RetryableJobError, UsageLimitJobError
+from ..contracts import AgentJob, AgentOutput, TokenUsage, UsageLimit, UsageLimitKind
 from ..gitbash import find_git_bash
 from . import guards
 from .context import FOLLOW_UP, build_prompt, has_new_information, system_prompt_text
@@ -46,6 +51,23 @@ log = structlog.get_logger(__name__)
 MAX_FOLLOW_UPS = 2
 TRANSIENT_STATUS = frozenset({408, 409, 429, 500, 502, 503, 504, 529})
 TRANSIENT_HINTS = ("overloaded", "rate limit", "rate_limit", "timeout", "timed out", "connection reset")
+USAGE_LIMIT_HINTS = ("usage limit", "hit your limit")  # CLI texts when the subscription quota is gone
+STALL_TIMEOUT_S = 30 * 60.0
+"""D52: no SDK message for this long while no tool is running = the session is stuck. Not a time limit:
+a session that keeps working (messages, tool calls) can run for hours."""
+_LIMIT_KINDS: dict[str, UsageLimitKind] = {
+    "five_hour": "session",
+    "seven_day": "weekly",
+    "seven_day_opus": "weekly_opus",
+    "seven_day_sonnet": "weekly_sonnet",
+}
+_LIMIT_LABELS: dict[UsageLimitKind, str] = {
+    "session": "sessão de 5 h",
+    "weekly": "semana",
+    "weekly_opus": "semana, Opus",
+    "weekly_sonnet": "semana, Sonnet",
+    "unknown": "assinatura",
+}
 SUBPROCESS_ENV = {
     "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1",  # no API keys/tokens in the env of Bash subprocesses
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",  # no telemetry/auto-update from the worker
@@ -58,6 +80,7 @@ class RunOutcome:
     output: AgentOutput
     cost_usd: float
     session_id: str | None
+    usage: tuple[TokenUsage, ...] = ()
 
 
 class Runner(Protocol):
@@ -124,8 +147,7 @@ def build_options(
         disallowed_tools=disallowed,
         permission_mode=spec.permission_mode,
         cwd=workspace,
-        max_turns=settings.max_turns or spec.max_turns,
-        max_budget_usd=min(spec.budget_cap_usd, job.budget_usd),
+        max_turns=settings.max_turns or spec.max_turns,  # None = no cap (D51)
         mcp_servers={"crew": create_sdk_mcp_server(SERVER_NAME, tools=mcp_tools)},
         strict_mcp_config=True,
         hooks=guards.for_agent(spec, job, workspace, on_block),
@@ -145,16 +167,52 @@ def session_env() -> dict[str, str]:
     return env
 
 
+def usage_limit(kind: UsageLimitKind, resets_at: datetime | None) -> UsageLimit:
+    return UsageLimit(
+        kind=kind,
+        resets_at=resets_at,
+        message=f"Limite de uso da assinatura atingido ({_LIMIT_LABELS[kind]})",
+    )
+
+
+def limit_from_event(info: RateLimitInfo) -> UsageLimit | None:
+    """A ``rejected`` rate-limit event means the subscription quota is gone until ``resets_at``."""
+    if info.status != "rejected":
+        return None
+    kind = _LIMIT_KINDS.get(info.rate_limit_type or "", "unknown")
+    resets = datetime.fromtimestamp(info.resets_at, UTC) if info.resets_at else None
+    return usage_limit(kind, resets)
+
+
+def token_usage(result: ResultMessage) -> tuple[TokenUsage, ...]:
+    """Per-model tokens of the session so far (the CLI reports cumulative figures)."""
+    return tuple(
+        TokenUsage(
+            model=model,
+            input_tokens=int(mu.get("inputTokens", 0)),
+            output_tokens=int(mu.get("outputTokens", 0)),
+            cache_read_tokens=int(mu.get("cacheReadInputTokens", 0)),
+            cache_write_tokens=int(mu.get("cacheCreationInputTokens", 0)),
+            cost_usd=float(mu.get("costUSD", 0.0)),
+        )
+        for model, mu in (result.model_usage or {}).items()
+    )
+
+
 def failure_for(
-    result: ResultMessage, *, assistant_error: str | None = None
+    result: ResultMessage, *, assistant_error: str | None = None, limit: UsageLimit | None = None
 ) -> RetryableJobError | FatalJobError | None:
     """Map a ``ResultMessage`` to the bus error the job loop understands (``None`` = success)."""
     if result.subtype == "success" and not result.is_error:
         return None
     detail = "; ".join(result.errors or []) or (result.result or "") or result.subtype
     status = result.api_error_status
-    if result.subtype == "error_max_budget_usd":
-        return FatalJobError(JOB_BUDGET_EXCEEDED)
+    if limit is not None:
+        return UsageLimitJobError(limit)
+    if (assistant_error == "rate_limit" or status == 429) and any(
+        hint in detail.lower() for hint in USAGE_LIMIT_HINTS
+    ):
+        return UsageLimitJobError(usage_limit("unknown", None))
     if result.subtype == "error_max_turns":
         return FatalJobError("limite de turnos do agente excedido")
     if assistant_error == "authentication_failed" or status in (401, 403):
@@ -180,16 +238,16 @@ class SdkRunner:
         *,
         client_factory: ClientFactory = default_client_factory,
         cli_path: str | None = None,
+        stall_timeout_s: float = STALL_TIMEOUT_S,
     ) -> None:
         self.settings = settings
         self._client_factory = client_factory
         self._cli_path = cli_path or os.environ.get(CLI_PATH_ENV) or None
+        self._stall_timeout_s = stall_timeout_s
 
     async def run(self, job: AgentJob, emit: ProgressSink) -> RunOutcome:
         spec = SPECS[job.agent]
         workspace = workspace_of(job)
-        if job.budget_usd <= 0:
-            raise FatalJobError("orçamento da tarefa esgotado")
         resumed = bool(spec.resume_across_rounds and job.resume_session_id and has_new_information(job))
         try:
             return await self._session(job, spec, workspace, emit, resumed=resumed)
@@ -273,7 +331,9 @@ class SdkRunner:
             raise FatalJobError(f"o agente não entregou {spec.submit_name}")
         if spec.finalize is not None:
             output = spec.finalize(output, job)
-        return RunOutcome(output=output, cost_usd=state.cost_usd, session_id=state.session_id)
+        return RunOutcome(
+            output=output, cost_usd=state.cost_usd, session_id=state.session_id, usage=state.usage
+        )
 
     async def _turn(
         self,
@@ -289,25 +349,56 @@ class SdkRunner:
         """One ``query`` + response stream. Raises the mapped bus error on a failed result."""
         await client.query(prompt)
         result: ResultMessage | None = None
-        async for message in client.receive_response():
+        running_tools: set[str] = set()
+        stream = client.receive_response().__aiter__()
+        while True:
+            # a running tool (a long test suite) may be silent for long: only idle *between* tools counts
+            timeout = None if running_tools else self._stall_timeout_s
+            try:
+                message = await asyncio.wait_for(anext(stream), timeout)
+            except StopAsyncIteration:
+                break
+            except TimeoutError:
+                minutes = round(self._stall_timeout_s / 60)
+                raise FatalJobError(f"agente sem nenhuma atividade há {minutes} min (travado?)") from None
             if isinstance(message, AssistantMessage):
                 state.saw_assistant = True
                 if message.error:
                     state.assistant_error = message.error
+                running_tools.update(b.id for b in message.content if isinstance(b, ToolUseBlock))
+            elif isinstance(message, UserMessage) and isinstance(message.content, list):
+                running_tools.difference_update(
+                    b.tool_use_id for b in message.content if isinstance(b, ToolResultBlock)
+                )
+            elif isinstance(message, RateLimitEvent):
+                await self._on_rate_limit(message.rate_limit_info, state, throttle)
             for line in map_message(message, workspace):
                 await throttle.push(line)
             if isinstance(message, ResultMessage):
                 result = message
         if result is None:
+            if state.limit is not None:
+                raise UsageLimitJobError(state.limit)
             raise RetryableJobError("sessão encerrou sem resultado (processo caiu?)", delay=30.0)
         state.session_id = result.session_id or state.session_id
         if result.total_cost_usd is not None:
             state.cost_usd = result.total_cost_usd  # assumed cumulative per client session; see spike doc
+        state.usage = token_usage(result) or state.usage
         if resumed and result.is_error and not state.saw_assistant:
             raise ResumeFailedError
-        error = failure_for(result, assistant_error=state.assistant_error)
+        error = failure_for(result, assistant_error=state.assistant_error, limit=state.limit)
         if error is not None and submit.captured is None:
             raise error
+
+    @staticmethod
+    async def _on_rate_limit(info: RateLimitInfo, state: _State, throttle: ProgressThrottle) -> None:
+        limit = limit_from_event(info)
+        if limit is not None:
+            state.limit = limit
+            await throttle.push(ProgressLine("status", limit.message))
+        elif info.status == "allowed_warning":
+            pct = f" ({round(info.utilization * 100)}%)" if info.utilization is not None else ""
+            await throttle.push(ProgressLine("status", f"Perto do limite de uso da assinatura{pct}"))
 
 
 @dataclass
@@ -317,3 +408,5 @@ class _State:
     follow_ups: int = 0
     saw_assistant: bool = False
     assistant_error: str | None = None
+    usage: tuple[TokenUsage, ...] = field(default_factory=tuple)
+    limit: UsageLimit | None = None

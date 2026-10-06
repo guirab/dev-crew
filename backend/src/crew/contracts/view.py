@@ -6,6 +6,7 @@ from pydantic import AwareDatetime
 
 from .common import Contract, EdgeKey, EdgeStatus, FileChange, StageStatus, TaskPhase
 from .outputs import DevResult, InterviewQuestion, InterviewTurn, Plan, ReviewResult, TestResult
+from .usage import UsageLimit
 
 
 class LogLine(Contract):
@@ -85,3 +86,5 @@ class TaskView(Contract):
     started_at: AwareDatetime
     ended_at: AwareDatetime | None = None
     cost_usd: float = 0.0
+    tokens: int = 0  # input + output tokens of every finished job
+    limit: UsageLimit | None = None  # set while phase == "limited"

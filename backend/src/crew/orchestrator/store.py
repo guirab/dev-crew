@@ -11,16 +11,16 @@ from typing import Any
 
 import structlog
 from pydantic import ValidationError
-from sqlalchemy import Engine, event
+from sqlalchemy import Engine, event, text
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
-from ..contracts import AgentJob
+from ..contracts import AgentJob, TokenUsage
 from .state import TaskState
 
 log = structlog.get_logger(__name__)
 
-JobStatus = str  # dispatched | done | failed | cancelled
+JobStatus = str  # dispatched | done | failed | limited | cancelled
 
 
 class TaskRow(SQLModel, table=True):
@@ -43,6 +43,10 @@ class JobRow(SQLModel, table=True):
     attempt: int
     status: str
     cost_usd: float = 0.0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_tokens: int = 0  # cache reads + writes
+    models: str = ""  # comma-separated models that worked on the job
     created_at: str
     finished_at: str | None = None
 
@@ -84,6 +88,23 @@ class Store:
             cur.close()
 
         SQLModel.metadata.create_all(self.engine)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """``create_all`` never alters existing tables: add the columns newer versions introduced."""
+        with self.engine.begin() as conn:
+            for table in SQLModel.metadata.sorted_tables:
+                existing = {row[1] for row in conn.execute(text(f'PRAGMA table_info("{table.name}")'))}
+                for column in table.columns:
+                    if column.name in existing:
+                        continue
+                    ddl = column.type.compile(dialect=self.engine.dialect)
+                    default = getattr(column.default, "arg", None)
+                    literal = f" DEFAULT {default!r}" if isinstance(default, (int, float, str)) else ""
+                    conn.execute(
+                        text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {ddl}{literal}')
+                    )
+                    log.info("db_column_added", table=table.name, column=column.name)
 
     def close(self) -> None:
         self.engine.dispose()
@@ -152,13 +173,24 @@ class Store:
             )
             s.commit()
 
-    def finish_job(self, job_id: str, status: JobStatus, cost_usd: float = 0.0) -> None:
+    def finish_job(
+        self,
+        job_id: str,
+        status: JobStatus,
+        cost_usd: float = 0.0,
+        usage: list[TokenUsage] | None = None,
+    ) -> None:
         with Session(self.engine) as s:
             row = s.get(JobRow, job_id)
             if row is None:
                 return
             row.status = status
             row.cost_usd = cost_usd
+            for u in usage or []:
+                row.input_tokens += u.input_tokens
+                row.output_tokens += u.output_tokens
+                row.cache_tokens += u.cache_read_tokens + u.cache_write_tokens
+            row.models = ",".join(sorted({u.model for u in usage or []}))
             row.finished_at = _now()
             s.add(row)
             s.commit()

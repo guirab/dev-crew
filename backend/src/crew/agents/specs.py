@@ -52,8 +52,7 @@ class AgentSpec[OutT: BaseModel]:
     tools: tuple[str, ...]
     bash: BashMode
     write: WriteMode
-    max_turns: int
-    budget_cap_usd: float
+    max_turns: int | None  # None = no cap (D51)
     resume_across_rounds: bool
     permission_mode: PermissionMode
     default_model: str
@@ -153,8 +152,7 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         tools=_READ,
         bash="none",
         write="none",
-        max_turns=15,
-        budget_cap_usd=0.5,
+        max_turns=None,
         resume_across_rounds=True,
         permission_mode="default",
         default_model="claude-sonnet-5-5",
@@ -168,8 +166,7 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         tools=(*_READ, "Bash"),
         bash="readonly",
         write="none",
-        max_turns=30,
-        budget_cap_usd=2.0,
+        max_turns=None,
         resume_across_rounds=True,
         permission_mode="default",
         default_model="claude-opus-5-5",
@@ -182,8 +179,7 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         tools=(*_READ, "Write", "Edit", "Bash"),
         bash="full",
         write="workspace",
-        max_turns=60,
-        budget_cap_usd=3.0,
+        max_turns=None,
         resume_across_rounds=True,
         permission_mode="acceptEdits",
         default_model="claude-sonnet-5-5",
@@ -197,8 +193,7 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         tools=(*_READ, "Write", "Edit", "Bash"),
         bash="full",
         write="tests_only",
-        max_turns=40,
-        budget_cap_usd=1.5,
+        max_turns=None,
         resume_across_rounds=True,
         permission_mode="acceptEdits",
         default_model="claude-sonnet-5-5",
@@ -212,8 +207,7 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         tools=(*_READ, "Bash"),
         bash="readonly",
         write="none",
-        max_turns=30,
-        budget_cap_usd=2.0,
+        max_turns=None,
         resume_across_rounds=True,
         permission_mode="default",
         default_model="claude-opus-5-5",

@@ -17,6 +17,7 @@ from pathlib import Path
 from ..bus import FatalJobError
 from ..contracts import (
     AgentJob,
+    AgentName,
     AgentOutput,
     DevResult,
     InterviewQuestion,
@@ -28,6 +29,7 @@ from ..contracts import (
     TaskSpec,
     TestFailure,
     TestResult,
+    TokenUsage,
 )
 from .pathjail import PathJail
 from .progress import ProgressLine, ProgressSink
@@ -38,6 +40,25 @@ from .specs import COMMIT_SUBJECT_MAX, SPECS
 Sleep = Callable[[float], Awaitable[None]]
 
 FAKE_COSTS = {"interviewer": 0.01, "planner": 0.05, "developer": 0.12, "tester": 0.04, "reviewer": 0.06}
+FAKE_TOKENS = {
+    "interviewer": 4_000,
+    "planner": 20_000,
+    "developer": 60_000,
+    "tester": 25_000,
+    "reviewer": 30_000,
+}
+
+
+def fake_usage(agent: AgentName) -> TokenUsage:
+    """Plausible token figures so estimates and totals have something to work with in fake mode."""
+    total = FAKE_TOKENS[agent]
+    return TokenUsage(
+        model=f"fake-{agent}",
+        input_tokens=total * 4 // 5,
+        output_tokens=total // 5,
+        cost_usd=FAKE_COSTS[agent],
+    )
+
 
 QUESTIONS: tuple[InterviewQuestion, ...] = (
     InterviewQuestion(
@@ -148,7 +169,10 @@ class ScriptedRunner:
         if spec.finalize is not None:
             output = spec.finalize(output, job)
         return RunOutcome(
-            output=output, cost_usd=FAKE_COSTS[job.agent], session_id=f"fake-{job.agent}-{job.job_id.hex[:8]}"
+            output=output,
+            cost_usd=FAKE_COSTS[job.agent],
+            session_id=f"fake-{job.agent}-{job.job_id.hex[:8]}",
+            usage=(fake_usage(job.agent),),
         )
 
     # ---------------------------------------------------------------- interviewer

@@ -67,7 +67,6 @@ def make_job(
     plan: bool = True,
     feedback: Feedback | None = None,
     history: list[InterviewTurn] | None = None,
-    budget_usd: float = 5.0,
     resume_session_id: str | None = None,
     repo: RepoContext | None = None,
     spec: TaskSpec | None = None,
@@ -84,7 +83,6 @@ def make_job(
         interview_history=history or [],
         workspace_path=str(workspace) if workspace is not None else None,
         resume_session_id=resume_session_id,
-        budget_usd=budget_usd,
     )
 
 

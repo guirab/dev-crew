@@ -12,7 +12,7 @@ from nats.aio.msg import Msg
 from nats.errors import TimeoutError as NatsTimeoutError
 from pydantic import ValidationError
 
-from ..contracts import AgentFailedEvt, AgentJob, AgentName
+from ..contracts import AgentFailedEvt, AgentJob, AgentName, UsageLimit
 from . import subjects as s
 from .client import JOB_MAX_DELIVER, Bus
 
@@ -31,9 +31,12 @@ class FatalJobError(Exception):
     """Permanent failure. A ``failed`` event is published and the job is terminated."""
 
 
-JOB_BUDGET_EXCEEDED = "orçamento máximo do job excedido"
-"""``failed`` error of a job stopped by its budget cap (the remaining task budget): the orchestrator
-escalates it as ``budget`` so ``more_attempts`` can raise the task budget."""
+class UsageLimitJobError(FatalJobError):
+    """The subscription usage limit was hit (D50). Never retried: the user resumes after the reset."""
+
+    def __init__(self, limit: UsageLimit) -> None:
+        super().__init__(limit.message)
+        self.limit = limit
 
 
 @dataclass(frozen=True)
@@ -52,8 +55,10 @@ async def _heartbeat(msg: Msg, every_s: float) -> None:
             await msg.in_progress()
 
 
-async def _publish_failed(bus: Bus, job: AgentJob, error: str, retryable: bool) -> None:
-    evt = AgentFailedEvt(agent=job.agent, job_id=job.job_id, error=error, retryable=retryable)
+async def _publish_failed(
+    bus: Bus, job: AgentJob, error: str, retryable: bool, limit: UsageLimit | None = None
+) -> None:
+    evt = AgentFailedEvt(agent=job.agent, job_id=job.job_id, error=error, retryable=retryable, limit=limit)
     await bus.publish_event(job.task_id, "failed", evt, source=job.agent)
 
 
@@ -84,8 +89,9 @@ async def handle_job_message(
             bound.warning("job_retry", error=str(e), delay=e.delay)
             await msg.nak(delay=e.delay)
     except FatalJobError as e:
-        bound.error("job_fatal", error=str(e))
-        await _publish_failed(bus, job, str(e), retryable=False)
+        limit = e.limit if isinstance(e, UsageLimitJobError) else None
+        bound.error("job_fatal", error=str(e), usage_limit=limit is not None)
+        await _publish_failed(bus, job, str(e), retryable=False, limit=limit)
         await msg.term()
     except asyncio.CancelledError:
         with contextlib.suppress(Exception):

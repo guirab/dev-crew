@@ -103,6 +103,7 @@ async def _handle_job(bus: Bus, agent: AgentName, runner: Runner, job: AgentJob)
         cost_usd=outcome.cost_usd,
         session_id=outcome.session_id,
         duration_s=round(time.monotonic() - started, 3),
+        usage=list(outcome.usage),
     )
     await bus.publish_event(job.task_id, "result", result, source=agent)
 

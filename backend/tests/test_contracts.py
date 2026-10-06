@@ -50,7 +50,6 @@ def test_job_round_trip() -> None:
         attempt=1,
         repo=_repo(),
         spec=_spec(),
-        budget_usd=5.0,
         feedback=c.Feedback(kind="human_instruction", text="use fake timers"),
     )
     assert c.AgentJob.model_validate_json(job.model_dump_json()) == job

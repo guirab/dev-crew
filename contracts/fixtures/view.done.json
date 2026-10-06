@@ -268,5 +268,7 @@
   },
   "started_at": "2026-10-01T12:00:00Z",
   "ended_at": "2026-10-01T12:06:52Z",
-  "cost_usd": 1.84
+  "cost_usd": 1.84,
+  "tokens": 0,
+  "limit": null
 }

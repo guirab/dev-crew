@@ -90,6 +90,7 @@ def try_agent(
             cost_usd=outcome.cost_usd,
             session_id=outcome.session_id,
             duration_s=round(time.monotonic() - started, 3),
+            usage=list(outcome.usage),
         )
 
     try:

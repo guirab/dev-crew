@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Final
 from uuid import NAMESPACE_URL, uuid5
 
-from ..bus import JOB_BUDGET_EXCEEDED
 from ..contracts import (
     AdjustPlan,
     AgentJob,
@@ -30,6 +29,7 @@ from ..contracts import (
     InterviewTurn,
     LogLine,
     Plan,
+    ResumeAfterLimit,
     ReviewResult,
     StageKey,
     StageStatus,
@@ -37,8 +37,8 @@ from ..contracts import (
     TaskPhase,
     TaskSpec,
     TestResult,
+    UsageLimit,
 )
-from . import budget
 from .effects import (
     BuildFinalReport,
     CancelJobs,
@@ -56,7 +56,6 @@ from .events import (
     AgentResult,
     CommandReceived,
     Event,
-    JobTimedOut,
     ReportBuilt,
     StartParams,
     WorkspaceFailed,
@@ -69,14 +68,12 @@ from .state import MAX_STAGE_LOGS, EscalationKind, EscalationState, PendingJob, 
 ERR_ACTIVE_TASK: Final = "já existe tarefa ativa"
 ERR_NO_TASK: Final = "nenhuma tarefa ativa"
 ERR_WRONG_PHASE: Final = "comando indisponível na fase atual"
-ERR_BUDGET: Final = "orçamento estourado — use more_attempts para liberar +50%"
-CONFLICT_ERRORS: Final = frozenset({ERR_ACTIVE_TASK, ERR_NO_TASK, ERR_WRONG_PHASE, ERR_BUDGET})
+CONFLICT_ERRORS: Final = frozenset({ERR_ACTIVE_TASK, ERR_NO_TASK, ERR_WRONG_PHASE})
 
 ERR_UNKNOWN_REPO: Final = "repositório desconhecido"
 ERR_TITLE_REQUIRED: Final = "título é obrigatório"
 ERR_TEXT_REQUIRED: Final = "texto obrigatório"
 ERR_ANSWERS_MISMATCH: Final = "responda todas as perguntas da rodada (uma resposta por pergunta)"
-_BUDGET_NOW: Final = "Orçamento estourado — expanda pra decidir"
 ERR_REPLAN_UNAVAILABLE: Final = "replanejar não se aplica: a spec ainda não foi fechada"
 
 _PHASE: Final[dict[AgentName, TaskPhase]] = {
@@ -105,7 +102,7 @@ def decide(state: TaskState | None, event: Event) -> tuple[TaskState | None, lis
     match event:
         case CommandReceived():
             return _on_command(state, event)
-        case AgentResult() | AgentFailed() | AgentProgressed() | JobTimedOut():
+        case AgentResult() | AgentFailed() | AgentProgressed():
             return _on_agent_event(state, event)
         case WorkspaceReady() | WorkspaceFailed() | ReportBuilt():
             return _on_io_event(state, event)
@@ -186,7 +183,6 @@ def _make_job(s: TaskState, agent: AgentName, feedback: Feedback | None) -> Agen
         interview_history=list(s.interview_turns) if agent in ("interviewer", "planner") else [],
         workspace_path=s.workspace_path,
         resume_session_id=s.sessions.get(agent),
-        budget_usd=budget.remaining(s.cost_usd, s.limits.budget_usd),
     )
 
 
@@ -199,13 +195,7 @@ def _advance(
     feedback: Feedback | None = None,
     now: str | None = None,
 ) -> list[Effect]:
-    """Hand the task to ``agent`` (budget permitting). Returns the effects (the dispatch)."""
-    pending = PendingJob(agent=agent, feedback=feedback, edge=edge, now=now)
-    if budget.exhausted(s.cost_usd, s.limits.budget_usd):
-        reason = f"orçamento estourado (US$ {s.cost_usd:.2f} de {s.limits.budget_usd:.2f})"
-        _escalate(s, at, "budget", agent, reason, pending=pending, now=_BUDGET_NOW)
-        return []
-
+    """Hand the task to ``agent``. Returns the effects (the dispatch)."""
     if edge is not None:
         _go(s, edge, agent)
     _set(s, agent, "active", now or _DEFAULT_NOW[agent], at)
@@ -330,6 +320,8 @@ def _on_command(state: TaskState | None, ev: CommandReceived) -> tuple[TaskState
             return _escalation_action(state, s, cmd, ev.at)
         case CancelTask():
             return _cancel(s, ev.at)
+        case ResumeAfterLimit():
+            return _resume_after_limit(state, s, ev.at)
         case _:  # pragma: no cover - StartTask handled above
             return _reject(state, ERR_WRONG_PHASE)
 
@@ -444,17 +436,11 @@ def _escalation_action(
         return _reject(state, ERR_TEXT_REQUIRED)
     if cmd.action == "replan" and esc.stage == "interviewer":
         return _reject(state, ERR_REPLAN_UNAVAILABLE)
-    if budget.exhausted(s.cost_usd, s.limits.budget_usd) and cmd.action != "more_attempts":
-        return _reject(state, ERR_BUDGET)
 
     if cmd.action == "replan":
         return _commit(s, *_replan(s, at))
 
     if cmd.action == "more_attempts":
-        # a job stopped by its cap leaves the task budget nearly (not fully) spent: boost it anyway
-        capped = esc.kind == "budget" or JOB_BUDGET_EXCEEDED in esc.reason
-        if capped or budget.exhausted(s.cost_usd, s.limits.budget_usd):
-            s.limits.budget_usd = budget.boosted(s.cost_usd, s.limits.budget_usd)
         return _commit(s, *_more_attempts(s, esc, at))
 
     return _commit(s, *_instruct(s, esc, text, at))
@@ -498,12 +484,12 @@ def _more_attempts(s: TaskState, esc: EscalationState, at: datetime) -> list[Eff
             return _advance(
                 s, at, "developer", edge="rv-dv", feedback=fb, now="Nova tentativa com +2 rodadas de review"
             )
-        case "budget" | "agent_failed":
+        case "agent_failed":
             return _resume(s, esc, at)
 
 
 def _resume(s: TaskState, esc: EscalationState, at: datetime) -> list[Effect]:
-    """Re-run the job that could not run (budget) or died (agent failure)."""
+    """Re-run the job that died (agent failure)."""
     p = esc.pending
     if p is None:  # defensive: should not happen
         return _replan(s, at)
@@ -545,6 +531,35 @@ def _instruct(s: TaskState, esc: EscalationState, text: str, at: datetime) -> li
         review=s.review if esc.stage == "reviewer" and s.review is not None else None,
     )
     return _advance(s, at, "developer", edge=edge, feedback=fb, now=quoted)
+
+
+# ---------------------------------------------------------------- usage limit (D50)
+
+
+def _hit_limit(s: TaskState, at: datetime, agent: AgentName, limit: UsageLimit) -> None:
+    """The subscription quota ran out: park the job and wait for ``resume_after_limit``."""
+    _undo_round(s, agent)
+    _settle_edge(s)
+    s.phase = "limited"
+    s.limit = limit
+    s.limited_pending = s.inflight
+    s.current_job_id = None
+    s.current_agent = None
+    s.inflight = None
+    _set(s, agent, "error", f"{limit.message} — retome depois do reset", at)
+
+
+def _resume_after_limit(
+    state: TaskState, s: TaskState, at: datetime
+) -> tuple[TaskState | None, list[Effect]]:
+    p = s.limited_pending
+    if s.phase != "limited" or p is None:
+        return _reject(state, ERR_WRONG_PHASE)
+    s.limit = None
+    s.limited_pending = None
+    s.stages[p.agent].status = "idle"
+    _log(s, p.agent, "Retomando depois do limite de uso", at)
+    return _commit(s, *_advance(s, at, p.agent, edge=p.edge, feedback=p.feedback, now=p.now))
 
 
 # ============================================================ io events (workspace / report)
@@ -606,23 +621,19 @@ def _fail_boot(
 # ============================================================ agent events
 
 
-def _is_current(
-    state: TaskState | None, ev: AgentResult | AgentFailed | AgentProgressed | JobTimedOut
-) -> bool:
+def _is_current(state: TaskState | None, ev: AgentResult | AgentFailed | AgentProgressed) -> bool:
     if state is None or state.terminal or state.task_id != ev.task_id:
         return False
-    job_id = ev.evt.job_id if not isinstance(ev, JobTimedOut) else ev.job_id
-    return state.current_job_id is not None and state.current_job_id == job_id
+    return state.current_job_id is not None and state.current_job_id == ev.evt.job_id
 
 
 def _on_agent_event(
-    state: TaskState | None, ev: AgentResult | AgentFailed | AgentProgressed | JobTimedOut
+    state: TaskState | None, ev: AgentResult | AgentFailed | AgentProgressed
 ) -> tuple[TaskState | None, list[Effect]]:
     if not _is_current(state, ev):
         if isinstance(ev, AgentProgressed):
             return state, []  # progress of a dead job: silently dropped
-        job_id = ev.job_id if isinstance(ev, JobTimedOut) else ev.evt.job_id
-        return state, [LogStale(ev.task_id, type(ev).__name__, job_id)]
+        return state, [LogStale(ev.task_id, type(ev).__name__, ev.evt.job_id)]
     assert state is not None
     s = _copy(state)
     match ev:
@@ -633,19 +644,11 @@ def _on_agent_event(
             if ev.evt.retryable:  # the bus will redeliver; just surface it
                 _log(s, ev.evt.agent, f"Tentando de novo: {ev.evt.error}"[:160], ev.at)
                 return s, []
-            if ev.evt.error == JOB_BUDGET_EXCEEDED:  # the job hit its cap = what was left of the task
-                _undo_round(s, ev.evt.agent)
-                reason = f"{ev.evt.agent} parou no teto do job: orçamento restante da tarefa acabou"
-                _escalate(s, ev.at, "budget", ev.evt.agent, reason, pending=s.inflight, now=_BUDGET_NOW)
+            if ev.evt.limit is not None:
+                _hit_limit(s, ev.at, ev.evt.agent, ev.evt.limit)
                 return _commit(s)
             _fail_job(s, ev.at, ev.evt.agent, ev.evt.error, s.inflight)
             return _commit(s)
-        case JobTimedOut():
-            agent = s.current_agent
-            assert agent is not None
-            minutes = s.limits.job_timeout_s / 60
-            _fail_job(s, ev.at, agent, f"sem resposta após {minutes:g} min", s.inflight)
-            return _commit(s, CancelJobs(s.task_id, agent))
         case AgentResult():
             return _on_result(s, ev)
 
@@ -663,7 +666,8 @@ def _on_result(s: TaskState, ev: AgentResult) -> tuple[TaskState | None, list[Ef
     agent = evt.agent
     out = evt.output
     pending = s.inflight
-    s.cost_usd += evt.cost_usd  # money is spent even if the output is unusable
+    s.cost_usd += evt.cost_usd  # spent even if the output is unusable (API-price equivalent)
+    s.tokens += sum(u.input_tokens + u.output_tokens for u in evt.usage)
     if evt.session_id:
         s.sessions[agent] = evt.session_id
     s.current_job_id = None

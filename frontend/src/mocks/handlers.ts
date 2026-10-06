@@ -9,6 +9,7 @@ const COMMAND_TYPES: readonly string[] = [
   'adjust_plan',
   'escalation',
   'cancel_task',
+  'resume_after_limit',
 ]
 
 function isRecord(v: unknown): v is Record<string, unknown> {

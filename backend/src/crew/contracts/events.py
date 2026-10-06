@@ -8,6 +8,7 @@ from pydantic import AwareDatetime, Field
 
 from .common import AgentName, Contract, EventSource
 from .outputs import AgentOutput
+from .usage import TokenUsage, UsageLimit
 from .view import TaskView
 
 EventKind = Literal["progress", "result", "failed", "view"]
@@ -27,6 +28,7 @@ class AgentResultEvt(Contract):
     cost_usd: float = 0.0
     session_id: str | None = None
     duration_s: float = 0.0
+    usage: list[TokenUsage] = []
 
 
 class AgentFailedEvt(Contract):
@@ -34,6 +36,7 @@ class AgentFailedEvt(Contract):
     job_id: UUID
     error: str
     retryable: bool = False
+    limit: UsageLimit | None = None  # set when the job stopped on the subscription usage limit
 
 
 EVENT_PAYLOADS: dict[EventKind, type[Contract]] = {

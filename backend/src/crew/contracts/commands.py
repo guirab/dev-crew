@@ -41,8 +41,14 @@ class CancelTask(Contract):
     type: Literal["cancel_task"] = "cancel_task"
 
 
+class ResumeAfterLimit(Contract):
+    """Re-run the jobs stopped by the subscription usage limit (D50)."""
+
+    type: Literal["resume_after_limit"] = "resume_after_limit"
+
+
 Command = Annotated[
-    StartTask | AnswerInterview | ApprovePlan | AdjustPlan | EscalationAction | CancelTask,
+    StartTask | AnswerInterview | ApprovePlan | AdjustPlan | EscalationAction | CancelTask | ResumeAfterLimit,
     Field(discriminator="type"),
 ]
 CommandAdapter: TypeAdapter[Command] = TypeAdapter(Command)
