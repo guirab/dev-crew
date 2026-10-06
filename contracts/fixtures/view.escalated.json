@@ -1,0 +1,248 @@
+{
+  "task_id": "T-107",
+  "title": "Filtro por intervalo de datas no relatório de vendas",
+  "description": "Relatório de vendas precisa de filtro por período.",
+  "repo": "sample-repo",
+  "phase": "escalated",
+  "stages": {
+    "manual": {
+      "status": "done",
+      "now": "Filtro por intervalo de datas no relatório de vendas",
+      "logs": []
+    },
+    "interviewer": {
+      "status": "done",
+      "now": "Spec fechada · 3 decisões",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:02Z",
+          "text": "Spec fechada"
+        }
+      ]
+    },
+    "planner": {
+      "status": "done",
+      "now": "Plano pronto · 4 passos, 3 arquivos",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:05Z",
+          "text": "Lendo tarefa"
+        },
+        {
+          "ts": "2026-10-01T12:00:20Z",
+          "text": "Plano pronto"
+        }
+      ]
+    },
+    "approval": {
+      "status": "done",
+      "now": "Plano aprovado",
+      "logs": []
+    },
+    "developer": {
+      "status": "done",
+      "now": "Rodada 3 salva no repo local · sem commit",
+      "logs": []
+    },
+    "tester": {
+      "status": "error",
+      "now": "Limite 3/3 atingido — expanda pra decidir",
+      "logs": []
+    },
+    "reviewer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "done": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    }
+  },
+  "edges": {
+    "ma-iv": "on",
+    "iv-pl": "on",
+    "pl-ap": "on",
+    "ap-dv": "on",
+    "dv-ts": "on",
+    "ts-dv": "on"
+  },
+  "active_edge": null,
+  "counters": {
+    "dev_round": 3,
+    "test_attempt": 3,
+    "max_test_attempts": 3,
+    "review_round": 0,
+    "max_review_rounds": 2
+  },
+  "interview": {
+    "turns": [
+      {
+        "question": {
+          "topic": "Fora de escopo",
+          "question": "O que fica fora do escopo desta entrega?",
+          "recommendation": "Exportar o relatório fica pra depois.",
+          "options": [],
+          "rationale": null
+        },
+        "answer": "Exportar o relatório fica pra depois.",
+        "accepted_recommendation": true,
+        "round": 1
+      }
+    ],
+    "pending": [],
+    "decisions": [
+      "Fora de escopo: Exportar o relatório fica pra depois."
+    ]
+  },
+  "plan": {
+    "type": "plan",
+    "summary": "Adicionar filtro start_date/end_date no relatório de vendas, com validação e testes.",
+    "steps": [
+      "Mapear módulo de relatório e pontos de extensão",
+      "Backend: aceitar start_date/end_date e validar start <= end",
+      "Filtro inclusivo em created_at com bind params",
+      "Testes: unit no serviço + integração no endpoint"
+    ],
+    "files": [
+      {
+        "path": "shop/report.py",
+        "change": "M"
+      },
+      {
+        "path": "shop/api.py",
+        "change": "M"
+      },
+      {
+        "path": "tests/test_report_dates.py",
+        "change": "A"
+      }
+    ],
+    "acceptance_criteria": [
+      "Intervalo inclusivo nas duas pontas",
+      "start_date > end_date retorna erro de validação",
+      "Sem regressão na suíte existente"
+    ],
+    "risks": [
+      "Timezone: datas locais vs UTC no banco"
+    ],
+    "test_strategy": "Testes de integração cobrindo bordas do intervalo e entrada inválida."
+  },
+  "dev_rounds": [
+    {
+      "type": "dev",
+      "round": 1,
+      "summary": "Implementa o plano",
+      "files_changed": [
+        {
+          "path": "shop/report.py",
+          "change": "M"
+        },
+        {
+          "path": "shop/api.py",
+          "change": "M"
+        }
+      ],
+      "notes": null
+    },
+    {
+      "type": "dev",
+      "round": 2,
+      "summary": "Corrige fim do intervalo inclusivo e validação",
+      "files_changed": [
+        {
+          "path": "shop/report.py",
+          "change": "M"
+        }
+      ],
+      "notes": null
+    },
+    {
+      "type": "dev",
+      "round": 3,
+      "summary": "Corrige fim do intervalo inclusivo e validação",
+      "files_changed": [
+        {
+          "path": "shop/report.py",
+          "change": "M"
+        }
+      ],
+      "notes": null
+    }
+  ],
+  "test_runs": [
+    {
+      "type": "test",
+      "ok": false,
+      "passed": 46,
+      "total": 48,
+      "failures": [
+        {
+          "test": "tests/test_report_dates.py::test_range_inclusive_end",
+          "message": "esperado 12, obtido 9"
+        },
+        {
+          "test": "tests/test_report_dates.py::test_invalid_range",
+          "message": "assert 200 == 422"
+        }
+      ],
+      "coverage": null,
+      "command": "pytest -q",
+      "tests_written": [
+        "tests/test_report_dates.py"
+      ]
+    },
+    {
+      "type": "test",
+      "ok": false,
+      "passed": 46,
+      "total": 48,
+      "failures": [
+        {
+          "test": "tests/test_report_dates.py::test_range_inclusive_end",
+          "message": "esperado 12, obtido 9"
+        },
+        {
+          "test": "tests/test_report_dates.py::test_invalid_range",
+          "message": "assert 200 == 422"
+        }
+      ],
+      "coverage": null,
+      "command": "pytest -q",
+      "tests_written": [
+        "tests/test_report_dates.py"
+      ]
+    },
+    {
+      "type": "test",
+      "ok": false,
+      "passed": 46,
+      "total": 48,
+      "failures": [
+        {
+          "test": "tests/test_report_dates.py::test_range_inclusive_end",
+          "message": "esperado 12, obtido 9"
+        },
+        {
+          "test": "tests/test_report_dates.py::test_invalid_range",
+          "message": "assert 200 == 422"
+        }
+      ],
+      "coverage": null,
+      "command": "pytest -q",
+      "tests_written": [
+        "tests/test_report_dates.py"
+      ]
+    }
+  ],
+  "review": null,
+  "escalation": {
+    "stage": "tester",
+    "reason": "3 falhas consecutivas de teste"
+  },
+  "final": null,
+  "started_at": "2026-10-01T12:00:00Z",
+  "ended_at": null,
+  "cost_usd": 0.0
+}

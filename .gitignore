@@ -1,0 +1,35 @@
+# secrets / local config
+.env
+.env.*
+!.env.example
+crew.toml
+*.log
+*.pem
+*.key
+*.db
+*.db-journal
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# node
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# claude code worktrees / local settings
+.claude/

@@ -1,0 +1,17 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.label {
+  font: 11.5px var(--mono);
+  color: var(--muted);
+}
+
+/* variante sem margem inferior, usada ao lado de um botão na mesma linha */
+.inline {
+  margin: 0;
+  flex: 1;
+}

@@ -1,0 +1,110 @@
+{
+  "task_id": "T-108",
+  "title": "Exportar pedidos filtrados em CSV",
+  "description": "Usuário precisa exportar os pedidos da listagem em CSV.",
+  "repo": "sample-repo",
+  "phase": "interviewing",
+  "stages": {
+    "manual": {
+      "status": "done",
+      "now": "Exportar pedidos filtrados em CSV",
+      "logs": []
+    },
+    "interviewer": {
+      "status": "waiting",
+      "now": "Aguardando sua resposta — expanda pra responder",
+      "logs": []
+    },
+    "planner": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "approval": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "developer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "tester": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "reviewer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "done": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    }
+  },
+  "edges": {
+    "ma-iv": "active"
+  },
+  "active_edge": "ma-iv",
+  "counters": {
+    "dev_round": 0,
+    "test_attempt": 0,
+    "max_test_attempts": 3,
+    "review_round": 0,
+    "max_review_rounds": 2
+  },
+  "interview": {
+    "turns": [
+      {
+        "question": {
+          "topic": "Fora de escopo",
+          "question": "O que fica fora do escopo desta entrega?",
+          "recommendation": "Export XLSX/PDF fica pra depois.",
+          "options": [],
+          "rationale": null
+        },
+        "answer": "Export XLSX/PDF fica pra depois.",
+        "accepted_recommendation": true,
+        "round": 1
+      }
+    ],
+    "pending": [
+      {
+        "topic": "Critérios de aceite",
+        "question": "Quais critérios o Tester deve validar?",
+        "recommendation": "Cabeçalho, encoding UTF-8 com BOM e filtro aplicado.",
+        "options": [
+          "Cabeçalho, encoding UTF-8 com BOM e filtro aplicado.",
+          "Só o filtro aplicado; formato livre."
+        ],
+        "rationale": "Excel no Windows só lê acentos certo com BOM."
+      },
+      {
+        "topic": "Restrições",
+        "question": "Pode adicionar dependência pra gerar o CSV?",
+        "recommendation": "Não: usar o módulo csv da stdlib.",
+        "options": [
+          "Não: usar o módulo csv da stdlib.",
+          "Sim, se justificar no plano."
+        ],
+        "rationale": null
+      }
+    ],
+    "decisions": [
+      "Fora de escopo: Export XLSX/PDF fica pra depois."
+    ]
+  },
+  "plan": null,
+  "dev_rounds": [],
+  "test_runs": [],
+  "review": null,
+  "escalation": null,
+  "final": null,
+  "started_at": "2026-10-01T12:00:00Z",
+  "ended_at": null,
+  "cost_usd": 0.0
+}

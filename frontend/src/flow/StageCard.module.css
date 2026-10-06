@@ -1,0 +1,198 @@
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s,
+    opacity 0.25s;
+  position: relative;
+}
+
+/* header do card: <button aria-expanded>, visualmente igual ao .hd do mockup */
+.hd {
+  display: flex;
+  width: 100%;
+  gap: 16px;
+  align-items: center;
+  padding: 20px 22px;
+  min-height: 76px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 16px;
+  color: inherit;
+  text-align: left;
+}
+
+.hd:focus-visible {
+  outline-offset: -3px;
+}
+
+.ic {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-2);
+  display: grid;
+  place-items: center;
+  flex: none;
+  font: 700 14px var(--mono);
+  color: var(--muted);
+}
+
+.txt {
+  min-width: 0;
+  flex: 1;
+}
+
+.tt {
+  display: block;
+  font-weight: 650;
+  font-size: 16.5px;
+  letter-spacing: -0.1px;
+}
+
+.ds {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag {
+  font: 11.5px var(--mono);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chev {
+  color: var(--muted);
+  transition: transform 0.2s;
+  font-size: 12px;
+}
+
+.open .chev {
+  transform: rotate(180deg);
+}
+
+.idle {
+  opacity: 0.5;
+}
+
+.skipped {
+  opacity: 0.2;
+}
+
+.pick {
+  border-style: dashed;
+  border-color: var(--green-2);
+}
+
+.pick:hover,
+.pick.open {
+  border-style: solid;
+  border-color: var(--green);
+  box-shadow: 0 0 24px var(--green-glow);
+}
+
+.pick .ic {
+  color: var(--green);
+  border-color: var(--green-2);
+}
+
+.active {
+  border-color: var(--green);
+  box-shadow:
+    0 0 0 1px var(--green),
+    0 0 34px var(--green-glow);
+}
+
+.active .ic {
+  border-color: var(--green);
+  color: var(--green);
+  animation: ring 1.6s ease-out infinite;
+}
+
+.active .ds {
+  color: var(--green);
+  font: 13.5px var(--mono);
+}
+
+.active .ds::after {
+  content: '▍';
+  animation: blink 1s steps(1) infinite;
+  margin-left: 2px;
+}
+
+.active .tag {
+  color: var(--green);
+}
+
+@keyframes ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--green-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.done .ic {
+  background: var(--green-soft);
+  border-color: var(--green-2);
+  color: var(--green);
+}
+
+.waiting {
+  border-color: var(--warn);
+  box-shadow: 0 0 26px var(--warn-soft);
+}
+
+.waiting .ic {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.waiting .ds,
+.waiting .tag {
+  color: var(--warn);
+}
+
+.error {
+  border-color: var(--err);
+  box-shadow: 0 0 26px var(--err-soft);
+}
+
+.error .ic {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.error .ds,
+.error .tag {
+  color: var(--err);
+}
+
+.bd {
+  border-top: 1px solid var(--line);
+  padding: 18px 22px 22px 74px;
+}
+
+@media (max-width: 640px) {
+  .hd {
+    padding: 16px;
+  }
+
+  .bd {
+    padding-left: 22px;
+  }
+}

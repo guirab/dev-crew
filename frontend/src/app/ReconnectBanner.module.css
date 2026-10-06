@@ -1,0 +1,11 @@
+.banner {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: 4px 24px;
+  text-align: center;
+  font: 12px var(--mono);
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-bottom: 1px solid var(--warn);
+}

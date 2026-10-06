@@ -1,0 +1,41 @@
+# Copie para crew.toml (não versionado) e ajuste.
+
+[nats]
+url = "nats://127.0.0.1:4222"
+
+[gateway]
+host = "127.0.0.1"
+port = 8787
+
+[workspace]
+mode = "worktree"            # "worktree" | "inplace"
+
+[limits]
+max_test_attempts = 3        # falhas consecutivas de teste antes de escalar
+max_review_rounds = 2
+budget_usd_per_task = 5.00
+job_timeout_min = 20
+
+[models]
+interviewer = "claude-sonnet-5-5"
+planner     = "claude-opus-5-5"
+developer   = "claude-sonnet-5-5"
+tester      = "claude-sonnet-5-5"
+reviewer    = "claude-opus-5-5"
+
+[commit]
+language = "pt-BR"
+style = "conventional"
+
+[[repos]]
+name = "demo"
+path = "~/.dev-crew/repos/demo"      # crie com: cd backend && uv run python -m crew.cli init-demo
+base_branch = "main"
+# o `init-demo` imprime este bloco com o python do venv (um `python` solto pode não ter pytest)
+test_cmd = "python -m pytest -q"
+lint_cmd = ""
+test_globs = ["tests/**", "**/test_*.py"]
+# Opcionais:
+# setup_cmd = "npm ci"          # roda pelo dev-crew (nunca pelos agentes) antes do 1º agente; falhou = tarefa falha
+# sandbox_image = "node:22"     # comandos dos agentes rodam num container por tarefa (sem rede, só vê o worktree)
+# deps_dirs = ["node_modules"]  # com sandbox: ficam em volumes Docker, fora do worktree

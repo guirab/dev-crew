@@ -1,0 +1,33 @@
+{
+  "job_id": "00000000-0000-4000-8000-000000000001",
+  "task_id": "T-107",
+  "agent": "interviewer",
+  "attempt": 1,
+  "repo": {
+    "name": "sample-repo",
+    "base_branch": "main",
+    "test_cmd": "python -m pytest -q",
+    "lint_cmd": null,
+    "test_globs": [
+      "tests/**",
+      "**/test_*.py"
+    ],
+    "commit_language": "pt-BR",
+    "sandbox": false
+  },
+  "spec": {
+    "title": "Filtro por intervalo de datas no relatório de vendas",
+    "description": "Quero filtrar o relatório de vendas por período.",
+    "repo": "sample-repo",
+    "acceptance_criteria": [],
+    "out_of_scope": [],
+    "constraints": [],
+    "decisions": []
+  },
+  "plan": null,
+  "feedback": null,
+  "interview_history": [],
+  "workspace_path": "fixtures/sample-repo",
+  "resume_session_id": null,
+  "budget_usd": 5.0
+}

@@ -1,0 +1,269 @@
+/* Estilos compartilhados pelos corpos expandidos (portados de mockup/index.html). */
+.mono {
+  font-family: var(--mono);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.g {
+  color: var(--green);
+}
+
+.sec {
+  margin-top: 18px;
+}
+
+.sec:first-child {
+  margin-top: 0;
+}
+
+.sec h4 {
+  margin: 0 0 8px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sp {
+  flex: 1;
+}
+
+.logs {
+  font-size: 13px;
+  border-left: 1px solid var(--line-2);
+  padding-left: 12px;
+}
+
+.logs div {
+  padding: 3px 0;
+}
+
+.logs time {
+  font: 11.5px var(--mono);
+  color: var(--muted);
+  margin-right: 10px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  font: 12px var(--mono);
+  padding: 3px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.end {
+  justify-content: flex-end;
+}
+
+.item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  background: var(--surface-2);
+}
+
+.item .h {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pill {
+  font: 700 10.5px var(--mono);
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.3px;
+}
+
+.pill.ok {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.pill.err {
+  color: var(--err);
+  background: var(--err-soft);
+}
+
+.pill.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.pill.nit {
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.fail {
+  font: 12px var(--mono);
+  color: var(--err);
+  margin-top: 6px;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--err);
+  margin-top: 8px;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msg {
+  max-width: 88%;
+  padding: 10px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  font-size: 13.5px;
+  background: var(--surface-2);
+}
+
+.msg.me {
+  align-self: flex-end;
+  border-color: var(--green-2);
+  background: var(--green-soft);
+}
+
+.rec {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rec b {
+  color: var(--green);
+}
+
+.commit {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--bg);
+  font: 12.5px/1.6 var(--mono);
+  white-space: pre-wrap;
+}
+
+.files div {
+  font: 12.5px var(--mono);
+  padding: 2px 0;
+}
+
+.files .A {
+  color: var(--green);
+}
+
+.files .M {
+  color: var(--warn);
+}
+
+.files .D {
+  color: var(--err);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.kv div {
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+
+.kv b {
+  display: block;
+  font: 700 20px var(--mono);
+  color: var(--green);
+}
+
+.kv span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Rodada da entrevista: uma pergunta por fieldset, alternativas em rádio. */
+.question {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.question legend {
+  padding: 0 4px;
+  font-size: 13.5px;
+}
+
+.question .rec {
+  margin: 0;
+}
+
+.topic {
+  font: 600 11px var(--mono);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+/* o reset global dá width:100% e padding a todo input; o rádio volta ao tamanho natural */
+.option input {
+  flex: none;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--green);
+}
+
+.option > span:first-of-type {
+  flex: 1;
+}
+
+.badge {
+  flex: none;
+  font: 600 10px var(--mono);
+  text-transform: uppercase;
+  color: var(--green);
+  border: 1px solid var(--green-2);
+  border-radius: 6px;
+  padding: 1px 5px;
+}

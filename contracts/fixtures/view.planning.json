@@ -1,0 +1,100 @@
+{
+  "task_id": "T-107",
+  "title": "Filtro por intervalo de datas no relatório de vendas",
+  "description": "Relatório de vendas precisa de filtro por período.",
+  "repo": "sample-repo",
+  "phase": "planning",
+  "stages": {
+    "manual": {
+      "status": "done",
+      "now": "Filtro por intervalo de datas no relatório de vendas",
+      "logs": []
+    },
+    "interviewer": {
+      "status": "done",
+      "now": "Spec fechada · 3 decisões",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:02Z",
+          "text": "Spec fechada"
+        }
+      ]
+    },
+    "planner": {
+      "status": "active",
+      "now": "Explorando repo (Grep/Read nos módulos afetados)",
+      "logs": [
+        {
+          "ts": "2026-10-01T12:00:05Z",
+          "text": "Lendo tarefa"
+        }
+      ]
+    },
+    "approval": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "developer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "tester": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "reviewer": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
+    "done": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    }
+  },
+  "edges": {
+    "ma-iv": "on",
+    "iv-pl": "active"
+  },
+  "active_edge": "iv-pl",
+  "counters": {
+    "dev_round": 0,
+    "test_attempt": 0,
+    "max_test_attempts": 3,
+    "review_round": 0,
+    "max_review_rounds": 2
+  },
+  "interview": {
+    "turns": [
+      {
+        "question": {
+          "topic": "Fora de escopo",
+          "question": "O que fica fora do escopo desta entrega?",
+          "recommendation": "Exportar o relatório fica pra depois.",
+          "options": [],
+          "rationale": null
+        },
+        "answer": "Exportar o relatório fica pra depois.",
+        "accepted_recommendation": true,
+        "round": 1
+      }
+    ],
+    "pending": [],
+    "decisions": [
+      "Fora de escopo: Exportar o relatório fica pra depois."
+    ]
+  },
+  "plan": null,
+  "dev_rounds": [],
+  "test_runs": [],
+  "review": null,
+  "escalation": null,
+  "final": null,
+  "started_at": "2026-10-01T12:00:00Z",
+  "ended_at": null,
+  "cost_usd": 0.0
+}

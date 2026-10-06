@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Crew</title>
+<style>
+:root{
+  --bg:#050807; --surface:#0a0f0d; --surface-2:#0e1512; --line:#16211c; --line-2:#22322b;
+  --fg:#ddf3e7; --muted:#7a9187;
+  --green:#2bee86; --green-2:#17b862; --green-soft:#2bee8614; --green-glow:#2bee863d;
+  --warn:#f4b544; --warn-soft:#f4b5441c; --err:#ff5d5d; --err-soft:#ff5d5d1c;
+  --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg) radial-gradient(#2bee860c 1px,transparent 1px) 0 0/22px 22px fixed;color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:var(--mono)} .muted{color:var(--muted)} .g{color:var(--green)}
+
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:14px 24px;background:linear-gradient(var(--bg) 70%,transparent)}
+.brand{font:700 15px var(--mono);letter-spacing:.3px}
+.caret{display:inline-block;width:8px;height:15px;background:var(--green);margin-left:4px;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.task{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.task b{color:var(--fg);font-family:var(--mono)}
+.sp{flex:1}
+.btn{border:1px solid var(--line-2);background:var(--surface-2);padding:8px 16px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--green-2)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#03140b;font-weight:650}
+.btn.primary:hover{box-shadow:0 0 18px var(--green-glow)}
+.btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+.btn.sm{padding:5px 12px;font-size:13px}
+.link{background:none;border:none;color:var(--muted);cursor:pointer}
+.link:hover{color:var(--err)}
+
+.wrap{max-width:700px;margin:0 auto;padding:16px 56px 140px}
+
+/* cards */
+.card{background:var(--surface);border:1px solid var(--line-2);border-radius:16px;transition:border-color .25s,box-shadow .25s,opacity .25s;position:relative}
+.hd{display:flex;gap:16px;align-items:center;padding:20px 22px;cursor:pointer;min-height:76px}
+.ic{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line-2);display:grid;place-items:center;flex:none;font:700 14px var(--mono);color:var(--muted)}
+.txt{min-width:0;flex:1}
+.tt{font-weight:650;font-size:16.5px;letter-spacing:-.1px}
+.ds{font-size:14px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+.tag{font:11.5px var(--mono);color:var(--muted);white-space:nowrap}
+.chev{color:var(--muted);transition:transform .2s;font-size:12px}
+.card.open .chev{transform:rotate(180deg)}
+.card.idle{opacity:.5}
+.card.skipped{opacity:.2}
+.card.pick{border-style:dashed;border-color:var(--green-2)}
+.card.pick:hover,.card.pick.open{border-style:solid;border-color:var(--green);box-shadow:0 0 24px var(--green-glow)}
+.card.pick .ic{color:var(--green);border-color:var(--green-2)}
+.card.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green),0 0 34px var(--green-glow)}
+.card.active .ic{border-color:var(--green);color:var(--green);animation:ring 1.6s ease-out infinite}
+.card.active .ds{color:var(--green);font:13.5px var(--mono)}
+.card.active .ds::after{content:"▍";animation:blink 1s steps(1) infinite;margin-left:2px}
+.card.active .tag{color:var(--green)}
+@keyframes ring{0%{box-shadow:0 0 0 0 var(--green-glow)}100%{box-shadow:0 0 0 12px transparent}}
+.card.done .ic{background:var(--green-soft);border-color:var(--green-2);color:var(--green)}
+.card.waiting{border-color:var(--warn);box-shadow:0 0 26px var(--warn-soft)}
+.card.waiting .ic{border-color:var(--warn);color:var(--warn)}
+.card.waiting .ds,.card.waiting .tag{color:var(--warn)}
+.card.error{border-color:var(--err);box-shadow:0 0 26px var(--err-soft)}
+.card.error .ic{border-color:var(--err);color:var(--err)}
+.card.error .ds,.card.error .tag{color:var(--err)}
+.bd{border-top:1px solid var(--line);padding:18px 22px 22px 74px}
+.srcrow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.srcform{margin-top:14px}
+.srcform .bd{border-top:none;padding:20px 22px}
+
+/* connectors */
+.conn{--c:var(--line-2);height:34px;width:2px;margin:0 auto;background:var(--c);position:relative}
+.conn::after{content:"";position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top:7px solid var(--c);border-bottom:0}
+.conn.on{--c:var(--green-2)}
+.conn.active{--c:var(--green);background:repeating-linear-gradient(to bottom,var(--green) 0 6px,transparent 6px 12px);animation:down .6s linear infinite;box-shadow:0 0 10px var(--green-glow)}
+@keyframes down{from{background-position:0 0}to{background-position:0 12px}}
+
+/* correction loops */
+.loopgroup{position:relative}
+.loop{--c:var(--line-2);position:absolute;border:1.5px dashed var(--c);border-right:none;border-radius:12px 0 0 12px;pointer-events:none;transition:border-color .25s}
+.loop::after{content:"";position:absolute;right:-2px;top:-6.5px;border:5px solid transparent;border-left:7px solid var(--c);border-right:0}
+.loop span{position:absolute;left:0;top:50%;transform:translate(-50%,-50%) rotate(-90deg);font:10.5px var(--mono);color:var(--muted);background:var(--bg);padding:0 5px;white-space:nowrap}
+.loop.on{--c:var(--green-2)}
+.loop.active{--c:var(--green);border-style:solid;filter:drop-shadow(0 0 5px var(--green-glow))}
+.loop.active span{color:var(--green)}
+
+/* expanded content */
+.sec{margin-top:18px} .sec:first-child{margin-top:0}
+.sec h4{margin:0 0 8px;font:600 11px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.logs{font-size:13px;border-left:1px solid var(--line-2);padding-left:12px}
+.logs div{padding:3px 0}
+.logs time{font:11.5px var(--mono);color:var(--muted);margin-right:10px}
+ol,ul{margin:0;padding-left:20px} li{margin-bottom:5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:12px var(--mono);padding:3px 8px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface-2)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font:11.5px var(--mono);color:var(--muted)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line-2);border-radius:9px;padding:9px 11px;width:100%}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.wi{display:grid;grid-template-columns:62px 92px 1fr;gap:10px;padding:10px 12px;border:1px solid transparent;border-radius:9px;cursor:pointer;font-size:13.5px}
+.wi:hover{background:var(--surface-2)}
+.wi.on{border-color:var(--green);background:var(--green-soft)}
+.item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;background:var(--surface-2)}
+.item .h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{font:700 10.5px var(--mono);padding:2px 7px;border-radius:5px;letter-spacing:.3px}
+.pill.ok{color:var(--green);background:var(--green-soft)}
+.pill.err{color:var(--err);background:var(--err-soft)}
+.pill.warn{color:var(--warn);background:var(--warn-soft)}
+.fail{font:12px var(--mono);color:var(--err);margin-top:6px}
+.chat{display:flex;flex-direction:column;gap:8px}
+.msg{max-width:88%;padding:10px 13px;border-radius:12px;border:1px solid var(--line-2);font-size:13.5px;background:var(--surface-2)}
+.msg.me{align-self:flex-end;border-color:var(--green-2);background:var(--green-soft)}
+.rec{margin-top:6px;font-size:13px;color:var(--muted)}
+.rec b{color:var(--green)}
+pre.commit{margin:0;padding:14px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg);font:12.5px/1.6 var(--mono);white-space:pre-wrap}
+.files div{font:12.5px var(--mono);padding:2px 0}
+.files .A{color:var(--green)} .files .M{color:var(--warn)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.kv div{border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;background:var(--surface-2)}
+.kv b{display:block;font:700 20px var(--mono);color:var(--green)}
+.kv span{font-size:12px;color:var(--muted)}
+
+footer{position:fixed;left:14px;bottom:12px;display:flex;gap:10px;align-items:center;font:12px var(--mono);color:var(--muted);background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:6px 10px;z-index:5}
+footer select{width:auto;padding:2px 6px}
+footer label{display:flex;gap:5px;align-items:center;cursor:pointer}
+footer input{width:auto;accent-color:var(--green)}
+@media (max-width:640px){
+  header{padding:12px 16px}
+  .wrap{padding:12px 16px 120px 54px}
+  .srcrow{grid-template-columns:1fr}
+  .bd{padding-left:22px}
+  .hd{padding:16px}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand"><span class="g">&gt;</span> dev-crew<span class="caret"></span></span>
+  <span class="task" id="taskLbl"></span>
+  <span class="sp"></span>
+  <span id="hdrAct"></span>
+</header>
+<main class="wrap" id="flow"></main>
+<footer>
+  demo
+  <select onchange="S.speed=+this.value"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option></select>
+  <label><input type="checkbox" id="forceEsc" onchange="S.forceEsc=this.checked"> forçar escalada</label>
+</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clock = () => new Date().toTimeString().slice(0, 8);
+
+const N = {
+  azure:       {title:'Azure DevOps',       desc:'Importa um work item via MCP',                    ic:'Az'},
+  manual:      {title:'Manual',             desc:'Você descreve a tarefa',                          ic:'M'},
+  interviewer: {title:'Entrevistador',      desc:'Pergunta uma coisa por vez até a tarefa ficar clara · só tarefa manual', ic:'E'},
+  planner:     {title:'Planner',            desc:'Lê a tarefa e o repo, monta o plano',             ic:'P'},
+  approval:    {title:'Aprovação do plano', desc:'Você aprova ou pede ajuste antes do código',      ic:'◆'},
+  developer:   {title:'Developer',          desc:'Implementa o plano no repo local',                ic:'D'},
+  tester:      {title:'Tester',             desc:'Escreve e roda os testes',                        ic:'T'},
+  reviewer:    {title:'Reviewer',           desc:'Revisa o diff: bugs, segurança, padrões do repo', ic:'R'},
+  done:        {title:'Concluída',          desc:'Alterações locais + mensagem de commit sugerida', ic:'✓'},
+};
+const TAG = {idle:'', pick:'', active:'trabalhando', waiting:'aguardando você', done:'ok', error:'precisa de você', skipped:'pulado'};
+
+const WORK_ITEMS = [
+  {id:4830, type:'Bug', title:'Erro 500 ao salvar cliente sem CPF'},
+  {id:4827, type:'User Story', title:'Dashboard de metas por vendedor'},
+  {id:4821, type:'User Story', title:'Filtro por intervalo de datas no relatório de vendas'},
+  {id:4819, type:'Task', title:'Atualizar SDK de pagamentos pra v5'},
+];
+const QUESTIONS = [
+  {q:'O que fica explicitamente fora do escopo desta entrega?', rec:'Listar 1–3 coisas que ficam pra depois — evita o Developer expandir escopo.', short:'Fora de escopo'},
+  {q:'Como a gente sabe que está pronto? Quais critérios o Tester deve validar?', rec:'3 critérios verificáveis por teste automatizado (entrada → saída esperada).', short:'Critérios de aceite'},
+  {q:'Alguma restrição técnica? (lib proibida, padrão do repo, performance)', rec:'Seguir padrões existentes do repo; nenhuma dependência nova sem aprovação.', short:'Restrições'},
+];
+
+/* ---------- state ---------- */
+let S, gen = 0;
+function reset() {
+  gen++;
+  S = {source:null, task:null, srcOpen:null, open:new Set(), st:{}, now:{}, logs:{}, edges:{}, activeEdge:null,
+       testIter:0, maxTest:3, reviewIter:0, maxReview:2, rounds:[], runs:[], comments:[], plan:null, iv:null, pickWi:null,
+       speed:S?.speed || 1, forceEsc:S?.forceEsc || false, started:null, ended:null};
+  Object.keys(N).forEach(k => { S.st[k] = (k === 'azure' || k === 'manual') ? 'pick' : 'idle'; S.logs[k] = []; });
+  render();
+}
+const wait = ms => { const g = gen; return new Promise((ok, no) => setTimeout(() => g === gen ? ok() : no('reset'), ms / S.speed)); };
+const safe = fn => (...a) => fn(...a).catch(e => { if (e !== 'reset') throw e; });
+function log(k, text) { S.logs[k].push({t:clock(), text}); S.now[k] = text; render(); }
+async function step(k, text, ms) { S.st[k] = 'active'; log(k, text); await wait(ms); }
+function finish(k, text) { S.st[k] = 'done'; log(k, text); }
+function go(edge, k, st = 'active') {
+  if (S.activeEdge) S.edges[S.activeEdge] = 'on';
+  S.edges[edge] = 'active'; S.activeEdge = edge; S.st[k] = st; render();
+  if (!S.open.size) document.getElementById('c-' + k)?.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function toggle(k) { S.open.has(k) ? S.open.delete(k) : S.open.add(k); render(); }
+function toggleSrc(k) { S.srcOpen = S.srcOpen === k ? null : k; render(); }
+
+/* ---------- flow ---------- */
+const startAzure = safe(async () => {
+  const w = WORK_ITEMS.find(w => w.id === S.pickWi); if (!w) return;
+  S.source = 'azure'; S.started = Date.now(); S.srcOpen = null;
+  S.task = {id:'T-107', title:w.title, type:w.type, ref:'AB#' + w.id, repo:$('#repo').value};
+  S.st.manual = S.st.interviewer = 'skipped';
+  finish('azure', `AB#${w.id} · ${w.title}`);
+  go('az-pl', 'planner');
+  await runPlanner();
+});
+const startManual = safe(async () => {
+  const title = $('#mTitle').value.trim() || 'Exportar pedidos filtrados em CSV';
+  S.source = 'manual'; S.started = Date.now(); S.srcOpen = null;
+  S.task = {id:'T-107', title, type:'Manual', repo:$('#repo').value, desc:$('#mDesc').value.trim() || 'Usuário precisa exportar os pedidos da listagem em CSV pra mandar pro financeiro.'};
+  S.st.azure = 'skipped';
+  finish('manual', title);
+  S.iv = {msgs:[{from:'agent', text:'Li a descrição e o repo. Vou perguntar uma coisa por vez, sempre com minha recomendação.'}], queue:QUESTIONS.map(q => ({...q})), decisions:[]};
+  ivNext();
+  S.now.interviewer = 'Aguardando sua resposta — expanda pra responder';
+  go('ma-iv', 'interviewer', 'waiting');
+});
+function ivNext() { const n = S.iv.queue.shift(); if (n) S.iv.msgs.push({from:'agent', ...n}); return n; }
+function ivAnswer(text) {
+  const cur = S.iv.msgs[S.iv.msgs.length - 1];
+  text = (text ?? '').trim();
+  S.iv.msgs.push({from:'me', text: text || '✓ Aceito a recomendação.'});
+  S.iv.decisions.push(`${cur.short}: ${text || cur.rec}`);
+  S.logs.interviewer.push({t:clock(), text:`${cur.short} definido`});
+  if (ivNext()) { render(); $('#ivIn')?.focus(); return; }
+  S.iv.msgs.push({from:'agent', text:'Tenho o suficiente. Spec gerada e enviada pro Planner.'});
+  safe(async () => { finish('interviewer', `Spec fechada · ${S.iv.decisions.length} decisões`); await wait(700); S.open.delete('interviewer'); go('iv-pl', 'planner'); await runPlanner(); })();
+}
+async function runPlanner(feedback) {
+  await step('planner', feedback ? `Revendo plano: "${feedback}"` : 'Lendo tarefa e critérios de aceite', 1000);
+  await step('planner', 'Explorando repo (Grep/Read nos módulos afetados)', 1300);
+  await step('planner', 'Montando passos, arquivos e critérios', 1000);
+  S.plan = {
+    summary:`Implementar "${S.task.title}" seguindo os padrões do repo, com testes cobrindo os critérios de aceite.`,
+    steps:['Mapear módulo afetado e pontos de extensão', 'Backend: endpoint/serviço com validação de entrada', 'Front: componente + estado na query string', 'Testes: unit no serviço + integração no endpoint'],
+    files:[['M','src/api/routes.py'], ['M','src/services/service.py'], ['A','web/components/Feature.tsx'], ['A','tests/test_feature.py']],
+    criteria: S.iv ? S.iv.decisions.filter(d => d.startsWith('Critérios')).concat(['Sem regressão na suíte existente']) : ['Critérios do work item', 'Sem regressão na suíte existente'],
+  };
+  finish('planner', `Plano pronto · ${S.plan.steps.length} passos, ${S.plan.files.length} arquivos`);
+  S.now.approval = 'Aguardando você — expanda pra revisar o plano';
+  go('pl-ap', 'approval', 'waiting');
+}
+const approve = safe(async () => {
+  finish('approval', 'Plano aprovado'); S.open.delete('approval');
+  go('ap-dv', 'developer');
+  await devRound();
+});
+const adjust = safe(async () => {
+  const fb = $('#adj').value.trim(); if (!fb) return;
+  S.st.approval = 'idle'; S.logs.approval.push({t:clock(), text:`Ajuste pedido: ${fb}`}); S.open.delete('approval');
+  S.edges['pl-ap'] = 'on'; S.activeEdge = null;
+  await runPlanner(fb);
+});
+async function devRound(reason) {
+  if (reason) await step('developer', reason, 1200);
+  else {
+    await step('developer', `Preparando worktree local crew/${S.task.id}`, 800);
+    await step('developer', 'Editando src/api/routes.py, src/services/service.py', 1300);
+    await step('developer', 'Criando web/components/Feature.tsx', 1000);
+  }
+  S.rounds.push({n:S.rounds.length + 1, what:reason || 'Implementa o plano'});
+  finish('developer', `Rodada ${S.rounds.length} salva no repo local · sem commit`);
+  go('dv-ts', 'tester');
+  await testRound();
+}
+async function testRound() {
+  S.testIter++;
+  await step('tester', S.testIter === 1 ? 'Escrevendo testes de integração' : 'Rodando a suíte de novo', 900);
+  await step('tester', '$ pytest -q && npm test', 1300);
+  const fail = S.forceEsc || S.testIter === 1, round = S.rounds.length;
+  if (fail) {
+    S.runs.push({iter:S.testIter, round, ok:false, passed:46, total:48, failures:['test_feature.py::test_range_inclusive_end — esperado 12, obtido 9', 'test_feature.py::test_invalid_input_returns_400 — assert 200 == 400']});
+    S.st.tester = 'error'; log('tester', `FALHOU · 46/48 · tentativa ${S.testIter}/${S.maxTest}`);
+    if (S.testIter >= S.maxTest) { S.now.tester = `Limite ${S.maxTest}/${S.maxTest} atingido — expanda pra decidir`; render(); return; }
+    await wait(900);
+    S.st.tester = 'idle'; go('ts-dv', 'developer');
+    return devRound('Corrigindo: test_range_inclusive_end, test_invalid_input_returns_400');
+  }
+  S.runs.push({iter:S.testIter, round, ok:true, passed:48, total:48, failures:[]});
+  finish('tester', 'PASSOU · 48/48 · cobertura 87%');
+  go('ts-rv', 'reviewer');
+  await reviewRound();
+}
+async function reviewRound() {
+  S.reviewIter++;
+  await step('reviewer', '$ git diff — lendo alterações', 1100);
+  await step('reviewer', 'Checando segurança, padrões do repo e aderência ao plano', 1300);
+  if (S.reviewIter === 1) {
+    S.comments = [
+      {sev:'major', at:'src/services/service.py:42', text:'Query montada com f-string — usar bind params.'},
+      {sev:'minor', at:'web/components/Feature.tsx:9', text:'Converter datas pra UTC antes de enviar.'},
+    ];
+    S.st.reviewer = 'error'; log('reviewer', 'CHANGES REQUESTED · 1 major, 1 minor');
+    await wait(900);
+    S.st.reviewer = 'idle'; go('rv-dv', 'developer');
+    return devRound('Aplicando review: bind params na query, datas em UTC');
+  }
+  S.comments.forEach(c => c.resolved = true);
+  finish('reviewer', 'APROVADO · comentários resolvidos');
+  S.ended = Date.now();
+  go('rv-dn', 'done'); S.edges['rv-dn'] = 'on'; S.activeEdge = null;
+  finish('done', 'Pronto pra você revisar e commitar');
+}
+const escAction = safe(async kind => {
+  S.forceEsc = false; $('#forceEsc').checked = false;
+  if (kind === 'more') { S.maxTest += 2; log('tester', `Limite aumentado pra ${S.maxTest}`); S.st.tester = 'idle'; S.open.delete('tester'); go('ts-dv', 'developer'); await devRound('Nova tentativa com +2 iterações'); }
+  if (kind === 'instruct') { const t = $('#instr').value.trim(); if (!t) return; log('tester', 'Instrução enviada pro Developer'); S.st.tester = 'idle'; S.open.delete('tester'); go('ts-dv', 'developer'); await devRound(`Seguindo sua instrução: "${t}"`); }
+  if (kind === 'replan') { S.st.tester = S.st.developer = S.st.approval = 'idle'; S.testIter = 0; S.activeEdge = null; S.open.delete('tester'); await runPlanner('3 falhas seguidas no Tester — rever abordagem'); }
+});
+function commitMsg() {
+  const t = S.task, type = t.type === 'Bug' ? 'fix' : 'feat';
+  const lines = [`${type}: ${t.title.charAt(0).toLowerCase() + t.title.slice(1)}`, '', ...S.plan.steps.slice(1).map(s => '- ' + s.charAt(0).toLowerCase() + s.slice(1))];
+  if (S.reviewIter > 1) lines.push('- bind params na query e datas em UTC (review)');
+  if (t.ref) lines.push('', 'Refs: ' + t.ref);
+  return lines.join('\n');
+}
+function copyMsg(btn) {
+  try { navigator.clipboard.writeText(commitMsg()); btn.textContent = 'Copiado'; } catch (e) { btn.textContent = 'Selecione e copie'; }
+}
+
+/* ---------- render ---------- */
+const logsHTML = k => S.logs[k].length ? `<div class="sec"><h4>Atividade</h4><div class="logs">${S.logs[k].map(l => `<div><time>${l.t}</time>${esc(l.text)}</div>`).join('')}</div></div>` : '';
+const empty = t => `<div class="sec muted">${t}</div>`;
+function planHTML() {
+  const p = S.plan; if (!p) return '';
+  return `<div class="sec"><h4>Plano</h4><p style="margin:0 0 10px">${esc(p.summary)}</p><ol>${p.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
+    <div class="sec"><h4>Arquivos</h4><div class="chips">${p.files.map(f => `<span class="chip">${esc(f[1])}</span>`).join('')}</div></div>
+    <div class="sec"><h4>Critérios de aceite</h4><ul>${p.criteria.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
+}
+const SRC_FORM = {
+  azure() {
+    if (S.source === 'azure') return `<div class="sec"><h4>Work item</h4><b class="mono">${esc(S.task.ref)}</b> · ${esc(S.task.title)} <span class="muted">· ${esc(S.task.type)}</span></div><div class="sec muted">Repo: ${esc(S.task.repo)}</div>`;
+    return `<div class="sec"><h4>Sprint atual · atribuídos a mim</h4>
+      ${WORK_ITEMS.map(w => `<div class="wi ${S.pickWi === w.id ? 'on' : ''}" onclick="S.pickWi=${w.id};render()"><span class="mono">#${w.id}</span><span class="muted">${w.type}</span><span>${esc(w.title)}</span></div>`).join('')}</div>
+      <div class="sec row"><div class="field" style="flex:1;margin:0"><label>repositório</label><select id="repo"><option>portal-vendas</option><option>api-pedidos</option></select></div>
+      <button class="btn primary" ${S.pickWi ? '' : 'disabled'} onclick="startAzure()">Iniciar</button></div>`;
+  },
+  manual() {
+    if (S.source === 'manual') return `<div class="sec"><h4>Tarefa</h4><b>${esc(S.task.title)}</b><p class="muted" style="margin:4px 0 0">${esc(S.task.desc)}</p></div><div class="sec muted">Repo: ${esc(S.task.repo)}</div>`;
+    return `<div class="field"><label>título</label><input id="mTitle" placeholder="Exportar pedidos filtrados em CSV"></div>
+      <div class="field"><label>descrição · pode ser vaga, o Entrevistador pergunta o resto</label><textarea id="mDesc"></textarea></div>
+      <div class="row"><div class="field" style="flex:1;margin:0"><label>repositório</label><select id="repo"><option>api-pedidos</option><option>portal-vendas</option></select></div>
+      <button class="btn primary" onclick="startManual()">Iniciar</button></div>`;
+  },
+};
+const BODY = {
+  interviewer() {
+    if (!S.iv) return empty(S.source === 'azure' ? 'Pulado — tarefa veio do Azure DevOps.' : 'Entra só em tarefa manual: uma pergunta por vez, sempre com recomendação, até fechar a spec.');
+    const last = S.iv.msgs[S.iv.msgs.length - 1], open = S.st.interviewer === 'waiting' && last.rec;
+    return `<div class="sec chat">${S.iv.msgs.map(m => m.from === 'me' ? `<div class="msg me">${esc(m.text)}</div>`
+        : `<div class="msg">${esc(m.q || m.text)}${m.rec ? `<div class="rec"><b>Recomendo:</b> ${esc(m.rec)}</div>` : ''}</div>`).join('')}</div>
+      ${open ? `<div class="sec row"><input id="ivIn" placeholder="Responder diferente…" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter'&&this.value.trim())ivAnswer(this.value)">
+        <button class="btn" onclick="ivAnswer($('#ivIn').value)">Enviar</button><button class="btn primary" onclick="ivAnswer('')">Aceitar recomendação</button></div>` : ''}
+      ${S.iv.decisions.length ? `<div class="sec"><h4>Spec</h4><ul>${S.iv.decisions.map(d => `<li>${esc(d)}</li>`).join('')}</ul></div>` : ''}`;
+  },
+  planner() { return (S.plan ? planHTML() : empty('Ainda não gerou o plano.')) + logsHTML('planner'); },
+  approval() {
+    if (!S.plan) return empty('Aparece quando o Planner terminar.');
+    if (S.st.approval !== 'waiting') return planHTML() + logsHTML('approval');
+    return `${planHTML()}<div class="sec"><div class="field"><label>ajuste pro Planner (opcional)</label><textarea id="adj" placeholder="Ex.: não mexer no módulo de auth"></textarea></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" onclick="adjust()">Pedir ajuste</button><button class="btn primary" onclick="approve()">Aprovar plano</button></div></div>`;
+  },
+  developer() {
+    return (S.rounds.length ? `<div class="sec"><h4>Rodadas · repo local, sem commit</h4>${S.rounds.map(r => `<div class="item"><span class="mono g">#${r.n}</span> ${esc(r.what)}</div>`).join('')}</div>` : empty('Aguardando plano aprovado.')) + logsHTML('developer');
+  },
+  tester() {
+    const escd = S.st.tester === 'error' && S.testIter >= S.maxTest;
+    return (escd ? `<div class="sec"><h4>Loop estourou — o que fazer?</h4>
+        <div class="field"><textarea id="instr" placeholder="Instrução pro Developer, ex.: usar fake timers no teste de concorrência"></textarea></div>
+        <div class="row"><button class="btn primary" onclick="escAction('instruct')">Enviar instrução</button><button class="btn" onclick="escAction('more')">+2 tentativas</button>
+        <button class="btn" onclick="escAction('replan')">Voltar pro Planner</button><button class="btn" onclick="cancelTask()">Cancelar tarefa</button></div></div>` : '')
+      + (S.runs.length ? `<div class="sec"><h4>Execuções</h4>${S.runs.slice().reverse().map(r => `<div class="item"><div class="h"><span class="pill ${r.ok ? 'ok' : 'err'}">${r.ok ? 'PASSOU' : 'FALHOU'}</span><b>Tentativa ${r.iter}</b><span class="muted mono">rodada #${r.round}</span><span class="sp"></span><span class="mono">${r.passed}/${r.total}</span></div>${r.failures.map(f => `<div class="fail">${esc(f)}</div>`).join('')}</div>`).join('')}</div>` : empty('Nenhuma execução ainda.'))
+      + logsHTML('tester');
+  },
+  reviewer() {
+    return (S.comments.length ? `<div class="sec"><h4>Comentários</h4>${S.comments.map(c => `<div class="item"><div class="h"><span class="pill ${c.resolved ? 'ok' : c.sev === 'major' ? 'err' : 'warn'}">${c.resolved ? 'RESOLVIDO' : c.sev.toUpperCase()}</span><span class="mono muted">${esc(c.at)}</span></div><div style="margin-top:5px">${esc(c.text)}</div></div>`).join('')}</div>` : empty('Nenhum comentário ainda.')) + logsHTML('reviewer');
+  },
+  done() {
+    if (S.st.done !== 'done') return empty('Fim do fluxo: alterações ficam no repo local, nada é commitado. Você recebe a mensagem de commit sugerida.');
+    return `<div class="sec kv"><div><b>${S.plan.files.length}</b><span>arquivos alterados</span></div><div><b>${S.testIter}</b><span>execuções de teste</span></div>
+        <div><b>${S.reviewIter}</b><span>rodadas de review</span></div><div><b>${Math.round((S.ended - S.started) / 1000)}s</b><span>duração</span></div></div>
+      <div class="sec"><h4>Alterações · ${esc(S.task.repo)} · não commitado</h4><div class="files">${S.plan.files.map(([s, f]) => `<div><span class="${s}">${s}</span>  ${esc(f)}</div>`).join('')}</div></div>
+      <div class="sec"><h4>Mensagem de commit sugerida</h4><pre class="commit">${esc(commitMsg())}</pre>
+        <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn primary" onclick="copyMsg(this)">Copiar mensagem</button></div></div>`;
+  },
+};
+function cardHTML(k, opts = {}) {
+  const n = N[k], st = S.st[k], open = opts.src ? S.srcOpen === k : S.open.has(k);
+  const ds = (st === 'idle' || st === 'pick' || st === 'skipped' || !S.now[k]) ? n.desc : S.now[k];
+  const iter = k === 'tester' && S.testIter ? ` · ${S.testIter}/${S.maxTest}` : k === 'reviewer' && S.reviewIter ? ` · ${S.reviewIter}/${S.maxReview}` : k === 'developer' && S.rounds.length ? ` · rodada ${S.rounds.length}` : '';
+  const icon = st === 'done' ? '✓' : st === 'error' ? '!' : n.ic;
+  return `<div class="card ${st} ${open ? 'open' : ''}" id="c-${k}">
+    <div class="hd" onclick="${opts.src ? 'toggleSrc' : 'toggle'}('${k}')">
+      <div class="ic">${icon}</div>
+      <div class="txt"><div class="tt">${n.title}</div><div class="ds">${esc(ds)}</div></div>
+      <span class="tag">${TAG[st]}${iter}</span><span class="chev">▾</span>
+    </div>
+    ${open && !opts.src ? `<div class="bd">${BODY[k]()}</div>` : ''}
+  </div>`;
+}
+function connState(ids) { return ids.some(i => S.edges[i] === 'active') ? 'active' : ids.some(i => S.edges[i]) ? 'on' : ''; }
+const conn = ids => `<div class="conn ${connState(ids)}"></div>`;
+function render() {
+  const a = document.activeElement, keepFocus = a && a.id, keep = {};
+  ['mTitle', 'mDesc', 'adj', 'instr', 'ivIn', 'repo'].forEach(id => { const el = document.getElementById(id); if (el) keep[id] = el.value; });
+
+  $('#taskLbl').innerHTML = S.task ? `<b>${S.task.id}</b> · ${esc(S.task.title)}` : '';
+  $('#hdrAct').innerHTML = !S.task ? '' : S.st.done === 'done' ? `<button class="btn primary sm" onclick="reset()">Nova tarefa</button>` : `<button class="link" onclick="cancelTask()">cancelar tarefa</button>`;
+  $('#flow').innerHTML = `
+    <div class="srcrow">${cardHTML('azure', {src:true})}${cardHTML('manual', {src:true})}</div>
+    ${S.srcOpen ? `<div class="card srcform"><div class="bd">${SRC_FORM[S.srcOpen]()}</div></div>` : ''}
+    ${conn(['az-pl', 'ma-iv'])}
+    ${cardHTML('interviewer')}
+    ${conn(['az-pl', 'iv-pl'])}
+    ${cardHTML('planner')}
+    ${conn(['pl-ap'])}
+    ${cardHTML('approval')}
+    ${conn(['ap-dv'])}
+    <div class="loopgroup" id="loopgroup">
+      <div class="loop ${connState(['ts-dv'])}" id="l1"><span>↺ falhou</span></div>
+      <div class="loop ${connState(['rv-dv'])}" id="l2"><span>↺ ajustes</span></div>
+      ${cardHTML('developer')}
+      ${conn(['dv-ts'])}
+      ${cardHTML('tester')}
+      ${conn(['ts-rv'])}
+      ${cardHTML('reviewer')}
+    </div>
+    ${conn(['rv-dn'])}
+    ${cardHTML('done')}
+    ${!S.task && !S.srcOpen ? '<p class="muted mono" style="text-align:center;margin-top:28px;font-size:12.5px">escolha a origem da tarefa ↑</p>' : ''}
+  `;
+  Object.entries(keep).forEach(([id, v]) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; });
+  if (keepFocus) document.getElementById(keepFocus)?.focus();
+  placeLoops();
+}
+function placeLoops() {
+  const y = k => { const c = document.getElementById('c-' + k); return c.offsetTop + 38; };
+  const dv = y('developer'), ts = y('tester'), rv = y('reviewer');
+  Object.assign($('#l1').style, {top:dv + 'px', height:(ts - dv) + 'px', left:'-20px', width:'20px'});
+  Object.assign($('#l2').style, {top:dv + 'px', height:(rv - dv) + 'px', left:'-40px', width:'40px'});
+}
+function cancelTask() { if (confirm('Cancelar a tarefa atual? As alterações locais ficam no repo.')) reset(); }
+addEventListener('resize', placeLoops);
+reset();
+</script>
+</body>
+</html>

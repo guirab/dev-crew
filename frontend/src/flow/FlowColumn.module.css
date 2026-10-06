@@ -1,0 +1,6 @@
+.hint {
+  text-align: center;
+  margin-top: 28px;
+  font: 12.5px var(--mono);
+  color: var(--muted);
+}

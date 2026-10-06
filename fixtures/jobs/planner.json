@@ -1,0 +1,44 @@
+{
+  "job_id": "00000000-0000-4000-8000-000000000002",
+  "task_id": "T-107",
+  "agent": "planner",
+  "attempt": 1,
+  "repo": {
+    "name": "sample-repo",
+    "base_branch": "main",
+    "test_cmd": "python -m pytest -q",
+    "lint_cmd": null,
+    "test_globs": [
+      "tests/**",
+      "**/test_*.py"
+    ],
+    "commit_language": "pt-BR",
+    "sandbox": false
+  },
+  "spec": {
+    "title": "Filtro por intervalo de datas no relatório de vendas",
+    "description": "O relatório de vendas (shop/report.py) deve aceitar data inicial e final e considerar só as vendas dentro do intervalo.",
+    "repo": "sample-repo",
+    "acceptance_criteria": [
+      "Intervalo inclusivo nas duas pontas",
+      "Sem datas, o relatório continua igual",
+      "Data inicial maior que a final levanta ValueError"
+    ],
+    "out_of_scope": [
+      "Exportar o relatório em CSV"
+    ],
+    "constraints": [
+      "Sem dependências novas",
+      "Seguir o estilo de shop/report.py"
+    ],
+    "decisions": [
+      "Fora de escopo: Exportar o relatório em CSV"
+    ]
+  },
+  "plan": null,
+  "feedback": null,
+  "interview_history": [],
+  "workspace_path": "fixtures/sample-repo",
+  "resume_session_id": null,
+  "budget_usd": 5.0
+}
