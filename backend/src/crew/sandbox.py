@@ -61,6 +61,15 @@ def container_name(task_id: str, repo: str) -> str:
     return f"crew-{_slug(repo)}-{_slug(task_id)}"
 
 
+EPIC_ID_RE = re.compile(r"^E\d+$")
+
+
+def workspace_key(task_id: str, epic_id: str | None) -> str:
+    """Worktree/container key of a lane: ``T-7-E1`` for an epic; ``T-7`` for the task itself and for the
+    integration lane, which resolves merges in the task's own worktree (D54, D55)."""
+    return f"{task_id}-{epic_id}" if epic_id and EPIC_ID_RE.fullmatch(epic_id) else task_id
+
+
 def volume_name(task_id: str, repo: str, deps_dir: str) -> str:
     return f"{container_name(task_id, repo)}-{_slug(deps_dir)}"
 

@@ -48,7 +48,7 @@ def _text(message: str, *, is_error: bool = False) -> dict[str, Any]:
 
 
 def make_run_tool(job: AgentJob) -> SdkMcpTool[Any]:
-    container = sandbox.container_name(job.task_id, job.repo.name)
+    container = sandbox.container_name(sandbox.workspace_key(job.task_id, job.epic_id), job.repo.name)
 
     async def handle(args: dict[str, Any]) -> dict[str, Any]:
         command = args.get("command")
