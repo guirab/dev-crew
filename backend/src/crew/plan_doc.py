@@ -55,7 +55,8 @@ def render(
         lines.append("")
 
     if plan.execution == "epics" and plan.epics:
-        lines += ["## Épicos", "", "| Épico | Título | Depende de | Tamanho | Status |", "|---|---|---|---|---|"]
+        lines += ["## Épicos", "", "| Épico | Título | Depende de | Tamanho | Status |"]
+        lines.append("|---|---|---|---|---|")
         for e in plan.epics:
             state = STATUS_LABEL.get(status.get(e.id, "pending"), status.get(e.id, ""))
             sha = commits.get(e.id)
