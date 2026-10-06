@@ -8,6 +8,7 @@
  * tester ok → reviewer aprova → concluída. `forceEscalate` faz o Tester falhar sempre (escalada).
  */
 import type {
+  Estimate,
   Command,
   DevResult,
   Escalation,
@@ -59,6 +60,26 @@ const PHASE_OF: Partial<Record<StageKey, TaskPhase>> = {
 }
 
 const MAX_LOGS = 50
+
+/** Estimativa fictícia do plano (o backend real calcula a partir do histórico, D56). */
+const MOCK_ESTIMATE: Estimate = {
+  tokens: 210_000,
+  usd: 2.1,
+  session_pct: 34,
+  weekly_pct: 4.2,
+  sessions_needed: 1,
+  usage_now: {
+    plan: 'pro',
+    session_pct: 12,
+    session_resets_at: null,
+    weekly_pct: 14,
+    weekly_resets_at: null,
+    fetched_at: null,
+  },
+  calibrated: true,
+  basis: 'Execução (Developer, Tester, Reviewer): valores de exemplo do modo mock.',
+  epics: [],
+}
 
 /** Cancelamento de fluxo assíncrono (nova tarefa/cancelar/dispose). */
 class Cancelled extends Error {}
@@ -216,6 +237,8 @@ export class ScenarioBackend implements MockBackend {
       cost_usd: this.cost(s),
       tokens: 40_000 * (s.rounds.length + s.runs.length + s.reviewIter),
       limit: null,
+      estimate: s.plan ? MOCK_ESTIMATE : null,
+      epics: [],
     }
   }
 
@@ -239,7 +262,10 @@ export class ScenarioBackend implements MockBackend {
       case 'cancel_task':
         return this.cancel()
       case 'resume_after_limit':
-        return this.refuse(409, 'Comando indisponível na fase atual.')
+      case 'run_epics':
+      case 'finish_task':
+      case 'create_project':
+        return this.refuse(409, 'Comando indisponível no modo mock.')
     }
   }
 
@@ -549,6 +575,10 @@ export class ScenarioBackend implements MockBackend {
       risks: ['Timezone: datas locais vs UTC no banco'],
       test_strategy:
         'Unit no serviço + integração no endpoint, cobrindo bordas e entrada inválida.',
+      execution: 'single',
+      split_rationale: 'Mudança coesa em 4 arquivos: uma execução só, sem épicos.',
+      epics: [],
+      project_setup: null,
     }
     this.finish(
       'planner',
@@ -624,7 +654,11 @@ export class ScenarioBackend implements MockBackend {
       s.st.tester = 'error'
       this.log('tester', `FALHOU · 46/48 · tentativa ${s.testIter}/${s.maxTest}`)
       if (s.testIter >= s.maxTest) {
-        s.escalation = { stage: 'tester', reason: `${s.maxTest} falhas consecutivas de teste` }
+        s.escalation = {
+          stage: 'tester',
+          reason: `${s.maxTest} falhas consecutivas de teste`,
+          epic_id: null,
+        }
         s.phase = 'escalated'
         s.now.tester = `Limite ${s.maxTest}/${s.maxTest} atingido — expanda pra decidir`
         this.emit()
@@ -737,6 +771,10 @@ export class ScenarioBackend implements MockBackend {
       })),
       commit_message: commitMessage,
       duration_s: Math.max(1, Math.round((end.getTime() - s.startedAt.getTime()) / 1000)),
+      tokens: 40_000 * (s.rounds.length + s.runs.length + s.reviewIter),
+      commits: [],
+      pending_epics: [],
+      plan_doc: `docs/plano/${s.taskId}.md`,
       cost_usd: this.cost(s),
     }
   }

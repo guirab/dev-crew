@@ -25,14 +25,18 @@ from ..bus import Bus
 from ..bus import subjects as s
 from ..config import CrewConfig
 from ..contracts import (
+    AccountUsage,
     AgentFailedEvt,
     AgentProgress,
     AgentResultEvt,
     CommandAdapter,
     CommandReply,
     Envelope,
+    Plan,
     StartTask,
 )
+from ..estimate import agent_costs, estimate_plan, ratios
+from ..usage import UsageReader
 from ..workspace.manager import WorkspaceManager
 from . import machine
 from .effects import (
@@ -87,12 +91,14 @@ class OrchestratorService:
         workspace: WorkspaceManager,
         *,
         clock: Clock = _utcnow,
+        usage: UsageReader | None = None,
     ) -> None:
         self.bus = bus
         self.cfg = cfg
         self.store = store
         self.workspace = workspace
         self.clock = clock
+        self.usage = usage  # None: no account usage (tests); the estimate then has no percentages
         self.state: TaskState | None = None
         self._inbox: asyncio.Queue[_Item] = asyncio.Queue()
         self._bg: set[asyncio.Task[None]] = set()
@@ -235,7 +241,7 @@ class OrchestratorService:
                 item.reply.set_result(reply)
 
     async def _handle(self, event: Event) -> CommandReply | None:
-        event = self._prepare(event)
+        event = await self._enrich(self._prepare(event))
         new_state, effects = machine.decide(self.state, event)
 
         rejects = [e for e in effects if isinstance(e, Reject)]
@@ -276,6 +282,28 @@ class OrchestratorService:
             return dataclasses.replace(event, start=params)
         return event
 
+    async def _enrich(self, event: Event) -> Event:
+        """Async data the machine needs but cannot fetch: the cost estimate of a fresh plan."""
+        if isinstance(event, AgentResult) and isinstance(event.evt.output, Plan):
+            try:
+                usage_now = await self._sample_usage()
+                rows, samples = await asyncio.to_thread(
+                    lambda: (self.store.real_jobs(), self.store.usage_samples())
+                )
+                estimate = estimate_plan(event.evt.output, agent_costs(rows), ratios(samples), usage_now)
+                return dataclasses.replace(event, estimate=estimate)
+            except Exception:  # an estimate must never block the plan
+                log.exception("estimate_failed")
+        return event
+
+    async def _sample_usage(self) -> AccountUsage | None:
+        """Read the account usage and keep the reading for calibration (no-op without a reader)."""
+        if self.usage is None:
+            return None
+        usage = await self.usage.read()
+        await asyncio.to_thread(self.store.record_usage, usage)
+        return usage
+
     def _persist(self, state: TaskState, event: Event) -> None:
         self.store.save_task(state)
         kind, payload = _loggable(event)
@@ -283,7 +311,9 @@ class OrchestratorService:
             self.store.log_event(state.task_id, kind, payload)
 
     def _after_event(self, event: Event) -> None:
-        """Bookkeeping that does not depend on the decision: job rows."""
+        """Bookkeeping that does not depend on the decision: job rows, usage readings."""
+        if isinstance(event, AgentResult | AgentFailed) and self.usage is not None:
+            self._spawn(self._sample_quietly(), "usage-sample")
         if isinstance(event, AgentResult):
             self.store.finish_job(str(event.evt.job_id), "done", event.evt.cost_usd, event.evt.usage)
         elif isinstance(event, AgentFailed) and not event.evt.retryable:
@@ -345,6 +375,12 @@ class OrchestratorService:
             if job.status == "dispatched":
                 await asyncio.to_thread(self.store.finish_job, job.job_id, "cancelled")
         log.info("jobs_cancelled", task_id=effect.task_id, agent=effect.agent)
+
+    async def _sample_quietly(self) -> None:
+        try:
+            await self._sample_usage()
+        except Exception:
+            log.warning("usage_sample_failed", exc_info=True)
 
     # ----------------------------------------------------------------- background effects
 

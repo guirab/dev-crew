@@ -1,36 +1,88 @@
-import type { Plan } from '../contracts/generated'
+import type { Estimate, Plan } from '../contracts/generated'
+import { EpicList } from './EpicList'
+import type { EpicSelection } from './EpicList'
+import { EstimateBox } from './EstimateBox'
 import b from './body.module.css'
 
 const CHANGE_LABEL = { A: 'adicionado', M: 'modificado', D: 'removido' } as const
 
-/** Resumo, passos, arquivos e critérios do plano (reusado pelo Planner e pela Aprovação). */
-export function PlanView({ plan }: { plan: Plan }) {
+/** Fração da estimativa que cabe aos épicos marcados (1 = plano inteiro). */
+export function selectedShare(estimate: Estimate, selected: ReadonlySet<string>): number {
+  if (estimate.epics.length === 0) return 1
+  const total = estimate.epics.reduce((sum, e) => sum + e.usd, 0)
+  if (total <= 0) return 1
+  const chosen = estimate.epics
+    .filter((e) => selected.has(e.epic_id))
+    .reduce((s, e) => s + e.usd, 0)
+  return chosen / total
+}
+
+/**
+ * Plano completo (reusado pelo Planner e pela Aprovação). Plano dividido mostra os épicos no lugar
+ * dos passos; com `selection`, cada épico pode ser marcado pra rodar agora.
+ */
+export function PlanView({
+  plan,
+  estimate = null,
+  selection,
+}: {
+  plan: Plan
+  estimate?: Estimate | null
+  selection?: EpicSelection
+}) {
+  const split = plan.execution === 'epics' && plan.epics.length > 0
   return (
     <>
       <div className={b.sec}>
-        <h4>Plano</h4>
+        <h4>Plano{split ? ' dividido em épicos' : ''}</h4>
         <p style={{ margin: '0 0 10px' }}>{plan.summary}</p>
-        <ol>
-          {plan.steps.map((step, i) => (
-            <li key={`${i}|${step}`}>{step}</li>
-          ))}
-        </ol>
+        {!split && (
+          <ol>
+            {plan.steps.map((step, i) => (
+              <li key={`${i}|${step}`}>{step}</li>
+            ))}
+          </ol>
+        )}
       </div>
-      <div className={b.sec}>
-        <h4>Arquivos</h4>
-        <div className={b.chips}>
-          {plan.files.map((file) => (
-            <span
-              key={file.path}
-              className={b.chip}
-              data-change={file.change}
-              title={CHANGE_LABEL[file.change]}
-            >
-              {file.path}
-            </span>
-          ))}
+      {plan.split_rationale && (
+        <div className={b.sec}>
+          <h4>Por que assim</h4>
+          <p style={{ margin: 0 }}>{plan.split_rationale}</p>
         </div>
-      </div>
+      )}
+      {split ? (
+        <EpicList epics={plan.epics} estimates={estimate?.epics ?? []} selection={selection} />
+      ) : (
+        <div className={b.sec}>
+          <h4>Arquivos</h4>
+          <div className={b.chips}>
+            {plan.files.map((file) => (
+              <span
+                key={file.path}
+                className={b.chip}
+                data-change={file.change}
+                title={CHANGE_LABEL[file.change]}
+              >
+                {file.path}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {plan.project_setup && (
+        <div className={b.sec}>
+          <h4>Projeto novo</h4>
+          <p style={{ margin: '0 0 6px' }}>{plan.project_setup.stack}</p>
+          <ul className={b.mono}>
+            {plan.project_setup.setup_cmd && <li>setup: {plan.project_setup.setup_cmd}</li>}
+            <li>testes: {plan.project_setup.test_cmd}</li>
+            {plan.project_setup.lint_cmd && <li>lint: {plan.project_setup.lint_cmd}</li>}
+            {plan.project_setup.sandbox_image && (
+              <li>container: {plan.project_setup.sandbox_image}</li>
+            )}
+          </ul>
+        </div>
+      )}
       <div className={b.sec}>
         <h4>Critérios de aceite</h4>
         <ul>
@@ -54,6 +106,12 @@ export function PlanView({ plan }: { plan: Plan }) {
           <h4>Estratégia de testes</h4>
           <p style={{ margin: 0 }}>{plan.test_strategy}</p>
         </div>
+      )}
+      {estimate && (
+        <EstimateBox
+          estimate={estimate}
+          share={selection ? selectedShare(estimate, selection.selected) : 1}
+        />
       )}
     </>
   )

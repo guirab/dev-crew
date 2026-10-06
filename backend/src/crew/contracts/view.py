@@ -5,7 +5,8 @@ from typing import Literal
 from pydantic import AwareDatetime
 
 from .common import Contract, EdgeKey, EdgeStatus, FileChange, StageStatus, TaskPhase
-from .outputs import DevResult, InterviewQuestion, InterviewTurn, Plan, ReviewResult, TestResult
+from .estimate import Estimate
+from .outputs import DevResult, EpicSize, InterviewQuestion, InterviewTurn, Plan, ReviewResult, TestResult
 from .usage import UsageLimit
 
 
@@ -48,6 +49,52 @@ class InterviewView(Contract):
 class Escalation(Contract):
     stage: Literal["interviewer", "planner", "developer", "tester", "reviewer"]
     reason: str
+    epic_id: str | None = None  # the lane that escalated, in a split plan
+
+
+class LaneStages(Contract):
+    developer: StageView
+    tester: StageView
+    reviewer: StageView
+
+
+EpicStatus = Literal[
+    "pending",  # not chosen to run yet
+    "waiting",  # chosen, its dependencies are not merged yet
+    "preparing",  # worktree/sandbox being set up
+    "running",
+    "escalated",
+    "limited",
+    "merging",
+    "merged",
+    "failed",
+]
+
+
+class EpicView(Contract):
+    """One lane of a split plan: an epic, or the integration lane that resolves a merge conflict."""
+
+    id: str
+    kind: Literal["epic", "integration"] = "epic"
+    title: str
+    goal: str = ""
+    size: EpicSize = "M"
+    depends_on: list[str] = []
+    status: EpicStatus
+    stages: LaneStages
+    edges: dict[EdgeKey, EdgeStatus] = {}
+    active_edge: EdgeKey | None = None
+    counters: Counters
+    dev_rounds: list[DevResult] = []
+    test_runs: list[TestResult] = []
+    review: ReviewResult | None = None
+    escalation: Escalation | None = None
+    branch: str | None = None
+    worktree_path: str | None = None
+    commit: str | None = None  # sha merged into the task branch
+    commit_message: str | None = None
+    cost_usd: float = 0.0
+    tokens: int = 0
 
 
 class FinalFile(Contract):
@@ -57,6 +104,12 @@ class FinalFile(Contract):
     removed: int
 
 
+class EpicCommit(Contract):
+    epic_id: str
+    sha: str
+    message: str
+
+
 class FinalReport(Contract):
     branch: str
     worktree_path: str
@@ -64,6 +117,10 @@ class FinalReport(Contract):
     commit_message: str
     duration_s: float
     cost_usd: float
+    tokens: int = 0
+    commits: list[EpicCommit] = []  # split plan: one commit per merged epic, already on ``branch`` (D54)
+    pending_epics: list[str] = []  # epics the user chose not to run (they stay in the saved plan)
+    plan_doc: str | None = None  # docs/plano/T-n.md inside the worktree (D57)
 
 
 class TaskView(Contract):
@@ -88,3 +145,5 @@ class TaskView(Contract):
     cost_usd: float = 0.0
     tokens: int = 0  # input + output tokens of every finished job
     limit: UsageLimit | None = None  # set while phase == "limited"
+    estimate: Estimate | None = None  # computed when the plan arrives (D56)
+    epics: list[EpicView] = []  # split plan lanes; empty for a single execution

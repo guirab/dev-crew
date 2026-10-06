@@ -27,8 +27,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from ..bus import Bus, BusError
 from ..bus import subjects as s
 from ..config import CrewConfig
-from ..contracts import Command, CommandReply, RepoInfo, TaskView
+from ..contracts import AccountUsage, Command, CommandReply, RepoInfo, TaskView
 from ..orchestrator.machine import CONFLICT_ERRORS
+from ..usage import UsageReader
 from .hub import Hub
 
 log = structlog.get_logger(__name__)
@@ -51,9 +52,17 @@ def _unavailable(what: str) -> HTTPException:
 
 
 class Gateway:
-    def __init__(self, bus: Bus, cfg: CrewConfig, *, dist: Path | None = DEFAULT_DIST) -> None:
+    def __init__(
+        self,
+        bus: Bus,
+        cfg: CrewConfig,
+        *,
+        dist: Path | None = DEFAULT_DIST,
+        usage: UsageReader | None = None,
+    ) -> None:
         self.bus = bus
         self.cfg = cfg
+        self.usage = usage
         self.hub = Hub(bus)
         self.origins = allowed_origins(cfg.gateway.host, cfg.gateway.port)
         self.app = self._build_app(dist)
@@ -88,6 +97,13 @@ class Gateway:
         @app.get("/api/repos")
         async def repos() -> list[RepoInfo]:
             return self.cfg.repo_infos()
+
+        @app.get("/api/usage")
+        async def usage() -> AccountUsage:
+            """Subscription usage as the Claude Code CLI last cached it (empty when unknown)."""
+            if self.usage is None:
+                return AccountUsage()
+            return await self.usage.read()
 
         @app.get("/api/task")
         async def task() -> Response:

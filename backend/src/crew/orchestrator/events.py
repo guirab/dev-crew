@@ -10,6 +10,7 @@ from ..contracts import (
     AgentProgress,
     AgentResultEvt,
     Command,
+    Estimate,
     FinalFile,
     RepoContext,
 )
@@ -37,6 +38,7 @@ class AgentResult:
     task_id: str
     evt: AgentResultEvt
     at: datetime
+    estimate: Estimate | None = None  # filled by the service for a plan (D56)
 
 
 @dataclass(frozen=True)

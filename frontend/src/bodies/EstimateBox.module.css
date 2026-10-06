@@ -1,0 +1,36 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.grid div {
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+
+.grid dt {
+  font: 11px var(--mono);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.grid dd {
+  margin: 0;
+  font: 600 18px var(--mono);
+  color: var(--fg);
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+.basis {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}

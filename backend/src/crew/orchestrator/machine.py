@@ -682,6 +682,7 @@ def _on_result(s: TaskState, ev: AgentResult) -> tuple[TaskState | None, list[Ef
         case "planner":
             if not isinstance(out, Plan):
                 return _bad_output(s, ev, "Plan", pending)
+            s.estimate = ev.estimate
             return _planner_result(s, out, ev.at)
         case "developer":
             if not isinstance(out, DevResult):

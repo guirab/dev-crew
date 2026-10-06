@@ -51,7 +51,7 @@ describe('tabStatus', () => {
   })
 
   it('escalated usa o nome do estágio', () => {
-    const escalation = { stage: 'tester' as const, reason: 'sem progresso' }
+    const escalation = { stage: 'tester' as const, reason: 'sem progresso', epic_id: null }
     expect(tabStatus(view({ phase: 'escalated', escalation }))).toEqual({
       title: '● Precisa de você: escalada: Tester · Exportar CSV · Dev Crew',
       favicon: 'attention',

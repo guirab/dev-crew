@@ -19,6 +19,7 @@ from ..contracts import (
     EdgeKey,
     EdgeStatus,
     Escalation,
+    Estimate,
     Feedback,
     FinalReport,
     InterviewQuestion,
@@ -106,6 +107,7 @@ class TaskState(BaseModel):
     decisions: list[str] = Field(default_factory=list)
 
     plan: Plan | None = None
+    estimate: Estimate | None = None
     dev_rounds: list[DevResult] = Field(default_factory=list)
     test_runs: list[TestResult] = Field(default_factory=list)
     reviews: list[ReviewResult] = Field(default_factory=list)
@@ -177,4 +179,5 @@ class TaskState(BaseModel):
             cost_usd=round(self.cost_usd, 6),
             tokens=self.tokens,
             limit=self.limit if self.phase == "limited" else None,
+            estimate=self.estimate,
         )

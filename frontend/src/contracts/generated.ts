@@ -5,7 +5,16 @@
  * via the `definition` "Command".
  */
 export type Command =
-  StartTask | AnswerInterview | ApprovePlan | AdjustPlan | EscalationAction | CancelTask | ResumeAfterLimit;
+  | StartTask
+  | AnswerInterview
+  | ApprovePlan
+  | AdjustPlan
+  | EscalationAction
+  | CancelTask
+  | ResumeAfterLimit
+  | RunEpics
+  | FinishTask
+  | CreateProject;
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "WsMessage".
@@ -17,6 +26,20 @@ export type WsMessage = WsView | WsProgress;
  */
 export interface CrewContracts {
   [k: string]: unknown;
+}
+/**
+ * Subscription usage as last cached by the Claude Code CLI (percentages 0-100).
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "AccountUsage".
+ */
+export interface AccountUsage {
+  plan: string | null;
+  session_pct: number | null;
+  session_resets_at: string | null;
+  weekly_pct: number | null;
+  weekly_resets_at: string | null;
+  fetched_at: string | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -47,11 +70,14 @@ export interface AnswerInterview {
   answers: (string | null)[];
 }
 /**
+ * Approve the plan. In a split plan ``epics`` are the ones to run now (empty = all of them).
+ *
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "ApprovePlan".
  */
 export interface ApprovePlan {
   type: "approve_plan";
+  epics?: string[];
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -78,6 +104,7 @@ export interface EscalationAction {
   type: "escalation";
   action: "instruct" | "more_attempts" | "replan";
   text?: string | null;
+  epic_id?: string | null;
 }
 /**
  * Re-run the jobs stopped by the subscription usage limit (D50).
@@ -87,6 +114,38 @@ export interface EscalationAction {
  */
 export interface ResumeAfterLimit {
   type: "resume_after_limit";
+}
+/**
+ * Split plan: run the next batch of epics (D53).
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "RunEpics".
+ */
+export interface RunEpics {
+  type: "run_epics";
+  epics: string[];
+}
+/**
+ * Split plan: stop here; epics not run stay pending in the saved plan.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "FinishTask".
+ */
+export interface FinishTask {
+  type: "finish_task";
+}
+/**
+ * New project from scratch (D58): folder + git repo, registered, then the normal flow.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "CreateProject".
+ */
+export interface CreateProject {
+  type: "create_project";
+  name: string;
+  parent_dir: string;
+  title: string;
+  description?: string;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -113,6 +172,8 @@ export interface TaskView {
     | "developing"
     | "testing"
     | "reviewing"
+    | "executing"
+    | "awaiting_selection"
     | "escalated"
     | "limited"
     | "done"
@@ -136,6 +197,8 @@ export interface TaskView {
   cost_usd: number;
   tokens: number;
   limit: UsageLimit | null;
+  estimate: Estimate | null;
+  epics: EpicView[];
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -221,6 +284,10 @@ export interface Plan {
   acceptance_criteria: string[];
   risks: string[];
   test_strategy: string;
+  execution: "single" | "epics";
+  split_rationale: string;
+  epics: Epic[];
+  project_setup: ProjectSetup | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -229,6 +296,38 @@ export interface Plan {
 export interface PlanFile {
   path: string;
   change: "A" | "M" | "D";
+}
+/**
+ * A vertical slice of a split plan (D53): delivers and is tested on its own, in its own worktree.
+ *
+ * Epics without a dependency path between them run in parallel, so they must not share files.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "Epic".
+ */
+export interface Epic {
+  id: string;
+  title: string;
+  goal: string;
+  steps: string[];
+  files: PlanFile[];
+  depends_on: string[];
+  acceptance_criteria: string[];
+  size: "S" | "M" | "L";
+}
+/**
+ * Commands of a brand-new project, decided by the Planner (D58) and saved to the repo registry.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "ProjectSetup".
+ */
+export interface ProjectSetup {
+  stack: string;
+  setup_cmd: string | null;
+  test_cmd: string;
+  lint_cmd: string | null;
+  sandbox_image: string | null;
+  deps_dirs: string[];
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -294,6 +393,7 @@ export interface ReviewComment {
 export interface Escalation {
   stage: "interviewer" | "planner" | "developer" | "tester" | "reviewer";
   reason: string;
+  epic_id: string | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -306,6 +406,10 @@ export interface FinalReport {
   commit_message: string;
   duration_s: number;
   cost_usd: number;
+  tokens: number;
+  commits: EpicCommit[];
+  pending_epics: string[];
+  plan_doc: string | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -318,6 +422,15 @@ export interface FinalFile {
   removed: number;
 }
 /**
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "EpicCommit".
+ */
+export interface EpicCommit {
+  epic_id: string;
+  sha: string;
+  message: string;
+}
+/**
  * The subscription usage limit was hit (D50): work stops until ``resets_at``.
  *
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -327,6 +440,75 @@ export interface UsageLimit {
   kind: "session" | "weekly" | "weekly_opus" | "weekly_sonnet" | "unknown";
   resets_at: string | null;
   message: string;
+}
+/**
+ * What running the plan is expected to cost. Approximate by nature: ``basis`` says what it rests on.
+ *
+ * ``usd`` is the API-price equivalent (nothing is billed on a subscription). The percentages are of the
+ * subscription windows and need calibration from earlier tasks; ``None`` when there is none yet.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "Estimate".
+ */
+export interface Estimate {
+  tokens: number;
+  usd: number;
+  session_pct: number | null;
+  weekly_pct: number | null;
+  sessions_needed: number | null;
+  usage_now: AccountUsage | null;
+  calibrated: boolean;
+  basis: string;
+  epics: EpicEstimate[];
+}
+/**
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "EpicEstimate".
+ */
+export interface EpicEstimate {
+  epic_id: string;
+  tokens: number;
+  usd: number;
+}
+/**
+ * One lane of a split plan: an epic, or the integration lane that resolves a merge conflict.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "EpicView".
+ */
+export interface EpicView {
+  id: string;
+  kind: "epic" | "integration";
+  title: string;
+  goal: string;
+  size: "S" | "M" | "L";
+  depends_on: string[];
+  status: "pending" | "waiting" | "preparing" | "running" | "escalated" | "limited" | "merging" | "merged" | "failed";
+  stages: LaneStages;
+  edges: {
+    [k: string]: "on" | "active";
+  };
+  active_edge: ("ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv") | null;
+  counters: Counters;
+  dev_rounds: DevResult[];
+  test_runs: TestResult[];
+  review: ReviewResult | null;
+  escalation: Escalation | null;
+  branch: string | null;
+  worktree_path: string | null;
+  commit: string | null;
+  commit_message: string | null;
+  cost_usd: number;
+  tokens: number;
+}
+/**
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "LaneStages".
+ */
+export interface LaneStages {
+  developer: StageView;
+  tester: StageView;
+  reviewer: StageView;
 }
 /**
  * Repository as exposed to the UI (GET /api/repos).

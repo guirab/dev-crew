@@ -15,7 +15,7 @@ from sqlalchemy import Engine, event, text
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
-from ..contracts import AgentJob, TokenUsage
+from ..contracts import AccountUsage, AgentJob, TokenUsage
 from .state import TaskState
 
 log = structlog.get_logger(__name__)
@@ -49,6 +49,23 @@ class JobRow(SQLModel, table=True):
     models: str = ""  # comma-separated models that worked on the job
     created_at: str
     finished_at: str | None = None
+
+
+class UsageSampleRow(SQLModel, table=True):
+    """One reading of the subscription usage, paired with what the crew had spent so far (D56).
+
+    Consecutive readings in the same window give "% of the window per US$ of crew work", the ratio the
+    estimate uses. The user's own Claude use moves the percentages too, so the ratio errs on the high side.
+    """
+
+    __tablename__ = "usage_sample"
+
+    fetched_at: str = Field(primary_key=True)
+    session_pct: float | None = None
+    session_resets_at: str | None = None
+    weekly_pct: float | None = None
+    weekly_resets_at: str | None = None
+    crew_cost_usd: float = 0.0
 
 
 class EventLogRow(SQLModel, table=True):
@@ -200,6 +217,47 @@ class Store:
             return list(
                 s.exec(select(JobRow).where(JobRow.task_id == task_id).order_by(col(JobRow.created_at)))
             )
+
+    def real_jobs(self) -> list[JobRow]:
+        """Finished jobs of real agents (fake runs record ``fake-*`` models; older rows record none)."""
+        with Session(self.engine) as s:
+            rows = s.exec(select(JobRow).where(JobRow.status == "done", JobRow.models != ""))
+            return [r for r in rows if not any(m.startswith("fake-") for m in r.models.split(","))]
+
+    def crew_cost(self) -> float:
+        with Session(self.engine) as s:
+            return float(sum(r.cost_usd for r in s.exec(select(JobRow))))
+
+    # ------------------------------------------------------------------ usage samples
+
+    def record_usage(self, usage: AccountUsage) -> bool:
+        """Store a reading unless it was already stored (same ``fetched_at``). Returns whether it was new."""
+        if usage.fetched_at is None or (usage.session_pct is None and usage.weekly_pct is None):
+            return False
+        key = usage.fetched_at.isoformat()
+        with Session(self.engine) as s:
+            if s.get(UsageSampleRow, key) is not None:
+                return False
+        cost = self.crew_cost()
+        with Session(self.engine) as s:
+            s.add(
+                UsageSampleRow(
+                    fetched_at=key,
+                    session_pct=usage.session_pct,
+                    session_resets_at=usage.session_resets_at.isoformat()
+                    if usage.session_resets_at
+                    else None,
+                    weekly_pct=usage.weekly_pct,
+                    weekly_resets_at=usage.weekly_resets_at.isoformat() if usage.weekly_resets_at else None,
+                    crew_cost_usd=cost,
+                )
+            )
+            s.commit()
+        return True
+
+    def usage_samples(self) -> list[UsageSampleRow]:
+        with Session(self.engine) as s:
+            return list(s.exec(select(UsageSampleRow).order_by(col(UsageSampleRow.fetched_at))))
 
     # ------------------------------------------------------------------ event log
 

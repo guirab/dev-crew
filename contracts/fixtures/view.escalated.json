@@ -127,7 +127,11 @@
     "risks": [
       "Timezone: datas locais vs UTC no banco"
     ],
-    "test_strategy": "Testes de integração cobrindo bordas do intervalo e entrada inválida."
+    "test_strategy": "Testes de integração cobrindo bordas do intervalo e entrada inválida.",
+    "execution": "single",
+    "split_rationale": "",
+    "epics": [],
+    "project_setup": null
   },
   "dev_rounds": [
     {
@@ -239,12 +243,15 @@
   "review": null,
   "escalation": {
     "stage": "tester",
-    "reason": "3 falhas consecutivas de teste"
+    "reason": "3 falhas consecutivas de teste",
+    "epic_id": null
   },
   "final": null,
   "started_at": "2026-10-01T12:00:00Z",
   "ended_at": null,
   "cost_usd": 0.0,
   "tokens": 0,
-  "limit": null
+  "limit": null,
+  "estimate": null,
+  "epics": []
 }

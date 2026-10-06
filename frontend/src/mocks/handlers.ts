@@ -10,6 +10,9 @@ const COMMAND_TYPES: readonly string[] = [
   'escalation',
   'cancel_task',
   'resume_after_limit',
+  'run_epics',
+  'finish_task',
+  'create_project',
 ]
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -47,6 +50,16 @@ export function createRestHandlers(backend: MockBackend, { latencyMs = 0 }: Rest
       return HttpResponse.json(backend.repos)
     }),
     http.get('*/api/task', () => HttpResponse.json(backend.getView())),
+    http.get('*/api/usage', () =>
+      HttpResponse.json({
+        plan: 'pro',
+        session_pct: 12,
+        session_resets_at: null,
+        weekly_pct: 14,
+        weekly_resets_at: null,
+        fetched_at: null,
+      }),
+    ),
     http.post('*/api/commands', async ({ request }) => {
       const body: unknown = await request.json().catch(() => null)
       if (!isCommand(body)) {

@@ -1,5 +1,11 @@
-import type { Command, CommandReply, RepoInfo, TaskView } from '../contracts/generated'
-import { isCommandReply, isNullableTaskView, isRepoList } from './guards'
+import type {
+  AccountUsage,
+  Command,
+  CommandReply,
+  RepoInfo,
+  TaskView,
+} from '../contracts/generated'
+import { isAccountUsage, isCommandReply, isNullableTaskView, isRepoList } from './guards'
 
 /** Erro de chamada ao gateway. `status` 0 = sem resposta (rede/servidor fora). */
 export class ApiError extends Error {
@@ -50,6 +56,10 @@ export function fetchRepos(): Promise<RepoInfo[]> {
 
 export function fetchCurrentTask(): Promise<TaskView | null> {
   return getJson('/api/task', isNullableTaskView)
+}
+
+export function fetchUsage(): Promise<AccountUsage> {
+  return getJson('/api/usage', isAccountUsage)
 }
 
 function errorFromBody(body: unknown, status: number): string {

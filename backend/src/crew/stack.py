@@ -25,6 +25,7 @@ from .gateway.app import DEFAULT_DIST, Gateway
 from .orchestrator.devfakes import FakeCrew
 from .orchestrator.service import OrchestratorService
 from .orchestrator.store import Store
+from .usage import UsageReader
 from .workspace.manager import WorkspaceManager
 
 log = structlog.get_logger(__name__)
@@ -155,7 +156,7 @@ def agent_factories(
 def build_orchestrator(bus: Bus, cfg: CrewConfig, opts: StackOptions) -> tuple[OrchestratorService, Store]:
     store = Store(opts.db or db_path())
     workspace = WorkspaceManager(cfg.workspace.root, cfg.workspace.mode)
-    return OrchestratorService(bus, cfg, store, workspace), store
+    return OrchestratorService(bus, cfg, store, workspace, usage=UsageReader()), store
 
 
 # ====================================================================== run
@@ -183,7 +184,7 @@ async def run_stack(
             svc, store = build_orchestrator(bus, cfg, opts)
             launch("orchestrator", lambda: svc.run(stop))
         if only in (None, "gateway"):
-            gateway = Gateway(bus, cfg, dist=opts.dist)
+            gateway = Gateway(bus, cfg, dist=opts.dist, usage=UsageReader())
             launch("gateway", lambda: gateway.run(stop))
         if only is None or only.startswith("agent:"):
             selected = AGENTS if only is None else (_agent_name(only),)

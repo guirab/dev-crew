@@ -54,6 +54,10 @@ function describe(view: TaskView): { state: string; favicon: FaviconKind } {
           : `${NEEDS_YOU}: escalada`,
         favicon: 'attention',
       }
+    case 'awaiting_selection':
+      return { state: `${NEEDS_YOU}: escolha os próximos épicos`, favicon: 'attention' }
+    case 'executing':
+      return { state: 'Épicos em execução', favicon: 'working' }
     case 'limited':
       return { state: `${NEEDS_YOU}: limite de uso atingido`, favicon: 'error' }
     case 'planning':

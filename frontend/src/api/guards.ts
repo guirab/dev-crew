@@ -1,4 +1,10 @@
-import type { CommandReply, RepoInfo, TaskView, WsMessage } from '../contracts/generated'
+import type {
+  AccountUsage,
+  CommandReply,
+  RepoInfo,
+  TaskView,
+  WsMessage,
+} from '../contracts/generated'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 
 /**
@@ -28,6 +34,8 @@ const PHASES: readonly TaskPhase[] = [
   'developing',
   'testing',
   'reviewing',
+  'executing',
+  'awaiting_selection',
   'escalated',
   'limited',
   'done',
@@ -114,4 +122,10 @@ export function isRepoList(v: unknown): v is RepoInfo[] {
     Array.isArray(v) &&
     v.every((r) => isRecord(r) && typeof r.name === 'string' && typeof r.base_branch === 'string')
   )
+}
+
+const isNumberOrNull = (v: unknown): boolean => v === null || typeof v === 'number'
+
+export function isAccountUsage(v: unknown): v is AccountUsage {
+  return isRecord(v) && isNumberOrNull(v.session_pct) && isNumberOrNull(v.weekly_pct)
 }

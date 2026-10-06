@@ -108,5 +108,7 @@
   "ended_at": null,
   "cost_usd": 0.0,
   "tokens": 0,
-  "limit": null
+  "limit": null,
+  "estimate": null,
+  "epics": []
 }

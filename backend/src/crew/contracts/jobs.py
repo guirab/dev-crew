@@ -9,7 +9,7 @@ from .task import RepoContext, TaskSpec
 
 
 class Feedback(Contract):
-    kind: Literal["test_failures", "review_comments", "human_instruction", "plan_adjust"]
+    kind: Literal["test_failures", "review_comments", "human_instruction", "plan_adjust", "merge_conflict"]
     test: TestResult | None = None
     review: ReviewResult | None = None
     text: str | None = None
@@ -27,3 +27,4 @@ class AgentJob(Contract):
     interview_history: list[InterviewTurn] = []
     workspace_path: str | None = None
     resume_session_id: str | None = None
+    epic_id: str | None = None  # split plan: the lane this job belongs to (workspace_path is its worktree)

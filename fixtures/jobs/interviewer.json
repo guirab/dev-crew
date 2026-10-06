@@ -28,5 +28,6 @@
   "feedback": null,
   "interview_history": [],
   "workspace_path": "fixtures/sample-repo",
-  "resume_session_id": null
+  "resume_session_id": null,
+  "epic_id": null
 }

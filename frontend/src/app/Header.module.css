@@ -69,3 +69,12 @@
     padding: 12px 16px;
   }
 }
+
+.usage {
+  font: 11.5px var(--mono);
+  color: var(--muted);
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}

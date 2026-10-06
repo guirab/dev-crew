@@ -1,0 +1,66 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.epic {
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.head input {
+  accent-color: var(--green);
+  width: 16px;
+  height: 16px;
+}
+
+.title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.size {
+  font: 600 11px var(--mono);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  padding: 1px 6px;
+  color: var(--muted);
+}
+
+.goal {
+  margin: 6px 0 4px;
+  font-size: 13.5px;
+}
+
+.meta {
+  margin: 0;
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+
+.details {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font: 12px var(--mono);
+}
+
+.details ol,
+.details ul {
+  margin: 8px 0;
+}

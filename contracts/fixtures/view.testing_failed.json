@@ -127,7 +127,11 @@
     "risks": [
       "Timezone: datas locais vs UTC no banco"
     ],
-    "test_strategy": "Testes de integração cobrindo bordas do intervalo e entrada inválida."
+    "test_strategy": "Testes de integração cobrindo bordas do intervalo e entrada inválida.",
+    "execution": "single",
+    "split_rationale": "",
+    "epics": [],
+    "project_setup": null
   },
   "dev_rounds": [
     {
@@ -177,5 +181,7 @@
   "ended_at": null,
   "cost_usd": 0.0,
   "tokens": 0,
-  "limit": null
+  "limit": null,
+  "estimate": null,
+  "epics": []
 }

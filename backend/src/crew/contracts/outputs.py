@@ -40,6 +40,36 @@ class PlanFile(Contract):
     change: FileChange
 
 
+EpicSize = Literal["S", "M", "L"]
+
+
+class Epic(Contract):
+    """A vertical slice of a split plan (D53): delivers and is tested on its own, in its own worktree.
+
+    Epics without a dependency path between them run in parallel, so they must not share files.
+    """
+
+    id: str = Field(pattern=r"^E\d+$")  # E0 = foundation of a new project, then E1, E2...
+    title: str
+    goal: str
+    steps: list[str]
+    files: list[PlanFile]
+    depends_on: list[str] = []
+    acceptance_criteria: list[str]
+    size: EpicSize = "M"
+
+
+class ProjectSetup(Contract):
+    """Commands of a brand-new project, decided by the Planner (D58) and saved to the repo registry."""
+
+    stack: str
+    setup_cmd: str | None = None
+    test_cmd: str
+    lint_cmd: str | None = None
+    sandbox_image: str | None = None
+    deps_dirs: list[str] = []
+
+
 class Plan(Contract):
     type: Literal["plan"] = "plan"
     summary: str
@@ -48,6 +78,10 @@ class Plan(Contract):
     acceptance_criteria: list[str]
     risks: list[str] = []
     test_strategy: str
+    execution: Literal["single", "epics"] = "single"
+    split_rationale: str = ""  # why one execution or why these epics: shown to the user before approval
+    epics: list[Epic] = []
+    project_setup: ProjectSetup | None = None
 
 
 class DevResult(Contract):

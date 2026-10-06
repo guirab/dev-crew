@@ -43,6 +43,8 @@ TaskPhase = Literal[
     "developing",
     "testing",
     "reviewing",
+    "executing",  # split plan: epic lanes running (per-lane detail in TaskView.epics)
+    "awaiting_selection",  # split plan: the chosen epics are merged, others wait for the user
     "escalated",
     "limited",  # subscription usage limit hit: waits for the user to resume after the reset (D50)
     "done",

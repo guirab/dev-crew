@@ -1,5 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
-import { fetchCurrentTask, fetchRepos } from './client'
+import { fetchCurrentTask, fetchRepos, fetchUsage } from './client'
 
 export const reposQuery = queryOptions({
   queryKey: ['repos'],
@@ -16,4 +16,16 @@ export const currentTaskQuery = queryOptions({
 
 export function useRepos() {
   return useQuery(reposQuery)
+}
+
+/** Uso da assinatura (cache do Claude Code). Atualiza a cada minuto; falha = sem chip. */
+export const usageQuery = queryOptions({
+  queryKey: ['usage'],
+  queryFn: fetchUsage,
+  refetchInterval: 60_000,
+  retry: false,
+})
+
+export function useAccountUsage() {
+  return useQuery(usageQuery)
 }

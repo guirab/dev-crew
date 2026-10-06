@@ -57,6 +57,13 @@ async def test_get_repos(rig: Rig) -> None:
     assert r.status_code == 200 and r.json() == [{"name": "sample-repo", "base_branch": "main"}]
 
 
+async def test_usage_without_a_reader_is_empty(rig: Rig) -> None:
+    async with client(rig) as http:
+        r = await http.get("/api/usage")
+    assert r.status_code == 200
+    assert c.AccountUsage.model_validate(r.json()) == c.AccountUsage()
+
+
 async def test_get_task_null_then_view_after_start(rig: Rig) -> None:
     async with client(rig) as http:
         assert (await http.get("/api/task")).json() is None

@@ -23,7 +23,23 @@ class AnswerInterview(Contract):
 
 
 class ApprovePlan(Contract):
+    """Approve the plan. In a split plan ``epics`` are the ones to run now (empty = all of them)."""
+
     type: Literal["approve_plan"] = "approve_plan"
+    epics: list[str] = []
+
+
+class RunEpics(Contract):
+    """Split plan: run the next batch of epics (D53)."""
+
+    type: Literal["run_epics"] = "run_epics"
+    epics: list[str]
+
+
+class FinishTask(Contract):
+    """Split plan: stop here; epics not run stay pending in the saved plan."""
+
+    type: Literal["finish_task"] = "finish_task"
 
 
 class AdjustPlan(Contract):
@@ -35,6 +51,7 @@ class EscalationAction(Contract):
     type: Literal["escalation"] = "escalation"
     action: Literal["instruct", "more_attempts", "replan"]
     text: str | None = None
+    epic_id: str | None = None  # the escalated lane, in a split plan
 
 
 class CancelTask(Contract):
@@ -47,8 +64,27 @@ class ResumeAfterLimit(Contract):
     type: Literal["resume_after_limit"] = "resume_after_limit"
 
 
+class CreateProject(Contract):
+    """New project from scratch (D58): folder + git repo, registered, then the normal flow."""
+
+    type: Literal["create_project"] = "create_project"
+    name: str
+    parent_dir: str
+    title: str
+    description: str = ""
+
+
 Command = Annotated[
-    StartTask | AnswerInterview | ApprovePlan | AdjustPlan | EscalationAction | CancelTask | ResumeAfterLimit,
+    StartTask
+    | AnswerInterview
+    | ApprovePlan
+    | AdjustPlan
+    | EscalationAction
+    | CancelTask
+    | ResumeAfterLimit
+    | RunEpics
+    | FinishTask
+    | CreateProject,
     Field(discriminator="type"),
 ]
 CommandAdapter: TypeAdapter[Command] = TypeAdapter(Command)

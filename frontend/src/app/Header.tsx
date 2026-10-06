@@ -3,6 +3,7 @@ import type { TaskView } from '../contracts/generated'
 import { useCrewStore } from '../store/crew'
 import { Button } from '../ui/Button'
 import styles from './Header.module.css'
+import { UsageChip } from './UsageChip'
 
 const PHASE_LABEL: Partial<Record<TaskView['phase'], string>> = {
   cancelled: 'cancelada',
@@ -29,6 +30,7 @@ export function Header({ view }: { view: TaskView | null }) {
         </span>
       )}
       <span className={styles.sp} />
+      <UsageChip />
       {cancel.error && (
         <span role="alert" className={styles.error}>
           {cancel.error.message}

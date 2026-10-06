@@ -18,6 +18,7 @@ OUTBOUND: list[type[BaseModel]] = [
     c.WsProgress,
     c.CommandReply,
     c.RepoInfo,
+    c.AccountUsage,
 ]
 # Models the UI builds and sends (validation mode: fields with defaults are optional).
 INBOUND: list[type[BaseModel]] = [
@@ -27,6 +28,10 @@ INBOUND: list[type[BaseModel]] = [
     c.AdjustPlan,
     c.EscalationAction,
     c.CancelTask,
+    c.ResumeAfterLimit,
+    c.RunEpics,
+    c.FinishTask,
+    c.CreateProject,
 ]
 
 
