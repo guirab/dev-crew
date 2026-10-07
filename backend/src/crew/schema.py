@@ -19,6 +19,8 @@ OUTBOUND: list[type[BaseModel]] = [
     c.CommandReply,
     c.RepoInfo,
     c.AccountUsage,
+    c.FolderListing,
+    c.FolderProbe,
 ]
 # Models the UI builds and sends (validation mode: fields with defaults are optional).
 INBOUND: list[type[BaseModel]] = [
@@ -32,6 +34,7 @@ INBOUND: list[type[BaseModel]] = [
     c.RunEpics,
     c.FinishTask,
     c.CreateProject,
+    c.AddRepo,
 ]
 
 

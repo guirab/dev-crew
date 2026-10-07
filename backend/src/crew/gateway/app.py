@@ -24,10 +24,19 @@ from nats.errors import NoRespondersError
 from pydantic import TypeAdapter, ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .. import folders
 from ..bus import Bus, BusError
 from ..bus import subjects as s
 from ..config import CrewConfig
-from ..contracts import AccountUsage, Command, CommandReply, RepoInfo, TaskView
+from ..contracts import (
+    AccountUsage,
+    Command,
+    CommandReply,
+    FolderListing,
+    FolderProbe,
+    RepoInfo,
+    TaskView,
+)
 from ..orchestrator.machine import CONFLICT_ERRORS
 from ..usage import UsageReader
 from .hub import Hub
@@ -97,6 +106,21 @@ class Gateway:
         @app.get("/api/repos")
         async def repos() -> list[RepoInfo]:
             return self.cfg.repo_infos()
+
+        @app.get("/api/folders")
+        async def list_folders(path: str | None = None) -> FolderListing:
+            """Subfolders for the "add repository" browser. Read-only; no ``path``: the projects dir."""
+            try:
+                return await asyncio.to_thread(folders.list_folders, path, self.cfg)
+            except folders.FolderError as e:
+                raise HTTPException(status_code=404, detail=str(e)) from None
+
+        @app.get("/api/folders/probe")
+        async def probe_folder(path: str) -> FolderProbe:
+            try:
+                return await folders.probe(path, self.cfg)
+            except folders.FolderError as e:
+                raise HTTPException(status_code=404, detail=str(e)) from None
 
         @app.get("/api/usage")
         async def usage() -> AccountUsage:

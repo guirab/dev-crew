@@ -74,6 +74,25 @@ class CreateProject(Contract):
     description: str = ""
 
 
+class AddRepo(Contract):
+    """Register an existing local git repository (no task is started).
+
+    ``init_git``: for a folder without git (or a repo without commits), ``git init`` on ``base_branch``
+    plus one empty commit; no file of the folder is added or changed.
+    """
+
+    type: Literal["add_repo"] = "add_repo"
+    name: str
+    path: str
+    base_branch: str = "main"
+    test_cmd: str
+    lint_cmd: str | None = None
+    setup_cmd: str | None = None
+    sandbox_image: str | None = None
+    deps_dirs: list[str] = []
+    init_git: bool = False
+
+
 Command = Annotated[
     StartTask
     | AnswerInterview
@@ -84,7 +103,8 @@ Command = Annotated[
     | ResumeAfterLimit
     | RunEpics
     | FinishTask
-    | CreateProject,
+    | CreateProject
+    | AddRepo,
     Field(discriminator="type"),
 ]
 CommandAdapter: TypeAdapter[Command] = TypeAdapter(Command)

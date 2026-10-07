@@ -5,6 +5,49 @@ export const REPOS: readonly RepoInfo[] = [
   { name: 'api-pedidos', base_branch: 'main' },
 ]
 
+/** Pasta do disco fictício. `git` ausente = pasta comum; `dirs` = subpastas por nome. */
+export interface FakeFolder {
+  git?: 'empty' | 'ready'
+  branch?: string
+  dirs?: Readonly<Record<string, FakeFolder>>
+}
+
+/** Unidades do disco fictício do navegador de pastas. */
+export const FAKE_DRIVES: Readonly<Record<string, FakeFolder>> = {
+  'C:': {
+    dirs: {
+      Users: {
+        dirs: {
+          voce: {
+            dirs: {
+              Documents: {
+                dirs: {
+                  'api-pedidos': { git: 'ready', branch: 'main' },
+                  'blog-pessoal': { git: 'ready', branch: 'develop', dirs: { src: {} } },
+                  notas: {},
+                  'portal-vendas': { git: 'ready', branch: 'main' },
+                  rascunho: { git: 'empty' },
+                },
+              },
+              Downloads: {},
+            },
+          },
+        },
+      },
+    },
+  },
+  'D:': { dirs: { Backup: {} } },
+}
+
+/** Pasta onde o navegador começa (equivale a `workspace.projects_dir`). */
+export const FAKE_PROJECTS_DIR = 'C:\\Users\\voce\\Documents'
+
+/** Caminhos dos repos de `REPOS` no disco fictício. */
+export const REPO_PATHS: Readonly<Record<string, string>> = {
+  'portal-vendas': 'C:\\Users\\voce\\Documents\\portal-vendas',
+  'api-pedidos': 'C:\\Users\\voce\\Documents\\api-pedidos',
+}
+
 const QUESTIONS: readonly InterviewQuestion[] = [
   {
     topic: 'Fora de escopo',

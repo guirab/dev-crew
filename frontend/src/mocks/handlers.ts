@@ -13,6 +13,7 @@ const COMMAND_TYPES: readonly string[] = [
   'run_epics',
   'finish_task',
   'create_project',
+  'add_repo',
 ]
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -27,6 +28,10 @@ export function isCommand(v: unknown): v is Command {
       return typeof v.repo === 'string' && typeof v.title === 'string'
     case 'adjust_plan':
       return typeof v.text === 'string'
+    case 'add_repo':
+      return (
+        typeof v.name === 'string' && typeof v.path === 'string' && typeof v.test_cmd === 'string'
+      )
     case 'escalation':
       return v.action === 'instruct' || v.action === 'more_attempts' || v.action === 'replan'
     default:
@@ -48,6 +53,20 @@ export function createRestHandlers(backend: MockBackend, { latencyMs = 0 }: Rest
     http.get('*/api/repos', async () => {
       await lag()
       return HttpResponse.json(backend.repos)
+    }),
+    http.get('*/api/folders', ({ request }) => {
+      const path = new URL(request.url).searchParams.get('path') ?? undefined
+      const listing = backend.folders.list(path)
+      return listing
+        ? HttpResponse.json(listing)
+        : HttpResponse.json({ detail: `a pasta não existe: ${path ?? ''}` }, { status: 404 })
+    }),
+    http.get('*/api/folders/probe', ({ request }) => {
+      const path = new URL(request.url).searchParams.get('path') ?? ''
+      const probe = backend.folders.probe(path)
+      return probe
+        ? HttpResponse.json(probe)
+        : HttpResponse.json({ detail: `a pasta não existe: ${path}` }, { status: 404 })
     }),
     http.get('*/api/task', () => HttpResponse.json(backend.getView())),
     http.get('*/api/usage', () =>

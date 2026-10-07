@@ -4,6 +4,7 @@ Frozen after M0; reopened only by the user (D38/D39, M6).
 """
 
 from .commands import (
+    AddRepo,
     AdjustPlan,
     AnswerInterview,
     ApprovePlan,
@@ -35,6 +36,7 @@ from .common import (
 )
 from .estimate import AccountUsage, EpicEstimate, Estimate
 from .events import EVENT_PAYLOADS, AgentFailedEvt, AgentProgress, AgentResultEvt, Envelope, EventKind
+from .folders import FolderEntry, FolderListing, FolderProbe, GitState
 from .jobs import AgentJob, Feedback
 from .outputs import (
     AgentOutput,
@@ -78,6 +80,7 @@ __all__ = [
     "STAGES",
     "TERMINAL_PHASES",
     "AccountUsage",
+    "AddRepo",
     "AdjustPlan",
     "AgentFailedEvt",
     "AgentJob",
@@ -114,6 +117,10 @@ __all__ = [
     "FinalFile",
     "FinalReport",
     "FinishTask",
+    "FolderEntry",
+    "FolderListing",
+    "FolderProbe",
+    "GitState",
     "InterviewQuestion",
     "InterviewResult",
     "InterviewTurn",

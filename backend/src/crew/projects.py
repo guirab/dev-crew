@@ -1,9 +1,9 @@
-"""Projects created by dev-crew from scratch (D58).
+"""Projects created by dev-crew from scratch (D58) and existing repositories added from the UI.
 
 They live in ``~/.dev-crew/repos.toml`` (managed here, never hand-edited) and are merged with the
 ``[[repos]]`` of ``crew.toml`` when the stack starts; a name in ``crew.toml`` wins. A new project starts
 with empty commands: the Planner decides the stack and its commands (``Plan.project_setup``), saved here
-once the plan is approved.
+once the plan is approved. An added repository is not new: it carries the commands the user typed.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ import tomllib
 from pathlib import Path
 
 import structlog
+from pydantic import ValidationError
 
 from .config import CrewConfig, RepoCfg, crew_home
-from .contracts import ProjectSetup
+from .contracts import AddRepo, ProjectSetup
 
 log = structlog.get_logger(__name__)
 
@@ -81,6 +82,26 @@ def initial_files(name: str, title: str, description: str) -> dict[str, str]:
 
 def new_repo(name: str, path: Path) -> RepoCfg:
     return RepoCfg(name=name, path=path, base_branch="main", test_cmd="", new_project=True)
+
+
+def added_repo(cmd: AddRepo, path: Path) -> RepoCfg:
+    """An existing repository the user registered, with the commands they typed."""
+    deps = [d.strip() for d in cmd.deps_dirs if d.strip()]
+    try:
+        return RepoCfg(
+            name=cmd.name.strip(),
+            path=path,
+            base_branch=cmd.base_branch.strip(),
+            test_cmd=cmd.test_cmd.strip(),
+            lint_cmd=(cmd.lint_cmd or "").strip() or None,
+            setup_cmd=(cmd.setup_cmd or "").strip() or None,
+            sandbox_image=(cmd.sandbox_image or "").strip() or None,
+            deps_dirs=deps,
+            new_project=False,
+        )
+    except ValidationError as e:
+        msg = e.errors()[0]["msg"].removeprefix("Value error, ")
+        raise ProjectError(msg) from e
 
 
 # ------------------------------------------------------------------ registry file

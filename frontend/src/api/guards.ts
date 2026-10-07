@@ -1,6 +1,8 @@
 import type {
   AccountUsage,
   CommandReply,
+  FolderListing,
+  FolderProbe,
   RepoInfo,
   TaskView,
   WsMessage,
@@ -128,4 +130,34 @@ const isNumberOrNull = (v: unknown): boolean => v === null || typeof v === 'numb
 
 export function isAccountUsage(v: unknown): v is AccountUsage {
   return isRecord(v) && isNumberOrNull(v.session_pct) && isNumberOrNull(v.weekly_pct)
+}
+
+export function isFolderListing(v: unknown): v is FolderListing {
+  return (
+    isRecord(v) &&
+    typeof v.path === 'string' &&
+    (v.parent === null || typeof v.parent === 'string') &&
+    Array.isArray(v.entries) &&
+    v.entries.every(
+      (e) =>
+        isRecord(e) &&
+        typeof e.name === 'string' &&
+        typeof e.path === 'string' &&
+        typeof e.git_repo === 'boolean' &&
+        typeof e.registered === 'boolean',
+    )
+  )
+}
+
+const GIT_STATES: readonly unknown[] = ['none', 'empty', 'ready', 'inside_repo']
+
+export function isFolderProbe(v: unknown): v is FolderProbe {
+  return (
+    isRecord(v) &&
+    typeof v.path === 'string' &&
+    typeof v.name === 'string' &&
+    GIT_STATES.includes(v.git) &&
+    (v.branch === null || typeof v.branch === 'string') &&
+    typeof v.registered === 'boolean'
+  )
 }

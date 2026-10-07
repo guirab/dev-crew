@@ -8,6 +8,7 @@ dev-crew: equipe de desenvolvimento multi-agente local. O usuário descreve uma 
 - Execução única: alterações locais em um git worktree, sem commit, com uma mensagem de commit sugerida.
 - Plano dividido em épicos (M6, D53–D57): épicos sem dependência rodam em paralelo, cada um no seu worktree; o dev-crew (nunca um agente) faz um commit por épico e o merge local em `crew/<task>`, sem push. Plano salvo em `docs/plano/<task>.md` no projeto.
 - Projeto novo (D58): o dev-crew cria pasta + git, registra em `~/.dev-crew/repos.toml`, e o Planner define stack e comandos.
+- Repositório existente adicionado pela UI (`add_repo`): escolhido no navegador de pastas (`GET /api/folders`, só leitura), registrado em `~/.dev-crew/repos.toml`; sem git, o botão "Inicializar o git" cria só um commit vazio.
 
 **Fonte da verdade do plano e do contexto:** o vault Obsidian em `C:/Users/guilh/Documents/Vaults/dev-crew-vault` (caminho também em `.obsidian-vault`).
 - Comece por `_index.md`, depois `plan/00-overview.md`.
@@ -74,7 +75,7 @@ Estrutura:
 
 ## Regras
 
-- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
+- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
 - Tipos TS dos contratos são gerados. Nunca editar à mão e nunca usar `any`.
 - Os agentes nunca:
   - commitam, fazem push ou alteram o histórico git (no modo épicos quem commita e faz merge é o dev-crew);

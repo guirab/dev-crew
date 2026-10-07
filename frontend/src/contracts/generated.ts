@@ -14,7 +14,8 @@ export type Command =
   | ResumeAfterLimit
   | RunEpics
   | FinishTask
-  | CreateProject;
+  | CreateProject
+  | AddRepo;
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "WsMessage".
@@ -40,6 +41,27 @@ export interface AccountUsage {
   weekly_pct: number | null;
   weekly_resets_at: string | null;
   fetched_at: string | null;
+}
+/**
+ * Register an existing local git repository (no task is started).
+ *
+ * ``init_git``: for a folder without git (or a repo without commits), ``git init`` on ``base_branch``
+ * plus one empty commit; no file of the folder is added or changed.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "AddRepo".
+ */
+export interface AddRepo {
+  type: "add_repo";
+  name: string;
+  path: string;
+  base_branch?: string;
+  test_cmd: string;
+  lint_cmd?: string | null;
+  setup_cmd?: string | null;
+  sandbox_image?: string | null;
+  deps_dirs?: string[];
+  init_git?: boolean;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -509,6 +531,41 @@ export interface LaneStages {
   developer: StageView;
   tester: StageView;
   reviewer: StageView;
+}
+/**
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "FolderEntry".
+ */
+export interface FolderEntry {
+  name: string;
+  path: string;
+  git_repo: boolean;
+  registered: boolean;
+}
+/**
+ * Sub-folders of ``path``. ``path`` is empty at the drives level; ``parent`` is ``None`` at the top.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "FolderListing".
+ */
+export interface FolderListing {
+  path: string;
+  parent: string | null;
+  entries: FolderEntry[];
+}
+/**
+ * What git says about one folder: ``none`` (not a repo), ``empty`` (no commit), ``ready``,
+ * ``inside_repo`` (a sub-folder of another repository).
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "FolderProbe".
+ */
+export interface FolderProbe {
+  path: string;
+  name: string;
+  git: "none" | "empty" | "ready" | "inside_repo";
+  branch: string | null;
+  registered: boolean;
 }
 /**
  * Repository as exposed to the UI (GET /api/repos).

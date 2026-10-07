@@ -22,6 +22,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from .. import plan_doc, plan_graph
 from ..contracts import (
+    AddRepo,
     AdjustPlan,
     AgentJob,
     AgentName,
@@ -110,7 +111,7 @@ ERR_UNKNOWN_EPIC: Final = "épico desconhecido"
 ERR_NO_EPICS: Final = "escolha ao menos um épico"
 ERR_EPIC_REQUIRED: Final = "informe qual épico (epic_id): há mais de um escalado"
 ERR_REPLAN_LANE: Final = "replanejar não se aplica a um épico: use instruir ou +2 tentativas"
-ERR_PROJECT_VIA_SERVICE: Final = "create_project é tratado pelo serviço, não pela máquina"
+ERR_PROJECT_VIA_SERVICE: Final = "create_project e add_repo são tratados pelo serviço, não pela máquina"
 
 _PHASE: Final[dict[AgentName, TaskPhase]] = {
     "interviewer": "interviewing",
@@ -403,6 +404,8 @@ def _on_command(state: TaskState | None, ev: CommandReceived) -> tuple[TaskState
     cmd = ev.command
     if isinstance(cmd, StartTask):
         return _start(state, cmd, ev.start, ev.at)
+    if isinstance(cmd, AddRepo):  # the service registers the repo; no task involved
+        return _reject(state, ERR_PROJECT_VIA_SERVICE)
     if isinstance(cmd, CreateProject):  # the service turns it into a start_task once the repo exists
         return _reject(state, ERR_PROJECT_VIA_SERVICE)
     if state is None or state.terminal:

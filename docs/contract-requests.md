@@ -15,6 +15,13 @@ Formato:
 
 ---
 
+## 2026-10-07 · T-7 · Adicionar repositório existente pela UI — ✅ aplicado (exceção ao congelamento, como D38/D39)
+
+- Comando `AddRepo` (`add_repo`): `name`, `path`, `base_branch`, `test_cmd` (obrigatório), `lint_cmd`, `setup_cmd`, `sandbox_image`, `deps_dirs`, `init_git`. O orquestrador valida, opcionalmente faz `git init` + commit inicial vazio, registra em `~/.dev-crew/repos.toml` e não inicia tarefa.
+- Saídas novas: `FolderEntry`, `FolderListing`, `FolderProbe` (`GET /api/folders` e `GET /api/folders/probe`, só leitura).
+
+---
+
 ## 2026-10-06 · M6 · Contratos v2: épicos, estimativa, limite de uso, projeto novo — ✅ aplicado (exceção ao congelamento, como D38/D39)
 
 - `Plan`: `execution` (`single|epics`), `split_rationale`, `epics: list[Epic]` (id `E\d+`, `depends_on`, `size` S/M/L), `project_setup: ProjectSetup | None`.

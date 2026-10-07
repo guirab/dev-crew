@@ -2,10 +2,19 @@ import type {
   AccountUsage,
   Command,
   CommandReply,
+  FolderListing,
+  FolderProbe,
   RepoInfo,
   TaskView,
 } from '../contracts/generated'
-import { isAccountUsage, isCommandReply, isNullableTaskView, isRepoList } from './guards'
+import {
+  isAccountUsage,
+  isCommandReply,
+  isFolderListing,
+  isFolderProbe,
+  isNullableTaskView,
+  isRepoList,
+} from './guards'
 
 /** Erro de chamada ao gateway. `status` 0 = sem resposta (rede/servidor fora). */
 export class ApiError extends Error {
@@ -42,10 +51,16 @@ async function readJson(res: Response): Promise<unknown> {
   }
 }
 
+function detailOf(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || !('detail' in body)) return null
+  return typeof body.detail === 'string' ? body.detail : null
+}
+
 async function getJson<T>(path: string, guard: (v: unknown) => v is T): Promise<T> {
   const res = await send(path)
   const body = await readJson(res)
-  if (!res.ok) throw new ApiError(`Falha ao carregar (${res.status}).`, res.status)
+  if (!res.ok)
+    throw new ApiError(detailOf(body) ?? `Falha ao carregar (${res.status}).`, res.status)
   if (!guard(body)) throw new ApiError('Resposta inesperada do servidor.', res.status)
   return body
 }
@@ -62,12 +77,20 @@ export function fetchUsage(): Promise<AccountUsage> {
   return getJson('/api/usage', isAccountUsage)
 }
 
+/** Subpastas de `path`; sem `path` o gateway começa na pasta de projetos, `''` lista as unidades. */
+export function fetchFolders(path?: string): Promise<FolderListing> {
+  const query = path === undefined ? '' : `?${new URLSearchParams({ path }).toString()}`
+  return getJson(`/api/folders${query}`, isFolderListing)
+}
+
+export function fetchFolderProbe(path: string): Promise<FolderProbe> {
+  return getJson(`/api/folders/probe?${new URLSearchParams({ path }).toString()}`, isFolderProbe)
+}
+
 function errorFromBody(body: unknown, status: number): string {
   if (isCommandReply(body) && body.error) return body.error
-  if (typeof body === 'object' && body !== null && 'detail' in body) {
-    const { detail } = body
-    if (typeof detail === 'string') return detail
-  }
+  const detail = detailOf(body)
+  if (detail !== null) return detail
   return `Comando recusado (${status}).`
 }
 

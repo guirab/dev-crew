@@ -1,7 +1,7 @@
-import type { TaskView } from '../contracts/generated'
+import type { RepoInfo, TaskView } from '../contracts/generated'
 import { isTaskView } from '../api/guards'
 import type { CommandOutcome, MockBackend } from './backend'
-import { REPOS } from './data'
+import { MockFolders } from './folders'
 
 const fixtureLoaders = import.meta.glob('../../../contracts/fixtures/view.*.json', {
   import: 'default',
@@ -30,12 +30,16 @@ export async function loadFixture(name: string): Promise<TaskView> {
 
 /** Backend de uma fixture estática: sempre devolve o mesmo snapshot; comandos são recusados. */
 export class FixtureBackend implements MockBackend {
-  readonly repos = REPOS
+  readonly folders = new MockFolders()
 
   constructor(
     private readonly view: TaskView,
     readonly name: string,
   ) {}
+
+  get repos(): readonly RepoInfo[] {
+    return this.folders.repos
+  }
 
   getView(): TaskView {
     return this.view

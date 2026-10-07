@@ -5,11 +5,9 @@ import { reposQuery } from '../api/queries'
 import { Button } from '../ui/Button'
 import { Field } from '../ui/Field'
 import { cx } from '../lib/cx'
+import { NAME_RE } from '../lib/repoName'
 import { CommandErrorMessage } from './CommandErrorMessage'
 import b from './body.module.css'
-
-/** Mesmo formato que o backend aceita (`crew.projects.NAME_RE`): vira o nome da pasta e do repo. */
-const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 
 /**
  * Projeto do zero (D58): o dev-crew cria a pasta, faz `git init` e o primeiro commit; o Planner

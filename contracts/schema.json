@@ -88,6 +88,82 @@
       "title": "AccountUsage",
       "type": "object"
     },
+    "AddRepo": {
+      "additionalProperties": false,
+      "description": "Register an existing local git repository (no task is started).\n\n``init_git``: for a folder without git (or a repo without commits), ``git init`` on ``base_branch``\nplus one empty commit; no file of the folder is added or changed.",
+      "properties": {
+        "type": {
+          "const": "add_repo",
+          "default": "add_repo",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "base_branch": {
+          "default": "main",
+          "type": "string"
+        },
+        "test_cmd": {
+          "type": "string"
+        },
+        "lint_cmd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "setup_cmd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sandbox_image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "deps_dirs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "init_git": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "test_cmd",
+        "type"
+      ],
+      "title": "AddRepo",
+      "type": "object"
+    },
     "AdjustPlan": {
       "additionalProperties": false,
       "properties": {
@@ -216,6 +292,7 @@
     "Command": {
       "discriminator": {
         "mapping": {
+          "add_repo": "#/$defs/AddRepo",
           "adjust_plan": "#/$defs/AdjustPlan",
           "answer_interview": "#/$defs/AnswerInterview",
           "approve_plan": "#/$defs/ApprovePlan",
@@ -259,6 +336,9 @@
         },
         {
           "$ref": "#/$defs/CreateProject"
+        },
+        {
+          "$ref": "#/$defs/AddRepo"
         }
       ],
       "title": "Command"
@@ -1010,6 +1090,108 @@
       "required": [
         "type"
       ]
+    },
+    "FolderEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "git_repo": {
+          "type": "boolean"
+        },
+        "registered": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "git_repo",
+        "registered"
+      ],
+      "title": "FolderEntry",
+      "type": "object"
+    },
+    "FolderListing": {
+      "additionalProperties": false,
+      "description": "Sub-folders of ``path``. ``path`` is empty at the drives level; ``parent`` is ``None`` at the top.",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/FolderEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "parent",
+        "entries"
+      ],
+      "title": "FolderListing",
+      "type": "object"
+    },
+    "FolderProbe": {
+      "additionalProperties": false,
+      "description": "What git says about one folder: ``none`` (not a repo), ``empty`` (no commit), ``ready``,\n``inside_repo`` (a sub-folder of another repository).",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "git": {
+          "enum": [
+            "none",
+            "empty",
+            "ready",
+            "inside_repo"
+          ],
+          "type": "string"
+        },
+        "branch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "registered": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "name",
+        "git",
+        "branch",
+        "registered"
+      ],
+      "title": "FolderProbe",
+      "type": "object"
     },
     "InterviewQuestion": {
       "additionalProperties": false,

@@ -15,9 +15,13 @@ from pydantic import TypeAdapter
 from websockets.exceptions import InvalidStatus
 
 from crew import contracts as c
+from crew import projects
+from crew.config import CrewConfig, RepoCfg, WorkspaceCfg
+from crew.gateway.app import Gateway
 from crew.gateway.hub import QUEUE_SIZE, Hub, _Client
 from crew.orchestrator import machine as m
 
+from .git_helpers import make_git_repo, sh_git
 from .rig import Rig, start_rig
 
 pytestmark = pytest.mark.nats
@@ -55,6 +59,66 @@ async def test_get_repos(rig: Rig) -> None:
     async with client(rig) as http:
         r = await http.get("/api/repos")
     assert r.status_code == 200 and r.json() == [{"name": "sample-repo", "base_branch": "main"}]
+
+
+async def test_get_folders_lists_subfolders_and_marks_repos(rig: Rig, tmp_path: Path) -> None:
+    browse = tmp_path / "browse"
+    (browse / "plain").mkdir(parents=True)
+    (browse / ".hidden").mkdir()
+    (browse / "file.txt").write_text("x", "utf-8")
+    rig.cfg.workspace.projects_dir = browse
+    make_git_repo(browse, "other")
+    async with client(rig) as http:
+        default = await http.get("/api/folders")
+        explicit = await http.get("/api/folders", params={"path": str(browse / "plain")})
+        drives = await http.get("/api/folders", params={"path": ""})
+    assert default.status_code == 200
+    listing = c.FolderListing.model_validate(default.json())
+    assert listing.path == str(browse.resolve()) and listing.parent == str(tmp_path.resolve())
+    assert [(e.name, e.git_repo, e.registered) for e in listing.entries] == [
+        ("other", True, False),
+        ("plain", False, False),
+    ]
+    assert explicit.status_code == 200 and explicit.json()["entries"] == []
+    assert drives.status_code == 200 and drives.json()["path"] in ("", "/")
+
+
+async def test_get_folders_marks_registered_repos(rig: Rig) -> None:
+    repo = rig.cfg.repo("sample-repo").path
+    async with client(rig) as http:
+        r = await http.get("/api/folders", params={"path": str(repo.parent)})
+    assert [(e.get("name"), e.get("registered")) for e in r.json()["entries"]] == [("sample-repo", True)]
+
+
+async def test_get_folders_unknown_path_is_a_pt_br_404(rig: Rig, tmp_path: Path) -> None:
+    async with client(rig) as http:
+        missing = await http.get("/api/folders", params={"path": str(tmp_path / "nada")})
+        probe = await http.get("/api/folders/probe", params={"path": str(tmp_path / "nada")})
+    assert missing.status_code == 404 and "não existe" in missing.json()["detail"]
+    assert probe.status_code == 404 and "não existe" in probe.json()["detail"]
+
+
+async def test_get_folder_probe(rig: Rig) -> None:
+    repo = rig.cfg.repo("sample-repo").path
+    async with client(rig) as http:
+        r = await http.get("/api/folders/probe", params={"path": str(repo)})
+    probe = c.FolderProbe.model_validate(r.json())
+    assert (probe.name, probe.git, probe.branch, probe.registered) == ("sample-repo", "ready", "main", True)
+
+
+async def test_add_repo_through_the_bus(rig: Rig, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CREW_HOME", str(tmp_path / "home"))
+    repo = make_git_repo(tmp_path / "novo", "meu-app")
+    body = {"type": "add_repo", "name": "meu-app", "path": str(repo), "test_cmd": "npm test"}
+    async with client(rig) as http:
+        r = await http.post("/api/commands", json=body)
+        assert r.status_code == 200 and r.json()["ok"] and (await http.get("/api/task")).json() is None
+        names = [x["name"] for x in (await http.get("/api/repos")).json()]
+        again = await http.post("/api/commands", json=body)
+        bad = await http.post("/api/commands", json={**body, "name": "x y"})
+    assert names == ["sample-repo", "meu-app"]
+    assert again.status_code == 422 and "já existe" in again.json()["error"]
+    assert bad.status_code == 422 and "nome de projeto inválido" in bad.json()["error"]
 
 
 async def test_usage_without_a_reader_is_empty(rig: Rig) -> None:
@@ -116,6 +180,97 @@ async def test_service_unavailable_is_503_not_500(nats_url: str, tmp_path: Path)
             assert r.status_code == 503 and "indisponível" in r.json()["detail"]
     finally:
         await rig.aclose()
+
+
+# ================================================================================ folders
+
+
+@pytest.fixture
+def folder_gateway(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[httpx.AsyncClient, Path]:
+    """Gateway without NATS (the folder routes never touch the bus), called in-process."""
+    for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+        monkeypatch.delenv(var, raising=False)
+    projects_dir = tmp_path / "projetos"
+    known = make_git_repo(projects_dir, "cadastrado")
+    make_git_repo(projects_dir, "livre")
+    (projects_dir / "pasta-simples").mkdir()
+    (projects_dir / ".oculta").mkdir()
+    (projects_dir / "arquivo.txt").write_text("x", "utf-8")
+    cfg = CrewConfig(
+        workspace=WorkspaceCfg(projects_dir=projects_dir),
+        repos=[RepoCfg(name="outro-nome", path=known, test_cmd="pytest -q")],
+    )
+    gateway = Gateway(MagicMock(), cfg, dist=None)
+    transport = httpx.ASGITransport(app=gateway.app)
+    return httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1"), projects_dir
+
+
+async def test_get_folders_defaults_to_the_projects_dir(
+    folder_gateway: tuple[httpx.AsyncClient, Path],
+) -> None:
+    http, projects_dir = folder_gateway
+    async with http:
+        r = await http.get("/api/folders")
+    assert r.status_code == 200
+    listing = c.FolderListing.model_validate(r.json())
+    assert listing.path == str(projects_dir) and listing.parent == str(projects_dir.parent)
+    assert [(e.name, e.git_repo, e.registered) for e in listing.entries] == [
+        ("cadastrado", True, True),
+        ("livre", True, False),
+        ("pasta-simples", False, False),
+    ]
+
+
+async def test_get_folders_with_a_path_and_missing_path(
+    folder_gateway: tuple[httpx.AsyncClient, Path],
+) -> None:
+    http, projects_dir = folder_gateway
+    async with http:
+        inside = await http.get("/api/folders", params={"path": str(projects_dir / "livre")})
+        assert inside.status_code == 200 and inside.json()["entries"] == []
+        missing = await http.get("/api/folders", params={"path": str(projects_dir / "nada")})
+        assert missing.status_code == 404 and "não existe" in missing.json()["detail"]
+        not_dir = await http.get("/api/folders", params={"path": str(projects_dir / "arquivo.txt")})
+        assert not_dir.status_code == 404 and "pasta" in not_dir.json()["detail"]
+
+
+async def test_get_folders_probe(folder_gateway: tuple[httpx.AsyncClient, Path]) -> None:
+    http, projects_dir = folder_gateway
+    sh_git(projects_dir / "livre", "checkout", "-q", "-b", "dev")
+    async with http:
+        ready = await http.get("/api/folders/probe", params={"path": str(projects_dir / "livre")})
+        assert ready.status_code == 200
+        probe = c.FolderProbe.model_validate(ready.json())
+        assert (probe.name, probe.git, probe.branch, probe.registered) == ("livre", "ready", "dev", False)
+        plain = await http.get("/api/folders/probe", params={"path": str(projects_dir / "pasta-simples")})
+        assert plain.json()["git"] == "none"
+        missing = await http.get("/api/folders/probe", params={"path": str(projects_dir / "nada")})
+        assert missing.status_code == 404
+
+
+async def test_folders_are_get_only(folder_gateway: tuple[httpx.AsyncClient, Path]) -> None:
+    http, _ = folder_gateway
+    async with http:
+        assert (await http.post("/api/folders", json={})).status_code == 405
+
+
+async def test_add_repo_command_goes_through_the_bus(
+    rig: Rig, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CREW_HOME", str(tmp_path / "home"))
+    for var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+        monkeypatch.delenv(var, raising=False)
+    repo = make_git_repo(tmp_path / "ws", "novo-repo")
+    body = {"type": "add_repo", "name": "novo-repo", "path": str(repo), "test_cmd": "pytest -q"}
+    async with client(rig) as http:
+        r = await http.post("/api/commands", json=body)
+        assert r.status_code == 200 and r.json()["ok"] and r.json()["view"] is None
+        names = [x["name"] for x in (await http.get("/api/repos")).json()]
+        assert names == ["sample-repo", "novo-repo"]
+        assert (await http.get("/api/task")).json() is None, "adding a repo starts no task"
+        again = await http.post("/api/commands", json=body)
+        assert again.status_code == 422 and "já existe" in again.json()["error"]
+    assert [x.name for x in projects.load_registered()] == ["novo-repo"]
 
 
 # ================================================================================ security

@@ -17,6 +17,7 @@ import type {
   InterviewTurn,
   LogLine,
   Plan,
+  RepoInfo,
   ReviewResult,
   StageView,
   StartTask,
@@ -26,7 +27,8 @@ import type {
 } from '../contracts/generated'
 import type { EdgeKey, EdgeStatus, StageKey, StageStatus, TaskPhase } from '../contracts/aliases'
 import type { CommandOutcome, MockBackend } from './backend'
-import { INTERVIEW_ROUNDS, REPOS } from './data'
+import { INTERVIEW_ROUNDS } from './data'
+import { MockFolders } from './folders'
 
 export interface ScenarioOptions {
   /** Multiplicador de velocidade (2 = metade do tempo). */
@@ -137,8 +139,7 @@ const isTerminal = (phase: TaskPhase): boolean =>
 const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1)
 
 export class ScenarioBackend implements MockBackend {
-  readonly repos = REPOS
-
+  readonly folders = new MockFolders()
   private s: TaskState | null = null
   private readonly listeners = new Set<Listener>()
   private readonly timers = new Set<ReturnType<typeof setTimeout>>()
@@ -152,6 +153,10 @@ export class ScenarioBackend implements MockBackend {
     this.speedFactor = options.speed ?? 1
     this.escalateFlag = options.forceEscalate ?? false
     this.clock = options.now ?? (() => new Date())
+  }
+
+  get repos(): readonly RepoInfo[] {
+    return this.folders.repos
   }
 
   get speed(): number {
@@ -261,6 +266,8 @@ export class ScenarioBackend implements MockBackend {
         return this.escalate(command.action, command.text ?? null)
       case 'cancel_task':
         return this.cancel()
+      case 'add_repo':
+        return this.folders.add(command, this.getView())
       case 'resume_after_limit':
       case 'run_epics':
       case 'finish_task':
@@ -281,7 +288,7 @@ export class ScenarioBackend implements MockBackend {
 
   private start(command: StartTask): CommandOutcome {
     if (this.s && !isTerminal(this.s.phase)) return this.refuse(409, 'Já existe uma tarefa ativa.')
-    if (!REPOS.some((r) => r.name === command.repo))
+    if (!this.repos.some((r) => r.name === command.repo))
       return this.refuse(422, 'Repositório desconhecido.')
 
     const manualTitle = command.title.trim()

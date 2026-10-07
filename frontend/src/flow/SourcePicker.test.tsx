@@ -40,5 +40,22 @@ describe('origem Novo projeto (D58)', () => {
   it('com tarefa ativa só o card Manual aparece', () => {
     renderWithClient(<FlowColumn view={fixture('developing')} />)
     expect(screen.queryByRole('button', { name: /Novo projeto/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Adicionar repositório/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('origem Adicionar repositório', () => {
+  it('sem tarefa ativa abre o formulário com o navegador de pastas e fecha ao clicar de novo', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<FlowColumn view={null} />)
+
+    await user.click(screen.getByRole('button', { name: /Adicionar repositório/ }))
+    expect(
+      screen.getByRole('region', { name: 'Origem: adicionar repositório' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByRole('list', { name: 'Pastas' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Adicionar repositório/ }))
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
   })
 })

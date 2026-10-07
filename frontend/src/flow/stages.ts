@@ -42,6 +42,13 @@ export const NEW_PROJECT_META: StageMeta = {
   icon: '+',
 }
 
+/** Terceira origem: registra um repositório git que já existe no disco; não inicia tarefa. */
+export const ADD_REPO_META: StageMeta = {
+  title: 'Adicionar repositório',
+  desc: 'Uma pasta git que já existe no disco',
+  icon: '⊕',
+}
+
 export const STATUS_TAG: Record<StageStatus, string> = {
   idle: '',
   pick: '',

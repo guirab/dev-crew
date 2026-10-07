@@ -1,5 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
-import { fetchCurrentTask, fetchRepos, fetchUsage } from './client'
+import { fetchCurrentTask, fetchFolderProbe, fetchFolders, fetchRepos, fetchUsage } from './client'
 
 export const reposQuery = queryOptions({
   queryKey: ['repos'],
@@ -28,4 +28,26 @@ export const usageQuery = queryOptions({
 
 export function useAccountUsage() {
   return useQuery(usageQuery)
+}
+
+export const foldersKey = ['folders'] as const
+export const folderProbeKey = ['folder-probe'] as const
+
+/** Subpastas do navegador de pastas. `path` undefined = pasta de projetos; `''` = unidades. */
+export function foldersQuery(path: string | undefined) {
+  return queryOptions({
+    queryKey: [...foldersKey, path ?? null],
+    queryFn: () => fetchFolders(path),
+    staleTime: 0,
+    retry: false,
+  })
+}
+
+export function folderProbeQuery(path: string) {
+  return queryOptions({
+    queryKey: [...folderProbeKey, path],
+    queryFn: () => fetchFolderProbe(path),
+    staleTime: 0,
+    retry: false,
+  })
 }

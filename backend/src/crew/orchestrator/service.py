@@ -21,12 +21,13 @@ import structlog
 from nats.aio.msg import Msg
 from pydantic import BaseModel, ValidationError
 
-from .. import projects, sandbox
+from .. import folders, projects, sandbox
 from ..bus import Bus
 from ..bus import subjects as s
-from ..config import CrewConfig
+from ..config import CrewConfig, RepoCfg
 from ..contracts import (
     AccountUsage,
+    AddRepo,
     AgentFailedEvt,
     AgentProgress,
     AgentResultEvt,
@@ -39,6 +40,7 @@ from ..contracts import (
 )
 from ..estimate import agent_costs, estimate_plan, ratios
 from ..usage import UsageReader
+from ..workspace import git
 from ..workspace.manager import Workspace, WorkspaceManager, run_host_setup
 from . import machine
 from .effects import (
@@ -257,6 +259,8 @@ class OrchestratorService:
                 item.reply.set_result(reply)
 
     async def _handle(self, event: Event) -> CommandReply | None:
+        if isinstance(event, CommandReceived) and isinstance(event.command, AddRepo):
+            return await self._add_repo(event.command)
         if isinstance(event, CommandReceived) and isinstance(event.command, CreateProject):
             created = await self._create_project(event.command)
             if isinstance(created, CommandReply):
@@ -311,6 +315,54 @@ class OrchestratorService:
         self.cfg.repos.append(repo)
         log.info("project_created", name=name, path=str(path))
         return StartTask(repo=name, title=cmd.title, description=cmd.description)
+
+    async def _add_repo(self, cmd: AddRepo) -> CommandReply:
+        """Register an existing local git repo. Validates everything first; the registry changes last."""
+        try:
+            repo = await self._validated_added_repo(cmd)
+            await asyncio.to_thread(projects.register, repo)
+            self.cfg.repos.append(repo)
+        except Exception as e:  # ProjectError, FolderError, WorkspaceError, OSError: all shown to the user
+            log.warning("add_repo_failed", name=cmd.name, path=cmd.path, error=str(e))
+            return CommandReply(ok=False, error=str(e))
+        log.info("repo_added", name=repo.name, path=str(repo.path))
+        return CommandReply(ok=True, view=self.state.to_view() if self.state else None)
+
+    async def _validated_added_repo(self, cmd: AddRepo) -> RepoCfg:
+        name = projects.validate_name(cmd.name)
+        if self.cfg.has_repo(name):
+            raise projects.ProjectError(f"já existe um repositório chamado {name!r}")
+        if not cmd.test_cmd.strip():
+            raise projects.ProjectError("informe o comando de teste (test_cmd)")
+        base = cmd.base_branch.strip()
+        if not base or base.startswith("-"):
+            raise projects.ProjectError(f"nome de branch base inválido: {cmd.base_branch!r}")
+        path = folders.check_folder(cmd.path)
+        if folders.is_registered_path(self.cfg, path):
+            raise projects.ProjectError(f"a pasta {path} já está cadastrada como repositório")
+        repo = projects.added_repo(cmd, path)
+
+        probe = await folders.probe(str(path), self.cfg)
+        if probe.git == "inside_repo":
+            raise projects.ProjectError(
+                f"a pasta {path} é uma subpasta de outro repositório git: escolha a pasta raiz do repositório"
+            )
+        if probe.git in ("none", "empty"):
+            if not cmd.init_git:
+                what = (
+                    "a pasta não é um repositório git"
+                    if probe.git == "none"
+                    else "o repositório não tem nenhum commit"
+                )
+                raise projects.ProjectError(
+                    f"{what}: use 'inicializar o git' para criar um commit inicial vazio"
+                )
+            if not await git.ok(path, "check-ref-format", "--branch", base):
+                raise projects.ProjectError(f"nome de branch base inválido: {base!r}")
+            await self.workspace.init_empty_commit(path, base)
+        if not await git.ok(path, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"):
+            raise projects.ProjectError(f"a branch base {base!r} não existe em {path}")
+        return repo
 
     def _prepare(self, event: Event) -> Event:
         """Fill what only the shell knows: task id and repo context of a ``start_task``."""

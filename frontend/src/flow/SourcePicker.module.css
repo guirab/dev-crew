@@ -4,6 +4,10 @@
   gap: 14px;
 }
 
+.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .panel {
   margin-top: 14px;
   background: var(--surface);
@@ -13,7 +17,8 @@
 }
 
 @media (max-width: 640px) {
-  .row {
+  .row,
+  .three {
     grid-template-columns: 1fr;
   }
 }

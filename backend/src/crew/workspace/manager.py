@@ -251,6 +251,29 @@ class WorkspaceManager:
         await git.run(path, "add", "-A")
         await self._commit(path, "commit", "-q", "-m", "chore: início do projeto")
 
+    async def init_empty_commit(self, path: Path, base_branch: str) -> None:
+        """Adopt an existing folder: ``git init`` if needed, then ONE empty commit on ``base_branch``.
+
+        Never runs ``git add``: the folder's files stay untracked. A repo with commits is left alone.
+        """
+        try:
+            if not await asyncio.to_thread((path / ".git").exists):
+                await git.run(path, "init", "-q", "-b", base_branch)
+            elif await git.ok(path, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"):
+                return
+            else:
+                if await git.out(path, "ls-files"):
+                    raise WorkspaceError(
+                        "o repositório não tem commits e já tem arquivos em stage: "
+                        "faça o primeiro commit você mesmo (um commit vazio levaria esses arquivos)"
+                    )
+                await git.run(path, "symbolic-ref", "HEAD", f"refs/heads/{base_branch}")
+        except git.GitError as e:
+            raise WorkspaceError(f"não foi possível preparar o git em {path}: {e.stderr[:300]}") from e
+        await self._commit(
+            path, "commit", "-q", "--allow-empty", "-m", "chore: início do repositório no dev-crew"
+        )
+
     async def _commit(self, path: Path, *args: str) -> None:
         res = await self._git_as_user(path, *args)
         if res.returncode != 0:
