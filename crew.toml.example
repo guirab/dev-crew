@@ -10,11 +10,15 @@ port = 8787
 [workspace]
 root = "C:/Users/guilh/.dev-crew/worktrees"
 mode = "worktree"            # "worktree" | "inplace"
+# projects_dir = "C:/Users/guilh/Documents"   # onde o card "Novo projeto" cria a pasta quando você não diz
 
 [limits]
 max_test_attempts = 3        # falhas consecutivas de teste antes de escalar
 max_review_rounds = 2
 # sem teto de custo ou de tempo (D51); agente sem nenhuma atividade por 30 min escala sozinho (D52)
+
+[parallel]
+workers_per_agent = 3        # quantos épicos podem ter um agente trabalhando ao mesmo tempo
 
 [models]
 interviewer = "claude-sonnet-5-5"
@@ -38,3 +42,4 @@ test_globs = ["tests/**", "**/test_*.py"]
 # setup_cmd = "npm ci"          # roda pelo dev-crew (nunca pelos agentes) antes do 1º agente; falhou = tarefa falha
 # sandbox_image = "node:22"     # comandos dos agentes rodam num container por tarefa (sem rede, só vê o worktree)
 # deps_dirs = ["node_modules"]  # com sandbox: ficam em volumes Docker, fora do worktree
+# Projetos criados pelo card "Novo projeto" ficam em ~/.dev-crew/repos.toml (não precisa repetir aqui).

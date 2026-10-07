@@ -15,6 +15,16 @@ Formato:
 
 ---
 
+## 2026-10-06 · M6 · Contratos v2: épicos, estimativa, limite de uso, projeto novo — ✅ aplicado (exceção ao congelamento, como D38/D39)
+
+- `Plan`: `execution` (`single|epics`), `split_rationale`, `epics: list[Epic]` (id `E\d+`, `depends_on`, `size` S/M/L), `project_setup: ProjectSetup | None`.
+- `AgentJob`: sem `budget_usd`, com `epic_id`. `AgentResultEvt.usage: list[TokenUsage]`. `AgentFailedEvt.limit: UsageLimit | None`. `Feedback.kind` ganha `merge_conflict`. `RepoContext.new_project`.
+- Comandos: `ApprovePlan.epics`, `RunEpics`, `FinishTask`, `ResumeAfterLimit`, `CreateProject` (`parent_dir` vazio = `[workspace] projects_dir`), `EscalationAction.epic_id`.
+- `TaskView`: `epics: list[EpicView]`, `estimate`, `limit`, `tokens`; fases `executing`, `awaiting_selection`, `limited`. `FinalReport`: `commits`, `pending_epics`, `plan_doc`, `tokens`. `Escalation.epic_id`.
+- Novos: `AccountUsage` (`GET /api/usage`), `Estimate`/`EpicEstimate`.
+
+---
+
 ## Desvios do M0 em relação ao plano (já aplicados)
 
 - `Envelope.payload` é `dict` + `type` (`progress|result|failed|view`), decodificado por `Envelope.decode_payload()` em vez de `Envelope[T]` genérico.

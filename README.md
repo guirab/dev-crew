@@ -1,6 +1,10 @@
 # dev-crew
 
-Equipe de desenvolvimento multi-agente local. Você descreve uma tarefa e os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream. No fim, as alterações ficam locais (sem commit) com uma mensagem de commit sugerida.
+Equipe de desenvolvimento multi-agente local. Você descreve uma tarefa e os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream.
+
+- Tarefa pequena: uma execução só. As alterações ficam locais (sem commit) com uma mensagem de commit sugerida.
+- Tarefa grande ou projeto inteiro: o Planner divide em **épicos** com dependências, o plano mostra a estimativa de custo (tokens, US$ equivalente, % da sessão de 5 h e da semana) e você escolhe quais rodar agora. Épicos sem dependência entre si rodam **em paralelo**, cada um no seu worktree. O dev-crew faz **um commit por épico** e junta tudo na branch `crew/<task>` (sem push).
+- **Projeto novo** do zero: o card "Novo projeto" cria a pasta com git, e o Planner escolhe a stack e os comandos, começando pela fundação (E0).
 
 - Plano e contexto: vault Obsidian em `C:/Users/guilh/Documents/Vaults/dev-crew-vault` (ver `.obsidian-vault`)
 - Convenções: `CLAUDE.md`
@@ -85,7 +89,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
 ```
 
 - sem flags: agentes **fake** (zero tokens). Abra `http://127.0.0.1:8787`.
-- `-Real`: agentes reais via assinatura (consome a cota do plano; teto por tarefa em `budget_usd_per_task`).
+- `-Real`: agentes reais via assinatura (consome a cota do plano). Não há teto de custo nem de tempo (D51); se o limite da assinatura bater, a tarefa para e a tela mostra quando volta, com o botão **Retomar**.
 - `-Escalate`: fakes forçam a escalada no Tester · `-Speed 3`: velocidade dos fakes.
 
 Worktrees das tarefas: `~/.dev-crew/worktrees/<repo>/<task>`, branch `crew/<task>`. Revise, commite com a mensagem sugerida e depois:
@@ -95,6 +99,22 @@ cd backend && uv run python -m crew.cli cleanup <task>
 ```
 
 A CLI roda como `python -m crew.cli` porque o Smart App Control bloqueia o `crew.exe` que o uv gera.
+
+## Épicos em paralelo
+
+- O Planner decide se divide (mudança pequena e coesa fica numa execução só) e justifica no plano. Épicos paralelos nunca editam o mesmo arquivo; quem precisa do mesmo arquivo vira dependência.
+- Na aprovação você marca os épicos que rodam agora; os dependentes entram junto. Quando o lote termina, o card de aprovação oferece os próximos ou **Concluir agora** (o que ficou de fora fica registrado como pendente).
+- Cada épico: worktree `crew/<task>-E1`, Developer → Tester → Reviewer com os mesmos loops de correção. Aprovado, o dev-crew commita e faz merge na branch da tarefa. Conflito de merge vira uma faixa de integração (`M-E2`) que resolve, testa e revisa antes de concluir o merge.
+- O plano fica salvo no projeto em `docs/plano/<task>.md`, atualizado no fim de cada lote.
+- `[parallel] workers_per_agent` (padrão 3) limita quantos épicos têm um agente trabalhando ao mesmo tempo. Na assinatura Pro, paralelo esgota a sessão de 5 h mais rápido: confira a estimativa antes de aprovar.
+- Um agente parado 30 min sem nenhuma atividade (e sem comando rodando) escala sozinho (D52).
+
+## Projeto novo
+
+- Card **Novo projeto**: nome (vira a pasta) e onde criar (vazio = `[workspace] projects_dir`, padrão Documentos). O dev-crew cria a pasta, faz `git init` com README e `.gitignore` e o primeiro commit.
+- O projeto fica registrado em `~/.dev-crew/repos.toml` (gerido pelo dev-crew, somado aos `[[repos]]` do `crew.toml`).
+- O Planner preenche `project_setup` (stack, `setup_cmd`, `test_cmd`, `lint_cmd`, `sandbox_image`). Aprovado o plano, os comandos vão pro registro.
+- A primeira tarefa roda na sua máquina, sem container: o `setup_cmd` roda em cada worktree logo antes do primeiro Tester, depois que o E0 escreveu os manifestos. Da próxima tarefa em diante vale o `sandbox_image`.
 
 ## Comandos
 
