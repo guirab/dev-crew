@@ -21,7 +21,7 @@ import structlog
 from nats.aio.msg import Msg
 from pydantic import BaseModel, ValidationError
 
-from .. import sandbox
+from .. import projects, sandbox
 from ..bus import Bus
 from ..bus import subjects as s
 from ..config import CrewConfig
@@ -32,13 +32,14 @@ from ..contracts import (
     AgentResultEvt,
     CommandAdapter,
     CommandReply,
+    CreateProject,
     Envelope,
     Plan,
     StartTask,
 )
 from ..estimate import agent_costs, estimate_plan, ratios
 from ..usage import UsageReader
-from ..workspace.manager import Workspace, WorkspaceManager
+from ..workspace.manager import Workspace, WorkspaceManager, run_host_setup
 from . import machine
 from .effects import (
     BuildFinalReport,
@@ -54,6 +55,8 @@ from .effects import (
     PublishView,
     Reject,
     RemoveEpicWorkspace,
+    RunSetup,
+    SaveProjectSetup,
     WritePlanDoc,
 )
 from .events import (
@@ -66,6 +69,7 @@ from .events import (
     EpicWorkspaceReady,
     Event,
     ReportBuilt,
+    SetupFinished,
     StartParams,
     WorkspaceFailed,
     WorkspaceReady,
@@ -253,6 +257,11 @@ class OrchestratorService:
                 item.reply.set_result(reply)
 
     async def _handle(self, event: Event) -> CommandReply | None:
+        if isinstance(event, CommandReceived) and isinstance(event.command, CreateProject):
+            created = await self._create_project(event.command)
+            if isinstance(created, CommandReply):
+                return created
+            event = dataclasses.replace(event, command=created)
         event = await self._enrich(self._prepare(event))
         new_state, effects = machine.decide(self.state, event)
 
@@ -281,6 +290,27 @@ class OrchestratorService:
             if now - self._last_view_at >= PROGRESS_VIEW_EVERY_S:
                 await self._publish_view()
         return reply
+
+    async def _create_project(self, cmd: CreateProject) -> StartTask | CommandReply:
+        """New project (D58): folder + ``git init`` + first commit, registered, then a normal task."""
+        if self.state is not None and not self.state.terminal:
+            return CommandReply(ok=False, error=machine.ERR_ACTIVE_TASK)
+        if not cmd.title.strip():
+            return CommandReply(ok=False, error=machine.ERR_TITLE_REQUIRED)
+        try:
+            name = projects.validate_name(cmd.name)
+            if self.cfg.has_repo(name):
+                raise projects.ProjectError(f"já existe um repositório chamado {name!r}")
+            path = projects.project_path(self.cfg, name, cmd.parent_dir)
+            await self.workspace.init_repo(path, projects.initial_files(name, cmd.title, cmd.description))
+        except Exception as e:  # ProjectError, WorkspaceError, OSError: all shown to the user
+            log.warning("create_project_failed", name=cmd.name, error=str(e))
+            return CommandReply(ok=False, error=str(e))
+        repo = projects.new_repo(name, path)
+        await asyncio.to_thread(projects.register, repo)
+        self.cfg.repos.append(repo)
+        log.info("project_created", name=name, path=str(path))
+        return StartTask(repo=name, title=cmd.title, description=cmd.description)
 
     def _prepare(self, event: Event) -> Event:
         """Fill what only the shell knows: task id and repo context of a ``start_task``."""
@@ -362,6 +392,10 @@ class OrchestratorService:
                 self._spawn(self._finish_merge(effect), f"finish-merge-{effect.epic_id}")
             case RemoveEpicWorkspace():
                 self._spawn(self._remove_epic_workspace(effect), f"remove-epic-{effect.epic_id}")
+            case RunSetup():
+                self._spawn(self._run_setup(effect), f"setup-{effect.epic_id or effect.task_id}")
+            case SaveProjectSetup():
+                await self._save_project_setup(effect)
             case LogStale():
                 log.info(
                     "stale_event_ignored", task_id=effect.task_id, what=effect.what, job_id=str(effect.job_id)
@@ -468,7 +502,8 @@ class OrchestratorService:
             task = self._task_ws(effect.task_id, effect.repo, effect.task_path)
             async with self._git_lock:
                 ws = await self.workspace.create_epic(task, effect.epic_id)
-            await self.workspace.prepare(ws, repo)  # its own sandbox + setup, outside the git lock
+            if effect.prepare:  # its own sandbox + setup, outside the git lock
+                await self.workspace.prepare(ws, repo)
             event: Event = EpicWorkspaceReady(effect.task_id, effect.epic_id, str(ws.path), ws.branch, at())
         except Exception as e:
             log.warning("epic_workspace_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
@@ -502,6 +537,25 @@ class OrchestratorService:
             log.warning("finish_merge_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
             event = EpicMerged(effect.task_id, effect.epic_id, at(), error=str(e))
         await self._inbox.put(_Item(event))
+
+    async def _run_setup(self, effect: RunSetup) -> None:
+        error: str | None = None
+        try:
+            await run_host_setup(Path(effect.path), effect.command)
+        except Exception as e:
+            log.warning("setup_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
+            error = str(e)
+        await self._inbox.put(_Item(SetupFinished(effect.task_id, effect.epic_id, self.clock(), error)))
+
+    async def _save_project_setup(self, effect: SaveProjectSetup) -> None:
+        """The commands the Planner decided become the project's (registry + this process' config)."""
+        try:
+            repo = projects.with_setup(self.cfg.repo(effect.repo), effect.setup)
+            await asyncio.to_thread(projects.register, repo)
+            self.cfg.repos[:] = [repo if r.name == repo.name else r for r in self.cfg.repos]
+            log.info("project_setup_saved", repo=repo.name, stack=effect.setup.stack)
+        except Exception as e:  # the task goes on; the commands can be fixed in repos.toml
+            log.warning("project_setup_failed", repo=effect.repo, error=str(e))
 
     async def _remove_epic_workspace(self, effect: RemoveEpicWorkspace) -> None:
         try:
@@ -546,5 +600,7 @@ def _loggable(event: Event) -> tuple[str | None, str]:
         case EpicMerged():
             payload = {"epic": event.epic_id, "sha": event.sha, "conflicts": list(event.conflicts)}
             return "epic_merged", json.dumps({**payload, "error": event.error})
+        case SetupFinished():
+            return "setup_finished", json.dumps({"epic": event.epic_id, "error": event.error})
         case AgentProgressed():
             return None, ""

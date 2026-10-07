@@ -47,7 +47,9 @@ from ..contracts.common import STAGES, TERMINAL_PHASES
 
 MAX_STAGE_LOGS = 50
 
-EscalationKind = Literal["test_limit", "review_limit", "agent_failed", "workspace", "merge"]
+EscalationKind = Literal["test_limit", "review_limit", "agent_failed", "workspace", "merge", "setup"]
+DepsSetup = Literal["pending", "running", "done"]
+"""New project (D58): dependencies installed by dev-crew before a pipe's first Tester."""
 Boot = Literal["create_workspace", "build_report"]
 """Side-effecting step in flight that is not an agent job; re-issued on restart."""
 
@@ -126,6 +128,7 @@ class LaneState(BaseModel):
     limited_pending: PendingJob | None = None
     attempts: dict[AgentName, int] = Field(default_factory=dict)
     sessions: dict[AgentName, str] = Field(default_factory=dict)
+    deps_setup: DepsSetup | None = None
 
     workspace_path: str | None = None
     branch: str | None = None
@@ -217,6 +220,7 @@ class TaskState(BaseModel):
     job_seq: int = 0
     attempts: dict[AgentName, int] = Field(default_factory=dict)
     sessions: dict[AgentName, str] = Field(default_factory=dict)
+    deps_setup: DepsSetup | None = None
 
     limit: UsageLimit | None = None  # phase == "limited": the subscription quota ran out (D50)
     limited_pending: PendingJob | None = None  # the job to re-run on resume_after_limit

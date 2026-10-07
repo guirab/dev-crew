@@ -37,7 +37,7 @@ Escreva em `split_rationale` o porquê da decisão em 1–3 frases: por que uma 
 - `acceptance_criteria` (topo): critérios testáveis da tarefa inteira; acrescente "sem regressão na suíte existente" quando fizer sentido.
 - `test_strategy`: diga ao Tester o que cobrir (casos felizes, bordas, erros) e onde ficam os testes.
 - `risks`: só riscos reais (compatibilidade, migração, concorrência, performance). Lista vazia é válida.
-- **Projeto novo:** preencha `project_setup` com `stack` (uma linha), `setup_cmd` (instala dependências, ex.: `npm ci`), `test_cmd`, `lint_cmd` e `sandbox_image` (imagem Docker oficial adequada, ex.: `node:22` ou `python:3.12`). O dev-crew roda o `setup_cmd` antes dos agentes; os agentes nunca instalam nada.
+- **Projeto novo:** preencha `project_setup` com `stack` (uma linha), `setup_cmd` (instala dependências), `test_cmd`, `lint_cmd` e `sandbox_image` (imagem Docker oficial adequada, ex.: `node:22` ou `python:3.12`). Nesta primeira tarefa tudo roda na máquina do usuário, sem container (a imagem vale para as próximas): escolha uma stack que ele já tenha instalada e comandos que funcionem no Windows. O dev-crew roda o `setup_cmd` em cada worktree logo antes do primeiro Tester, depois que o Developer escreveu os manifestos; ainda não existe lockfile, então use `npm install` (não `npm ci`), `uv sync`, `pip install -e .[dev]` etc. Os agentes nunca instalam nada.
 - Respeite `fora de escopo` e `restrições`. Dependência nova em repositório existente vai nos riscos, nunca como passo.
 
 Se o `submit_plan` recusar o plano (ciclo, arquivo compartilhado entre épicos paralelos, campo faltando), corrija exatamente o que foi apontado e envie de novo.

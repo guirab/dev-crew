@@ -149,10 +149,15 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
     ]
     if spec.writes_files and job.workspace_path:
         lines.append(f"- Worktree (seu diretório de trabalho): {job.workspace_path}")
-    if job.repo.new_project:
+    if job.repo.new_project and job.agent in ("interviewer", "planner"):
         lines.append(
             "- Projeto novo: o repositório acabou de ser criado e está vazio. Defina a stack e os comandos "
             "em `project_setup`; se dividir em épicos, comece por E0 (fundação)."
+        )
+    elif job.repo.new_project and job.agent == "developer":
+        lines.append(
+            "- Projeto novo: declare toda dependência no manifesto (package.json, pyproject.toml...). Você "
+            "não instala nada: o dev-crew roda o comando de setup do plano antes do Tester."
         )
     if job.epic_id:
         lines.append(f"- Você trabalha no épico {job.epic_id}: faça só o que o plano atribui a ele.")

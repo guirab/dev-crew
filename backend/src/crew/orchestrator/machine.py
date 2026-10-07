@@ -65,6 +65,8 @@ from .effects import (
     PublishView,
     Reject,
     RemoveEpicWorkspace,
+    RunSetup,
+    SaveProjectSetup,
     WritePlanDoc,
 )
 from .events import (
@@ -77,11 +79,20 @@ from .events import (
     EpicWorkspaceReady,
     Event,
     ReportBuilt,
+    SetupFinished,
     StartParams,
     WorkspaceFailed,
     WorkspaceReady,
 )
-from .state import MAX_STAGE_LOGS, EscalationKind, EscalationState, LaneState, PendingJob, TaskState
+from .state import (
+    MAX_STAGE_LOGS,
+    DepsSetup,
+    EscalationKind,
+    EscalationState,
+    LaneState,
+    PendingJob,
+    TaskState,
+)
 
 # --- rejection messages (pt-BR, shown to the user) -------------------------------------------------
 # Conflicts (state does not allow the command) map to HTTP 409; the rest are validation errors (422).
@@ -136,6 +147,8 @@ def decide(state: TaskState | None, event: Event) -> tuple[TaskState | None, lis
             return _on_io_event(state, event)
         case EpicWorkspaceReady() | EpicWorkspaceFailed() | EpicMerged():
             return _on_epic_event(state, event)
+        case SetupFinished():
+            return _on_setup(state, event)
 
 
 def recovery_effects(state: TaskState) -> list[Effect]:
@@ -151,9 +164,11 @@ def recovery_effects(state: TaskState) -> list[Effect]:
     if state.workspace_path:
         for lane in state.lanes.values():
             if lane.status == "preparing":
-                effects.append(
-                    CreateEpicWorkspace(state.task_id, state.repo.name, lane.id, state.workspace_path)
-                )
+                effects.append(_epic_workspace_effect(state, lane.id))
+        pipes: list[Pipe] = [state, *state.lanes.values()]
+        for pipe in pipes:
+            if pipe.deps_setup == "running":
+                effects.append(_setup_effect(state, pipe))
         if state.merging is not None:
             integration = state.lanes.get(_integration_id(state.merging))
             if integration is None or integration.status == "merged":
@@ -496,9 +511,11 @@ def _approve(
     if plan.execution == "epics" and plan.epics:
         return _approve_split(state, s, plan, cmd.epics, at)
     _set(s, "approval", "done", "Plano aprovado", at)
+    project = _adopt_project_setup(s)
+    s.deps_setup = _deps_setup_for_new_pipe(s)
     doc = [_plan_doc_effect(s, commit=False)] if s.workspace_path else []
     effects = _advance(s, at, "developer", edge="ap-dv", now="Implementando o plano")
-    return _commit(s, *doc, *effects)
+    return _commit(s, *project, *doc, *effects)
 
 
 def _adjust(
@@ -586,6 +603,8 @@ def _escalation_action(
     if cmd.action == "replan" and esc.stage == "interviewer":
         return _reject(state, ERR_REPLAN_UNAVAILABLE)
 
+    if esc.kind == "setup" and cmd.action != "replan":
+        return _commit(s, *_retry_setup(s, p, at))
     if lane is not None and esc.kind in ("workspace", "merge"):
         return _commit(s, *_retry_lane_io(s, lane, at))
     if cmd.action == "replan":
@@ -764,19 +783,21 @@ def _approve_split(
     if not chosen:
         return _reject(state, ERR_NO_EPICS)
     s.chosen = [i for i in ids if i in chosen]
+    project = _adopt_project_setup(s)
     s.lanes = {
         e.id: LaneState(
             id=e.id,
             title=e.title,
             status="waiting" if e.id in chosen else "pending",
             limits=s.limits.model_copy(),
+            deps_setup=_deps_setup_for_new_pipe(s),
         )
         for e in plan.epics
     }
     _set(s, "approval", "done", f"Plano aprovado · {len(chosen)} de {len(ids)} épicos agora", at)
     _settle_edge(s)
     s.phase = "executing"
-    return _commit(s, _plan_doc_effect(s, commit=True), *_schedule(s, at))
+    return _commit(s, *project, _plan_doc_effect(s, commit=True), *_schedule(s, at))
 
 
 def _schedule(s: TaskState, at: datetime) -> list[Effect]:
@@ -789,7 +810,7 @@ def _schedule(s: TaskState, at: datetime) -> list[Effect]:
         lane = s.lanes[epic_id]
         lane.status = "preparing"
         _log(lane, "developer", "Preparando o worktree do épico", at)
-        effects.append(CreateEpicWorkspace(s.task_id, s.repo.name, epic_id, s.workspace_path))
+        effects.append(_epic_workspace_effect(s, epic_id))
     s.phase = _split_phase(s)
     return effects
 
@@ -985,6 +1006,7 @@ def _start_integration(
             merge_of=epic_lane.id,
             workspace_path=s.workspace_path,
             branch=s.branch,
+            deps_setup=_deps_setup_for_new_pipe(s),
         )
         s.lanes[lane_id] = integration
     files = ", ".join(conflicts[:10])
@@ -1018,12 +1040,97 @@ def _retry_lane_io(s: TaskState, lane: LaneState, at: datetime) -> list[Effect]:
         lane.status = "preparing"
         _log(lane, "developer", "Tentando preparar o worktree de novo", at)
         s.phase = _split_phase(s)
-        return [CreateEpicWorkspace(s.task_id, s.repo.name, lane.id, s.workspace_path)]
+        return [_epic_workspace_effect(s, lane.id)]
     lane.status = "merging"
     _log(lane, "reviewer", "Tentando o merge de novo", at)
     s.merge_queue.insert(0, lane.id)
     s.phase = _split_phase(s)
     return _pump_merges(s)
+
+
+# ============================================================ new project (D58)
+
+
+def _deps_cmd(s: TaskState) -> str | None:
+    """The setup command of a new project, decided by the approved plan (``None``: nothing to install)."""
+    setup = s.plan.project_setup if s.plan is not None else None
+    if not s.repo.new_project or setup is None:
+        return None
+    return setup.setup_cmd or None
+
+
+def _deps_setup_for_new_pipe(s: TaskState) -> DepsSetup | None:
+    """A new project installs its dependencies in each worktree before the first Tester: before that the
+    manifests (package.json, pyproject.toml...) may not exist yet, E0 writes them."""
+    return "pending" if _deps_cmd(s) else None
+
+
+def _adopt_project_setup(s: TaskState) -> list[Effect]:
+    """Approved plan of a new project: its commands become the task's and go to the project registry.
+
+    The task keeps running on the host (no sandbox) even if the plan names an image: the container is
+    for the next tasks, once the project has its manifests.
+    """
+    setup = s.plan.project_setup if s.plan is not None else None
+    if not s.repo.new_project or setup is None:
+        return []
+    s.repo = s.repo.model_copy(update={"test_cmd": setup.test_cmd, "lint_cmd": setup.lint_cmd or None})
+    return [SaveProjectSetup(s.task_id, s.repo.name, setup)]
+
+
+def _epic_workspace_effect(s: TaskState, epic_id: str) -> CreateEpicWorkspace:
+    assert s.workspace_path is not None
+    return CreateEpicWorkspace(
+        s.task_id, s.repo.name, epic_id, s.workspace_path, prepare=not s.repo.new_project
+    )
+
+
+def _setup_effect(s: TaskState, p: Pipe) -> RunSetup:
+    lane = _lane(p)
+    path = lane.workspace_path if lane is not None else s.workspace_path
+    command = _deps_cmd(s)
+    assert path is not None and command is not None
+    return RunSetup(s.task_id, lane.id if lane is not None else None, path, command)
+
+
+def _run_setup(s: TaskState, p: Pipe, at: datetime) -> list[Effect]:
+    """Between the Developer and the first Tester of a pipe: install the dependencies."""
+    effect = _setup_effect(s, p)
+    p.deps_setup = "running"
+    _go(p, "dv-ts", "tester")
+    _set(p, "tester", "active", f"Instalando dependências: {effect.command}"[:160], at)
+    lane = _lane(p)
+    if lane is not None:
+        lane.status = "running"
+        s.phase = _split_phase(s)
+    else:
+        s.phase = "testing"
+    return [effect]
+
+
+def _retry_setup(s: TaskState, p: Pipe, at: datetime) -> list[Effect]:
+    p.escalation = None
+    p.stages["tester"].status = "idle"
+    _log(p, "tester", "Tentando instalar as dependências de novo", at)
+    return _run_setup(s, p, at)
+
+
+def _on_setup(state: TaskState | None, ev: SetupFinished) -> tuple[TaskState | None, list[Effect]]:
+    if state is None or state.terminal or state.task_id != ev.task_id:
+        return _stale(state, ev.task_id, "SetupFinished")
+    s = _copy(state)
+    p: Pipe | None = s if ev.epic_id is None else s.lanes.get(ev.epic_id)
+    if p is None or p.deps_setup != "running":
+        return _stale(state, ev.task_id, "SetupFinished")
+    if ev.error is None:
+        p.deps_setup = "done"
+        _log(p, "tester", "Dependências instaladas", ev.at)
+        now = "Escrevendo testes" if not p.test_runs else "Rodando a suíte de novo"
+        return _commit(s, *_advance(s, ev.at, "tester", edge=None, now=now, p=p))
+    p.deps_setup = "pending"
+    reason = f"Falha ao instalar as dependências: {ev.error}"
+    _escalate(s, ev.at, "setup", "tester", reason, now=reason[:160], p=p)
+    return _commit(s)
 
 
 # ============================================================ io events (workspace / report)
@@ -1243,6 +1350,8 @@ def _developer_result(
     p.dev_rounds.append(dev.model_copy(update={"round": p.dev_round}))
     where = "no worktree do épico" if _lane(p) is not None else "no repo local · sem commit"
     _set(p, "developer", "done", f"Rodada {p.dev_round} salva {where}", at)
+    if p.deps_setup == "pending" and _deps_cmd(s):
+        return _commit(s, *_run_setup(s, p, at))
     now = "Escrevendo testes" if not p.test_runs else "Rodando a suíte de novo"
     effects = _advance(s, at, "tester", edge="dv-ts", now=now, p=p)
     return _commit(s, *effects)

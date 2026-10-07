@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from ..contracts import AgentJob, AgentName
+from ..contracts import AgentJob, AgentName, ProjectSetup
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,29 @@ class CreateEpicWorkspace:
     repo: str
     epic_id: str
     task_path: str
+    prepare: bool = True  # False in a new project: nothing to install before E0 writes the manifests
+
+
+@dataclass(frozen=True)
+class RunSetup:
+    """New project (D58): install the dependencies in a pipe's worktree before its first Tester.
+
+    Answers ``SetupFinished``. ``epic_id`` is the lane, ``None`` the task itself.
+    """
+
+    task_id: str
+    epic_id: str | None
+    path: str
+    command: str
+
+
+@dataclass(frozen=True)
+class SaveProjectSetup:
+    """New project (D58): the approved plan decided the commands; save them in the project registry."""
+
+    task_id: str
+    repo: str
+    setup: ProjectSetup
 
 
 @dataclass(frozen=True)
@@ -130,4 +153,6 @@ Effect = (
     | MergeEpic
     | FinishMerge
     | RemoveEpicWorkspace
+    | RunSetup
+    | SaveProjectSetup
 )

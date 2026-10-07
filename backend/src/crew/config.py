@@ -51,8 +51,9 @@ class GatewayCfg(_Section):
 class WorkspaceCfg(_Section):
     root: Path = Field(default_factory=lambda: crew_home() / "worktrees")
     mode: Literal["worktree", "inplace"] = "worktree"
+    projects_dir: Path = Field(default_factory=lambda: Path.home() / "Documents")  # new projects (D58)
 
-    @field_validator("root")
+    @field_validator("root", "projects_dir")
     @classmethod
     def _expand(cls, v: Path) -> Path:
         return v.expanduser()
@@ -92,6 +93,7 @@ class RepoCfg(_Section):
     setup_cmd: str | None = None  # run by dev-crew (never the agents) before the first agent
     sandbox_image: str | None = None  # Docker image: agent commands run in a per-task container
     deps_dirs: list[str] = Field(default_factory=list)  # kept in Docker volumes, e.g. node_modules
+    new_project: bool = False  # created by dev-crew, commands still undecided (D58): the Planner sets them
 
     @field_validator("path")
     @classmethod
@@ -165,6 +167,7 @@ class CrewConfig(_Section):
             test_globs=list(r.test_globs),
             commit_language=self.commit.language,
             sandbox=r.sandbox_image is not None,
+            new_project=r.new_project,
         )
 
     def repo_infos(self) -> list[RepoInfo]:

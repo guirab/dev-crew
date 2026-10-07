@@ -241,6 +241,16 @@ class WorkspaceManager:
                 await self._commit(ws.path, "commit", "-q", "-m", f"docs: plano {task_id}", "--", rel)
         return rel
 
+    async def init_repo(self, path: Path, files: dict[str, str], base_branch: str = "main") -> None:
+        """New project from scratch (D58): ``git init`` + first commit with ``files``.
+
+        ``path`` must not exist yet, or be an empty folder: dev-crew never adopts someone's files here.
+        """
+        await asyncio.to_thread(_new_folder, path, files)
+        await git.run(path, "init", "-q", "-b", base_branch)
+        await git.run(path, "add", "-A")
+        await self._commit(path, "commit", "-q", "-m", "chore: início do projeto")
+
     async def _commit(self, path: Path, *args: str) -> None:
         res = await self._git_as_user(path, *args)
         if res.returncode != 0:
@@ -323,6 +333,14 @@ def _layout(path: Path, common: Path, git_dir: Path, autocrlf: str | None) -> sa
         git_dir=Path(os.path.normpath(git_dir)),
         autocrlf=autocrlf,
     )
+
+
+def _new_folder(path: Path, files: dict[str, str]) -> None:
+    if path.exists() and (not path.is_dir() or any(path.iterdir())):
+        raise WorkspaceError(f"a pasta {path} já existe e não está vazia")
+    path.mkdir(parents=True, exist_ok=True)
+    for rel, text in files.items():
+        (path / rel).write_text(text, encoding="utf-8", newline="\n")
 
 
 async def run_host_setup(path: Path, command: str) -> None:

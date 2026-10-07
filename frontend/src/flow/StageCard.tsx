@@ -4,6 +4,7 @@ import type { StageKey, StageStatus } from '../contracts/aliases'
 import type { Counters } from '../contracts/generated'
 import { cx } from '../lib/cx'
 import { STAGE_META, stageIcon, stageTag } from './stages'
+import type { StageMeta } from './stages'
 import styles from './StageCard.module.css'
 
 interface StageCardProps {
@@ -18,6 +19,8 @@ interface StageCardProps {
   panelId?: string
   /** Id do card no DOM (padrão `stage-<key>`); faixas de épico usam um prefixo próprio. */
   domId?: string
+  /** Título/ícone próprios de um card que não é um estágio (ex.: origem "Novo projeto"). */
+  meta?: StageMeta
   /** Conteúdo exibido só quando aberto. Sem `children`, o card é só o header. */
   children?: ReactNode
 }
@@ -32,18 +35,19 @@ export function StageCard({
   onToggle,
   panelId,
   domId,
+  meta: metaOverride,
   children,
 }: StageCardProps) {
   const generatedId = useId()
   const bodyId = panelId ?? generatedId
-  const meta = STAGE_META[stageKey]
+  const meta = metaOverride ?? STAGE_META[stageKey]
   const tag = stageTag(stageKey, status, counters)
 
   return (
     <div
       className={cx(styles.card, styles[status], open && styles.open)}
       id={domId ?? `stage-${stageKey}`}
-      data-stage={stageKey}
+      data-stage={metaOverride ? undefined : stageKey}
       data-status={status}
     >
       <button
@@ -54,7 +58,7 @@ export function StageCard({
         onClick={onToggle}
       >
         <span className={styles.ic} aria-hidden="true">
-          {stageIcon(stageKey, status)}
+          {metaOverride ? metaOverride.icon : stageIcon(stageKey, status)}
         </span>
         <span className={styles.txt}>
           <span className={styles.tt}>{meta.title}</span>

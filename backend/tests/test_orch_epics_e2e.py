@@ -34,6 +34,10 @@ async def epic_rig(nats_url: str, tmp_path: Path) -> Rig:
 async def to_plan(rig: Rig, title: str) -> c.TaskView:
     """Answer every interview round with the recommendations until the plan is waiting for approval."""
     await rig.ok(c.StartTask(repo="sample-repo", title=title, description="dividir em épicos"))
+    return await answer_until_plan(rig)
+
+
+async def answer_until_plan(rig: Rig) -> c.TaskView:
     answered = 0
     while True:
         seen = len(rig.views)

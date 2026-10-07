@@ -2,10 +2,11 @@ import { useId } from 'react'
 import type { TaskView } from '../contracts/generated'
 import { useRepoChoice } from '../bodies/RepoSelect'
 import { ManualForm } from '../bodies/ManualForm'
+import { NewProjectForm } from '../bodies/NewProjectForm'
 import b from '../bodies/body.module.css'
 import { cx } from '../lib/cx'
 import { StageCard } from './StageCard'
-import { stageDescription } from './stages'
+import { NEW_PROJECT_META, stageDescription } from './stages'
 import styles from './SourcePicker.module.css'
 
 function TaskSummary({ view }: { view: TaskView }) {
@@ -23,7 +24,7 @@ function TaskSummary({ view }: { view: TaskView }) {
   )
 }
 
-export type SourceKey = 'manual'
+export type SourceKey = 'manual' | 'project'
 
 interface SourcePickerProps {
   view: TaskView | null
@@ -32,8 +33,8 @@ interface SourcePickerProps {
 }
 
 /**
- * Card Manual + painel do formulário. Com tarefa ativa vira modo leitura
- * (uma tarefa por vez): mostra o resumo, sem formulário.
+ * Cards de origem (Manual, Novo projeto) + painel do formulário. Com tarefa ativa só o Manual
+ * fica, em modo leitura (uma tarefa por vez): mostra o resumo, sem formulário.
  */
 export function SourcePicker({ view, open, onOpenChange }: SourcePickerProps) {
   const panelId = useId()
@@ -45,27 +46,41 @@ export function SourcePicker({ view, open, onOpenChange }: SourcePickerProps) {
   return (
     <>
       <div className={styles.row}>
-        {(['manual'] as const).map((source) => {
-          const stage = view?.stages[source] ?? null
-          return (
-            <StageCard
-              key={source}
-              stageKey={source}
-              status={stage?.status ?? 'pick'}
-              description={stageDescription(source, stage)}
-              open={open === source}
-              panelId={panelId}
-              onToggle={() => {
-                onOpenChange(open === source ? null : source)
-              }}
-            />
-          )
-        })}
+        <StageCard
+          stageKey="manual"
+          status={view?.stages.manual.status ?? 'pick'}
+          description={stageDescription('manual', view?.stages.manual ?? null)}
+          open={open === 'manual'}
+          panelId={panelId}
+          onToggle={() => {
+            onOpenChange(open === 'manual' ? null : 'manual')
+          }}
+        />
+        {!view && (
+          <StageCard
+            stageKey="manual"
+            meta={NEW_PROJECT_META}
+            domId="source-project"
+            status="pick"
+            description={NEW_PROJECT_META.desc}
+            open={open === 'project'}
+            panelId={panelId}
+            onToggle={() => {
+              onOpenChange(open === 'project' ? null : 'project')
+            }}
+          />
+        )}
       </div>
       {open && (
-        <section id={panelId} className={styles.panel} aria-label={`Origem: ${open}`}>
+        <section
+          id={panelId}
+          className={styles.panel}
+          aria-label={open === 'project' ? 'Origem: novo projeto' : 'Origem: manual'}
+        >
           {view ? (
             <TaskSummary view={view} />
+          ) : open === 'project' ? (
+            <NewProjectForm onStarted={close} />
           ) : (
             <ManualForm repoChoice={repoChoice} onStarted={close} />
           )}

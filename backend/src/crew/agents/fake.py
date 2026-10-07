@@ -25,6 +25,7 @@ from ..contracts import (
     InterviewResult,
     Plan,
     PlanFile,
+    ProjectSetup,
     ReviewComment,
     ReviewResult,
     TaskSpec,
@@ -176,6 +177,39 @@ def _epic_plan(job: AgentJob, criteria: list[str]) -> Plan:
     )
 
 
+FAKE_PROJECT_SETUP = ProjectSetup(
+    stack="Python 3.12 + pytest (roteiro fake)",
+    setup_cmd="git --version",  # harmless and always there: the fake has nothing to install
+    test_cmd="python -m pytest -q",
+    sandbox_image="python:3.12",
+)
+
+
+def _as_new_project(plan: Plan) -> Plan:
+    """New project (D58): the setup decided by the "Planner", and E0 (foundation) first in a split."""
+    if plan.execution != "epics":
+        steps = ["Fundação: estrutura, pyproject e um teste trivial", *plan.steps]
+        return plan.model_copy(update={"steps": steps, "project_setup": FAKE_PROJECT_SETUP})
+    e0 = Epic(
+        id="E0",
+        title="Fundação",
+        goal="Estrutura do projeto, dependências e comandos de teste funcionando.",
+        steps=["Criar pyproject e pastas", "Um teste trivial passando"],
+        files=[PlanFile(path="pyproject.toml", change="A")],
+        acceptance_criteria=["`python -m pytest -q` roda e passa"],
+        size="S",
+    )
+    epics = [e0] + [e.model_copy(update={"depends_on": e.depends_on or ["E0"]}) for e in plan.epics]
+    return plan.model_copy(
+        update={
+            "epics": epics,
+            "files": [f for e in epics for f in e.files],
+            "steps": ["E0 primeiro", *plan.steps],
+            "project_setup": FAKE_PROJECT_SETUP,
+        }
+    )
+
+
 def _epic_of(job: AgentJob) -> Epic | None:
     if job.plan is None or job.epic_id is None:
         return None
@@ -279,8 +313,12 @@ class ScriptedRunner:
         criteria = [*job.spec.acceptance_criteria, "Sem regressão na suíte existente"]
         if not job.spec.acceptance_criteria:
             criteria.insert(0, job.spec.title)
-        if _mentions(job, EPIC_KEYWORDS):
-            return _epic_plan(job, criteria)
+        plan = (
+            _epic_plan(job, criteria) if _mentions(job, EPIC_KEYWORDS) else self._single_plan(job, criteria)
+        )
+        return _as_new_project(plan) if job.repo.new_project else plan
+
+    def _single_plan(self, job: AgentJob, criteria: list[str]) -> Plan:
         return Plan(
             summary=(
                 f'Implementar "{job.spec.title}" seguindo os padrões do repo, '

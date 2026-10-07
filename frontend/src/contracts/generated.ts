@@ -143,7 +143,7 @@ export interface FinishTask {
 export interface CreateProject {
   type: "create_project";
   name: string;
-  parent_dir: string;
+  parent_dir?: string;
   title: string;
   description?: string;
 }

@@ -35,6 +35,13 @@ export const STAGE_META: Record<StageKey, StageMeta> = {
   },
 }
 
+/** Segunda origem (D58): não é um estágio do fluxo, só abre o formulário de projeto novo. */
+export const NEW_PROJECT_META: StageMeta = {
+  title: 'Novo projeto',
+  desc: 'Do zero: pasta, git, stack e plano',
+  icon: '+',
+}
+
 export const STATUS_TAG: Record<StageStatus, string> = {
   idle: '',
   pick: '',

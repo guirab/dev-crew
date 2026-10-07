@@ -267,3 +267,16 @@
   border-radius: 6px;
   padding: 1px 5px;
 }
+
+/* dois campos lado a lado; empilham no celular */
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+
+@media (max-width: 640px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}

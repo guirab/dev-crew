@@ -108,6 +108,16 @@ class EpicMerged:
     error: str | None = None
 
 
+@dataclass(frozen=True)
+class SetupFinished:
+    """Outcome of ``RunSetup``: ``error`` is ``None`` when the dependencies are installed."""
+
+    task_id: str
+    epic_id: str | None
+    at: datetime
+    error: str | None = None
+
+
 Event = (
     CommandReceived
     | AgentResult
@@ -119,4 +129,5 @@ Event = (
     | EpicWorkspaceReady
     | EpicWorkspaceFailed
     | EpicMerged
+    | SetupFinished
 )

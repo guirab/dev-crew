@@ -69,7 +69,7 @@ class CreateProject(Contract):
 
     type: Literal["create_project"] = "create_project"
     name: str
-    parent_dir: str
+    parent_dir: str = ""  # empty: [workspace].projects_dir (default ~/Documents)
     title: str
     description: str = ""
 

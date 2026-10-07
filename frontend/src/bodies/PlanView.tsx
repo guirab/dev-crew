@@ -81,6 +81,10 @@ export function PlanView({
               <li>container: {plan.project_setup.sandbox_image}</li>
             )}
           </ul>
+          <p className={b.muted} style={{ margin: '6px 0 0' }}>
+            Esta tarefa roda na sua máquina; o setup instala as dependências antes do primeiro
+            Tester de cada épico. O container vale a partir da próxima tarefa.
+          </p>
         </div>
       )}
       <div className={b.sec}>

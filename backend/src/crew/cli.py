@@ -71,6 +71,7 @@ def _run_stack(
     no_frontend: bool,
     log_level: str,
 ) -> None:
+    from . import projects
     from .config import ConfigError, load_config, load_secrets, log_dir
     from .logging import configure_logging
     from .stack import StackError, StackOptions, run_stack
@@ -78,6 +79,7 @@ def _run_stack(
     configure_logging(log_level, log_file=log_dir() / "crew.log")
     try:
         cfg = load_config(config)
+        projects.merge_registered(cfg)  # projects created by dev-crew (D58)
         if port is not None:
             cfg = cfg.model_copy(update={"gateway": cfg.gateway.model_copy(update={"port": port})})
         opts = StackOptions(
@@ -200,12 +202,13 @@ def cleanup(
     force: bool = typer.Option(False, "--force", help="Remove mesmo com mudanças não commitadas"),
 ) -> None:
     """Remove o worktree (e a branch crew/<task>) de uma tarefa, e o container do sandbox."""
-    from . import sandbox
+    from . import projects, sandbox
     from .config import ConfigError, load_config
     from .workspace.manager import WorkspaceError, WorkspaceManager
 
     try:
         cfg = load_config(config)
+        projects.merge_registered(cfg)
         manager = WorkspaceManager(cfg.workspace.root, cfg.workspace.mode)
         found = manager.find(task_id)
         if not found:
