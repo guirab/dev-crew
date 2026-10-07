@@ -15,15 +15,9 @@ class Status(StrEnum):
     STARTING = "starting"
     RUNNING = "running"
     ERROR = "error"
-    STOPPED = "stopped"  # Docker and the crew are down, the tray stays up
 
 
-DOT = {
-    Status.STARTING: "#f4b544",
-    Status.RUNNING: "#2bee86",
-    Status.ERROR: "#ff5d5d",
-    Status.STOPPED: "#6b7a73",
-}
+DOT = {Status.STARTING: "#f4b544", Status.RUNNING: "#2bee86", Status.ERROR: "#ff5d5d"}
 ICO_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 SUPERSAMPLE = 4
 
