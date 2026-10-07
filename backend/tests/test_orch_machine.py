@@ -787,7 +787,10 @@ def test_recovery_for_create_workspace_and_report() -> None:
     d2 = Driver()
     d2.to_reviewing()
     d2.result(review_ok())
-    assert recovery_effects(d2.s) == [BuildFinalReport("T-107", "sample-repo", "/wt/T-107")]
+    (report,) = recovery_effects(d2.s)
+    assert isinstance(report, BuildFinalReport)
+    assert (report.task_id, report.repo, report.workspace_path) == ("T-107", "sample-repo", "/wt/T-107")
+    assert report.plan_doc is not None and not report.commit_doc  # single execution: doc left as a change
     d3 = Driver()
     d3.to_developing()
     assert recovery_effects(d3.s) == []

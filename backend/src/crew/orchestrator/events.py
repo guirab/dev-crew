@@ -76,6 +76,36 @@ class ReportBuilt:
     files: list[FinalFile]
     at: datetime
     error: str | None = None
+    plan_doc: str | None = None  # where the plan doc was saved, if it was
+
+
+@dataclass(frozen=True)
+class EpicWorkspaceReady:
+    task_id: str
+    epic_id: str
+    path: str
+    branch: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class EpicWorkspaceFailed:
+    task_id: str
+    epic_id: str
+    error: str
+    at: datetime
+
+
+@dataclass(frozen=True)
+class EpicMerged:
+    """Outcome of ``MergeEpic``/``FinishMerge``: a commit, conflicted files, or an error."""
+
+    task_id: str
+    epic_id: str
+    at: datetime
+    sha: str | None = None
+    conflicts: tuple[str, ...] = ()
+    error: str | None = None
 
 
 Event = (
@@ -86,4 +116,7 @@ Event = (
     | WorkspaceReady
     | WorkspaceFailed
     | ReportBuilt
+    | EpicWorkspaceReady
+    | EpicWorkspaceFailed
+    | EpicMerged
 )

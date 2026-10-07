@@ -18,6 +18,9 @@ from ..contracts import (
     DevResult,
     EdgeKey,
     EdgeStatus,
+    Epic,
+    EpicStatus,
+    EpicView,
     Escalation,
     Estimate,
     Feedback,
@@ -25,6 +28,7 @@ from ..contracts import (
     InterviewQuestion,
     InterviewTurn,
     InterviewView,
+    LaneStages,
     LogLine,
     Plan,
     RepoContext,
@@ -43,7 +47,7 @@ from ..contracts.common import STAGES, TERMINAL_PHASES
 
 MAX_STAGE_LOGS = 50
 
-EscalationKind = Literal["test_limit", "review_limit", "agent_failed"]
+EscalationKind = Literal["test_limit", "review_limit", "agent_failed", "workspace", "merge"]
 Boot = Literal["create_workspace", "build_report"]
 """Side-effecting step in flight that is not an agent job; re-issued on restart."""
 
@@ -79,6 +83,98 @@ class EscalationState(BaseModel):
 
 def _blank_stages() -> dict[StageKey, StageState]:
     return {k: StageState() for k in STAGES}
+
+
+LANE_STAGES: tuple[StageKey, ...] = ("developer", "tester", "reviewer")
+
+
+def _lane_stages() -> dict[StageKey, StageState]:
+    return {k: StageState() for k in LANE_STAGES}
+
+
+class LaneState(BaseModel):
+    """One lane of a split plan (D53-D55): an epic in its own worktree, or the integration lane that
+    resolves the merge conflict of an epic in the task worktree.
+
+    It carries the same pipeline fields as ``TaskState`` (stages, edges, counters, job bookkeeping), so the
+    Developer → Tester → Reviewer logic of the machine runs on either.
+    """
+
+    id: str
+    kind: Literal["epic", "integration"] = "epic"
+    title: str
+    status: EpicStatus
+    limits: Limits = Field(default_factory=Limits)
+    merge_of: str | None = None  # integration lane: the epic whose merge conflicted
+
+    stages: dict[StageKey, StageState] = Field(default_factory=_lane_stages)
+    edges: dict[EdgeKey, EdgeStatus] = Field(default_factory=dict)
+    active_edge: EdgeKey | None = None
+
+    dev_round: int = 0
+    test_attempt: int = 0
+    review_round: int = 0
+    dev_rounds: list[DevResult] = Field(default_factory=list)
+    test_runs: list[TestResult] = Field(default_factory=list)
+    reviews: list[ReviewResult] = Field(default_factory=list)
+    review: ReviewResult | None = None
+    escalation: EscalationState | None = None
+
+    current_job_id: UUID | None = None
+    current_agent: AgentName | None = None
+    inflight: PendingJob | None = None
+    limited_pending: PendingJob | None = None
+    attempts: dict[AgentName, int] = Field(default_factory=dict)
+    sessions: dict[AgentName, str] = Field(default_factory=dict)
+
+    workspace_path: str | None = None
+    branch: str | None = None
+    commit_sha: str | None = None
+    commit_message: str | None = None
+    cost_usd: float = 0.0
+    tokens: int = 0
+
+    def to_view(self, epic: Epic | None) -> EpicView:
+        def stage(key: StageKey) -> StageView:
+            st = self.stages[key]
+            return StageView(status=st.status, now=st.now, logs=st.logs[-MAX_STAGE_LOGS:])
+
+        escalation = (
+            Escalation(stage=self.escalation.stage, reason=self.escalation.reason, epic_id=self.id)
+            if self.status == "escalated" and self.escalation is not None
+            else None
+        )
+        return EpicView(
+            id=self.id,
+            kind=self.kind,
+            title=self.title,
+            goal=epic.goal if epic else "",
+            size=epic.size if epic else "M",
+            depends_on=list(epic.depends_on) if epic else [],
+            status=self.status,
+            stages=LaneStages(
+                developer=stage("developer"), tester=stage("tester"), reviewer=stage("reviewer")
+            ),
+            edges=dict(self.edges),
+            active_edge=self.active_edge,
+            counters=Counters(
+                dev_round=self.dev_round,
+                test_attempt=self.test_attempt,
+                max_test_attempts=self.limits.max_test_attempts,
+                review_round=self.review_round,
+                max_review_rounds=self.limits.max_review_rounds,
+            ),
+            dev_rounds=list(self.dev_rounds),
+            test_runs=list(self.test_runs),
+            review=self.review,
+            escalation=escalation,
+            branch=self.branch,
+            worktree_path=self.workspace_path,
+            commit=self.commit_sha,
+            commit_message=self.commit_message,
+            cost_usd=round(self.cost_usd, 6),
+            tokens=self.tokens,
+        )
 
 
 class TaskState(BaseModel):
@@ -125,6 +221,13 @@ class TaskState(BaseModel):
     limit: UsageLimit | None = None  # phase == "limited": the subscription quota ran out (D50)
     limited_pending: PendingJob | None = None  # the job to re-run on resume_after_limit
 
+    # split plan (D53-D57)
+    lanes: dict[str, LaneState] = Field(default_factory=dict)  # epics in plan order, then integration lanes
+    chosen: list[str] = Field(default_factory=list)  # epics the user asked to run
+    merge_queue: list[str] = Field(default_factory=list)  # approved epics waiting for their merge
+    merging: str | None = None  # epic being merged (one at a time: the task worktree is shared)
+    plan_doc: str | None = None  # docs/plano/T-n.md
+
     started_at: datetime
     ended_at: datetime | None = None
     cost_usd: float = 0.0
@@ -133,6 +236,15 @@ class TaskState(BaseModel):
     @property
     def terminal(self) -> bool:
         return self.phase in TERMINAL_PHASES
+
+    @property
+    def split(self) -> bool:
+        return bool(self.lanes)
+
+    def epic(self, epic_id: str) -> Epic | None:
+        if self.plan is None:
+            return None
+        return next((e for e in self.plan.epics if e.id == epic_id), None)
 
     def to_view(self) -> TaskView:
         stages = Stages.model_validate(
@@ -151,6 +263,9 @@ class TaskState(BaseModel):
             if self.phase == "escalated" and self.escalation is not None
             else None
         )
+        lanes = [lane.to_view(self.epic(lane.id)) for lane in self.lanes.values()]
+        if escalation is None and self.phase == "escalated":
+            escalation = next((v.escalation for v in lanes if v.escalation is not None), None)
         return TaskView(
             task_id=self.task_id,
             title=self.title,
@@ -180,4 +295,5 @@ class TaskState(BaseModel):
             tokens=self.tokens,
             limit=self.limit if self.phase == "limited" else None,
             estimate=self.estimate,
+            epics=lanes,
         )

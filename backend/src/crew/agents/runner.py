@@ -73,6 +73,26 @@ SUBPROCESS_ENV = {
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",  # no telemetry/auto-update from the worker
 }
 CLI_PATH_ENV = "CREW_CLAUDE_CLI"
+SESSION_START_GAP_S = 4.0
+"""Parallel lanes start CLI sessions at the same time; when the OAuth token needs a refresh they race for
+it and all but one fail. Sessions of this process start at least this far apart."""
+
+
+class _StartGate:
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._last = 0.0
+
+    async def wait(self, gap: float) -> None:
+        async with self._lock:
+            loop = asyncio.get_running_loop()
+            delay = self._last + gap - loop.time()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            self._last = loop.time()
+
+
+_START_GATE = _StartGate()
 
 
 @dataclass(frozen=True)
@@ -239,11 +259,13 @@ class SdkRunner:
         client_factory: ClientFactory = default_client_factory,
         cli_path: str | None = None,
         stall_timeout_s: float = STALL_TIMEOUT_S,
+        start_gap_s: float = SESSION_START_GAP_S,
     ) -> None:
         self.settings = settings
         self._client_factory = client_factory
         self._cli_path = cli_path or os.environ.get(CLI_PATH_ENV) or None
         self._stall_timeout_s = stall_timeout_s
+        self._start_gap_s = start_gap_s
 
     async def run(self, job: AgentJob, emit: ProgressSink) -> RunOutcome:
         spec = SPECS[job.agent]
@@ -280,6 +302,7 @@ class SdkRunner:
         client = self._client_factory(options)
         state = _State()
         try:
+            await _START_GATE.wait(self._start_gap_s)
             await client.connect()
             await self._turn(
                 client,

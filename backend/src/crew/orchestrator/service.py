@@ -21,6 +21,7 @@ import structlog
 from nats.aio.msg import Msg
 from pydantic import BaseModel, ValidationError
 
+from .. import sandbox
 from ..bus import Bus
 from ..bus import subjects as s
 from ..config import CrewConfig
@@ -37,24 +38,32 @@ from ..contracts import (
 )
 from ..estimate import agent_costs, estimate_plan, ratios
 from ..usage import UsageReader
-from ..workspace.manager import WorkspaceManager
+from ..workspace.manager import Workspace, WorkspaceManager
 from . import machine
 from .effects import (
     BuildFinalReport,
     CancelJobs,
+    CreateEpicWorkspace,
     CreateWorkspace,
     DispatchJob,
     Effect,
+    FinishMerge,
     LogStale,
+    MergeEpic,
     Persist,
     PublishView,
     Reject,
+    RemoveEpicWorkspace,
+    WritePlanDoc,
 )
 from .events import (
     AgentFailed,
     AgentProgressed,
     AgentResult,
     CommandReceived,
+    EpicMerged,
+    EpicWorkspaceFailed,
+    EpicWorkspaceReady,
     Event,
     ReportBuilt,
     StartParams,
@@ -102,6 +111,7 @@ class OrchestratorService:
         self.state: TaskState | None = None
         self._inbox: asyncio.Queue[_Item] = asyncio.Queue()
         self._bg: set[asyncio.Task[None]] = set()
+        self._git_lock = asyncio.Lock()  # worktree/commit/merge on one repo, one at a time
 
     # ================================================================= lifecycle
 
@@ -335,6 +345,16 @@ class OrchestratorService:
                 self._spawn(self._create_workspace(effect), f"create-workspace-{effect.task_id}")
             case BuildFinalReport():
                 self._spawn(self._build_report(effect), f"final-report-{effect.task_id}")
+            case WritePlanDoc():
+                self._spawn(self._write_plan_doc(effect), f"plan-doc-{effect.task_id}")
+            case CreateEpicWorkspace():
+                self._spawn(self._create_epic_workspace(effect), f"epic-workspace-{effect.epic_id}")
+            case MergeEpic():
+                self._spawn(self._merge_epic(effect), f"merge-{effect.epic_id}")
+            case FinishMerge():
+                self._spawn(self._finish_merge(effect), f"finish-merge-{effect.epic_id}")
+            case RemoveEpicWorkspace():
+                self._spawn(self._remove_epic_workspace(effect), f"remove-epic-{effect.epic_id}")
             case LogStale():
                 log.info(
                     "stale_event_ignored", task_id=effect.task_id, what=effect.what, job_id=str(effect.job_id)
@@ -367,10 +387,11 @@ class OrchestratorService:
 
     async def _cancel_jobs(self, effect: CancelJobs) -> None:
         await self.bus.publish_core(s.cancel_subject(effect.task_id))
-        if effect.agent is not None:
-            # a job that was queued but never picked up must not run later
+        # a job that was queued but never picked up must not run later (one task at a time: safe)
+        subjects = [s.job_subject(effect.agent)] if effect.agent is not None else [s.JOBS_WILDCARD]
+        for subject in subjects:
             with contextlib.suppress(Exception):
-                await self.bus.js.purge_stream(s.STREAM_JOBS, subject=s.job_subject(effect.agent))
+                await self.bus.js.purge_stream(s.STREAM_JOBS, subject=subject)
         for job in await asyncio.to_thread(self.store.jobs, effect.task_id):
             if job.status == "dispatched":
                 await asyncio.to_thread(self.store.finish_job, job.job_id, "cancelled")
@@ -401,19 +422,90 @@ class OrchestratorService:
             event = WorkspaceFailed(effect.task_id, str(e), at())
         await self._inbox.put(_Item(event))
 
+    def _task_ws(self, task_id: str, repo: str, path: str) -> Workspace:
+        return dataclasses.replace(self.workspace.locate(task_id, self.cfg.repo(repo)), path=Path(path))
+
     async def _build_report(self, effect: BuildFinalReport) -> None:
         at = self.clock
+        doc: str | None = None
         try:
-            ws = dataclasses.replace(
-                self.workspace.locate(effect.task_id, self.cfg.repo(effect.repo)),
-                path=Path(effect.workspace_path),
-            )
+            ws = self._task_ws(effect.task_id, effect.repo, effect.workspace_path)
+            if effect.plan_doc is not None:
+                try:
+                    async with self._git_lock:
+                        doc = await self.workspace.write_plan_doc(
+                            ws, effect.task_id, effect.plan_doc, commit=effect.commit_doc
+                        )
+                except Exception as e:  # the report matters more than the doc
+                    log.warning("plan_doc_failed", task_id=effect.task_id, error=str(e))
             files = await self.workspace.diff_report(ws)
-            event = ReportBuilt(effect.task_id, files, at())
+            event = ReportBuilt(effect.task_id, files, at(), plan_doc=doc)
         except Exception as e:
             log.warning("report_failed", task_id=effect.task_id, error=str(e))
-            event = ReportBuilt(effect.task_id, [], at(), error=str(e))
+            event = ReportBuilt(effect.task_id, [], at(), error=str(e), plan_doc=doc)
         await self._inbox.put(_Item(event))
+
+    async def _write_plan_doc(self, effect: WritePlanDoc) -> None:
+        try:
+            ws = self._task_ws(effect.task_id, effect.repo, effect.workspace_path)
+            async with self._git_lock:
+                await self.workspace.write_plan_doc(ws, effect.task_id, effect.markdown, commit=effect.commit)
+        except Exception as e:  # best effort: the plan is also in the task state
+            log.warning("plan_doc_failed", task_id=effect.task_id, error=str(e))
+
+    async def _create_epic_workspace(self, effect: CreateEpicWorkspace) -> None:
+        at = self.clock
+        try:
+            repo = self.cfg.repo(effect.repo)
+            task = self._task_ws(effect.task_id, effect.repo, effect.task_path)
+            async with self._git_lock:
+                ws = await self.workspace.create_epic(task, effect.epic_id)
+            await self.workspace.prepare(ws, repo)  # its own sandbox + setup, outside the git lock
+            event: Event = EpicWorkspaceReady(effect.task_id, effect.epic_id, str(ws.path), ws.branch, at())
+        except Exception as e:
+            log.warning("epic_workspace_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
+            event = EpicWorkspaceFailed(effect.task_id, effect.epic_id, str(e), at())
+        await self._inbox.put(_Item(event))
+
+    async def _merge_epic(self, effect: MergeEpic) -> None:
+        at = self.clock
+        try:
+            task = self._task_ws(effect.task_id, effect.repo, effect.task_path)
+            epic = self.workspace.locate_epic(task, effect.epic_id)
+            async with self._git_lock:
+                await self.workspace.commit_all(epic, effect.commit_message)
+                outcome = await self.workspace.merge(task, epic.branch, effect.merge_message)
+            event: Event = EpicMerged(
+                effect.task_id, effect.epic_id, at(), sha=outcome.sha, conflicts=outcome.conflicts
+            )
+        except Exception as e:
+            log.warning("merge_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
+            event = EpicMerged(effect.task_id, effect.epic_id, at(), error=str(e))
+        await self._inbox.put(_Item(event))
+
+    async def _finish_merge(self, effect: FinishMerge) -> None:
+        at = self.clock
+        try:
+            task = self._task_ws(effect.task_id, effect.repo, effect.task_path)
+            async with self._git_lock:
+                sha = await self.workspace.finish_merge(task, effect.message)
+            event: Event = EpicMerged(effect.task_id, effect.epic_id, at(), sha=sha)
+        except Exception as e:
+            log.warning("finish_merge_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
+            event = EpicMerged(effect.task_id, effect.epic_id, at(), error=str(e))
+        await self._inbox.put(_Item(event))
+
+    async def _remove_epic_workspace(self, effect: RemoveEpicWorkspace) -> None:
+        try:
+            repo = self.cfg.repo(effect.repo)
+            task = self._task_ws(effect.task_id, effect.repo, effect.task_path)
+            epic = self.workspace.locate_epic(task, effect.epic_id)
+            async with self._git_lock:
+                await self.workspace.remove_epic(epic)
+            if repo.sandbox_image and sandbox.docker_available():
+                await sandbox.remove(epic.task_id, repo.name, tuple(repo.deps_dirs))
+        except Exception as e:  # leftovers are cleaned by `crew cleanup`
+            log.warning("remove_epic_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
 
 
 # ===================================================================== helpers
@@ -439,5 +531,12 @@ def _loggable(event: Event) -> tuple[str | None, str]:
             return "boot_failed", json.dumps({"error": event.error})
         case ReportBuilt():
             return "report_built", json.dumps([f.model_dump() for f in event.files])
+        case EpicWorkspaceReady():
+            return "epic_workspace_ready", json.dumps({"epic": event.epic_id, "path": event.path})
+        case EpicWorkspaceFailed():
+            return "epic_workspace_failed", json.dumps({"epic": event.epic_id, "error": event.error})
+        case EpicMerged():
+            payload = {"epic": event.epic_id, "sha": event.sha, "conflicts": list(event.conflicts)}
+            return "epic_merged", json.dumps({**payload, "error": event.error})
         case AgentProgressed():
             return None, ""

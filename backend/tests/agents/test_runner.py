@@ -147,7 +147,7 @@ def harness(monkeypatch: pytest.MonkeyPatch) -> Any:
                 self.clients.append(client)
                 return client
 
-            return SdkRunner(AgentRuntimeSettings(model=model, **kw), client_factory=factory)
+            return SdkRunner(AgentRuntimeSettings(model=model, **kw), client_factory=factory, start_gap_s=0)
 
         async def emit(self, line: ProgressLine) -> None:
             self.progress.append(line)

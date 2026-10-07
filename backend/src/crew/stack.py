@@ -30,6 +30,8 @@ from .workspace.manager import WorkspaceManager
 
 log = structlog.get_logger(__name__)
 
+LANE_AGENTS: tuple[AgentName, ...] = ("developer", "tester", "reviewer")
+
 SERVICE_NAMES = ("orchestrator", "gateway")
 BACKOFF_S = (1.0, 2.0, 5.0, 10.0)
 STABLE_AFTER_S = 60.0
@@ -147,7 +149,14 @@ def agent_factories(
 
         return run
 
-    return {f"agent:{a}": make(a) for a in agents}
+    # the lane agents get a pool so parallel epics are worked on at the same time; one job per loop
+    pool = cfg.parallel.workers_per_agent
+    factories: dict[str, Callable[[], Awaitable[None]]] = {}
+    for a in agents:
+        copies = pool if a in LANE_AGENTS else 1
+        for i in range(copies):
+            factories[f"agent:{a}" if i == 0 else f"agent:{a}#{i + 1}"] = make(a)
+    return factories
 
 
 # ====================================================================== other services

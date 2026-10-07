@@ -327,6 +327,12 @@ class ScriptedRunner:
                 continue  # correction rounds touch what exists; created files are not recreated
             verb = {"A": "Criando", "M": "Editando", "D": "Removendo"}[pf.change]
             await steps.step(f"{verb} {pf.path}", 1.0)
+            if pf.path == CONFLICT_FILE and epic is not None and jail is not None:
+                # different content on each side, or git merges the two new files cleanly
+                notes = f"# Notas\n{epic.id}: {epic.title}\n"
+                (Path(jail.root) / CONFLICT_FILE).write_text(notes, encoding="utf-8")
+                changed.append(pf)
+                continue
             if jail is not None and not _apply(jail, pf, job.attempt, fb is not None):
                 continue
             changed.append(pf)

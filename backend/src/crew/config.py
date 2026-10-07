@@ -120,6 +120,12 @@ class Secrets(BaseSettings):
     anthropic_api_key: SecretStr | None = None
 
 
+class ParallelCfg(_Section):
+    """How many epics of a split plan can have an agent working at the same time (D53)."""
+
+    workers_per_agent: int = Field(default=3, ge=1, le=16)
+
+
 class CrewConfig(_Section):
     nats: NatsCfg = Field(default_factory=NatsCfg)
     gateway: GatewayCfg = Field(default_factory=GatewayCfg)
@@ -127,6 +133,7 @@ class CrewConfig(_Section):
     limits: LimitsCfg = Field(default_factory=LimitsCfg)
     models: ModelsCfg = Field(default_factory=ModelsCfg)
     commit: CommitCfg = Field(default_factory=CommitCfg)
+    parallel: ParallelCfg = Field(default_factory=ParallelCfg)
     repos: list[RepoCfg] = Field(default_factory=list)
 
     @field_validator("repos")
