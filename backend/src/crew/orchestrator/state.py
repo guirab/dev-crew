@@ -263,7 +263,13 @@ class TaskState(BaseModel):
             if self.phase == "escalated" and self.escalation is not None
             else None
         )
-        lanes = [lane.to_view(self.epic(lane.id)) for lane in self.lanes.values()]
+        # An integration lane shows right under the epic whose merge it resolves.
+        ordered = [lane for lane in self.lanes.values() if lane.merge_of is None]
+        for lane in self.lanes.values():
+            if lane.merge_of is not None:
+                near = [i for i, o in enumerate(ordered) if lane.merge_of in (o.id, o.merge_of)]
+                ordered.insert((near[-1] if near else len(ordered) - 1) + 1, lane)
+        lanes = [lane.to_view(self.epic(lane.id)) for lane in ordered]
         if escalation is None and self.phase == "escalated":
             escalation = next((v.escalation for v in lanes if v.escalation is not None), None)
         return TaskView(

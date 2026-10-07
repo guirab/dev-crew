@@ -443,8 +443,12 @@ def _consolidate(spec: TaskSpec, job: AgentJob) -> TaskSpec:
 
 
 def _commit_message(job: AgentJob) -> str:
-    steps = job.plan.steps[1:] if job.plan else []
-    lines = [commit_subject("feat", job.spec.title), ""]
+    epic = _epic_of(job)
+    if epic is not None:  # one commit per epic: say which slice it is
+        steps, title = epic.steps, epic.title
+    else:
+        steps, title = (job.plan.steps[1:] if job.plan else []), job.spec.title
+    lines = [commit_subject("feat", title), ""]
     lines += [f"- {lower_first(s)}" for s in steps]
     if job.attempt > 1:
         lines.append("- bind params na query e datas em UTC (review)")

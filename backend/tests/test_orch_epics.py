@@ -193,6 +193,8 @@ def test_conflict_runs_an_integration_lane_in_the_task_worktree() -> None:
     assert finish.epic_id == "E2" and "conflito resolvido" in finish.message
     d.merged("E2", "3333333333")
     assert d.lane("E2").status == "merged" and d.lane("M-E2").status == "merged"
+    order = [lane.id for lane in d.s.to_view().epics]
+    assert order.index("M-E2") == order.index("E2") + 1
 
 
 def test_finished_batch_with_pending_epics_waits_for_the_user() -> None:
@@ -201,6 +203,9 @@ def test_finished_batch_with_pending_epics_waits_for_the_user() -> None:
     d.pass_lane("E1")
     d.merged("E1")
     assert d.s.phase == "awaiting_selection" and not d.has(BuildFinalReport)
+    doc = d.one(WritePlanDoc)
+    row = next(line for line in doc.markdown.splitlines() if line.startswith("| E1 |"))
+    assert doc.commit and "| pronto (`" in row
 
     d.command(c.RunEpics(epics=["E3"]))
     assert d.s.phase == "executing" and d.lane("E2").status == "preparing"

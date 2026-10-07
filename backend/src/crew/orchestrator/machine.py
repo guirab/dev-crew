@@ -903,7 +903,8 @@ def _after_merge(s: TaskState, at: datetime) -> list[Effect]:
     if any(lane.status == "pending" for lane in s.lanes.values()):
         s.phase = "awaiting_selection"
         _log(s, "approval", "Épicos escolhidos prontos — escolha os próximos ou conclua", at)
-        return effects
+        # No merge in flight here, so committing the refreshed plan can't swallow a merge.
+        return [*effects, _plan_doc_effect(s, commit=True)]
     return [*effects, *_finalize_split(s, at)]
 
 
