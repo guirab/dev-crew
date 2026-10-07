@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,7 +20,7 @@ from crew.estimate import (
     ratios,
 )
 from crew.orchestrator.store import JobRow, Store, UsageSampleRow
-from crew.usage import parse_auth_status, read_cached_usage
+from crew.usage import UsageReader, parse_auth_status, read_cached_usage
 
 from .core_helpers import Driver
 
@@ -60,6 +61,79 @@ def test_bad_or_missing_cache_gives_empty_usage(tmp_path: Path, content: str) ->
     path.write_text(content)
     assert read_cached_usage(path, plan="pro") == c.AccountUsage(plan="pro")
     assert read_cached_usage(tmp_path / "missing.json") == c.AccountUsage()
+
+
+class _FakeCli:
+    """Stands in for ``claude -p /usage``: rewrites the cache the way the real CLI does."""
+
+    def __init__(self, path: Path, pct: float) -> None:
+        self.path, self.pct, self.calls = path, pct, 0
+
+    def __call__(self, exe: str) -> bool:
+        self.calls += 1
+        self.path.write_text(
+            json.dumps(
+                {
+                    "cachedUsageUtilization": {
+                        "fetchedAtMs": 1_791_204_336_470,
+                        "utilization": {
+                            "five_hour": {"utilization": self.pct},
+                            "seven_day": {"utilization": 9},
+                        },
+                    }
+                }
+            )
+        )
+        return True
+
+
+async def test_reader_measures_through_the_cli_before_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _cache(tmp_path, {"utilization": {"five_hour": {"utilization": 0}}})  # stale: days old
+    fake = _FakeCli(path, 77)
+    monkeypatch.setattr("crew.usage.refresh_cli_cache", fake)
+    reader = UsageReader(state_path=path, cli="claude")
+    reader._plan, reader._plan_at = "pro", 1e12  # plan lookup is not under test
+    u = await reader.read()
+    assert (u.session_pct, u.weekly_pct, fake.calls) == (77.0, 9.0, 1)
+
+
+async def test_reader_does_not_spawn_the_cli_again_within_the_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _cache(tmp_path, {})
+    fake = _FakeCli(path, 10)
+    monkeypatch.setattr("crew.usage.refresh_cli_cache", fake)
+    reader = UsageReader(state_path=path, cli="claude")
+    reader._plan, reader._plan_at = "pro", 1e12
+    await asyncio.gather(reader.read(), reader.read(), reader.read())  # concurrent: one CLI call
+    await reader.read()
+    assert fake.calls == 1
+    await reader.read(max_age_s=0)  # calibration wants a reading right now
+    assert fake.calls == 2
+
+
+async def test_reader_falls_back_to_the_stale_cache_when_the_cli_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _cache(tmp_path, {"utilization": {"five_hour": {"utilization": 5}}})
+    monkeypatch.setattr("crew.usage.refresh_cli_cache", lambda exe: False)
+    reader = UsageReader(state_path=path, cli="claude")
+    reader._plan, reader._plan_at = "pro", 1e12
+    assert (await reader.read()).session_pct == 5.0
+
+
+async def test_reader_without_refresh_never_runs_the_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _cache(tmp_path, {})
+    fake = _FakeCli(path, 1)
+    monkeypatch.setattr("crew.usage.refresh_cli_cache", fake)
+    reader = UsageReader(state_path=path, cli="claude", refresh=False)
+    reader._plan, reader._plan_at = "pro", 1e12
+    await reader.read()
+    assert fake.calls == 0
 
 
 def test_null_windows_are_unknown(tmp_path: Path) -> None:

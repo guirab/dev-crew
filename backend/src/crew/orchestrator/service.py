@@ -83,6 +83,7 @@ log = structlog.get_logger(__name__)
 
 COMMAND_TIMEOUT_S = 30.0
 PROGRESS_VIEW_EVERY_S = 2.0
+SAMPLE_MAX_AGE_S = 15.0  # calibration readings: close to the job that just ended, not older than this
 
 
 @dataclass
@@ -399,7 +400,7 @@ class OrchestratorService:
         """Read the account usage and keep the reading for calibration (no-op without a reader)."""
         if self.usage is None:
             return None
-        usage = await self.usage.read()
+        usage = await self.usage.read(max_age_s=SAMPLE_MAX_AGE_S)
         await asyncio.to_thread(self.store.record_usage, usage)
         return usage
 
