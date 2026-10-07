@@ -7,11 +7,16 @@ attaches to it and never stops it.
 
 ``shutdown`` ("Encerrar" in the tray) undoes only what this launch did: it stops the NATS container
 if the launcher started it, and quits Docker Desktop if the launcher opened it.
+
+``suspend`` ("Parar o Docker") frees the memory Docker holds while the tray stays up: it stops the crew,
+the NATS container and Docker Desktop (unless the user has other containers running). It refuses while a
+task is in progress. Opening the app again just runs ``start`` again.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import shutil
 import socket
@@ -29,6 +34,7 @@ from urllib.parse import urlparse
 import structlog
 
 from ..config import CrewConfig, log_dir
+from ..contracts.common import TERMINAL_PHASES
 from . import winproc
 from .icons import Status
 
@@ -105,6 +111,7 @@ class Launcher:
         self.proc: subprocess.Popen[bytes] | None = None
         self.attached = False
         self.ready = False
+        self.suspended = False  # "Parar o Docker" was used: nothing runs, the next open starts it all again
         self.opened_docker = False  # this launch opened Docker Desktop: shutdown quits it
         self.started_nats = False  # this launch started the NATS container: shutdown stops it
         self._log_file: IO[Any] | None = None
@@ -139,6 +146,7 @@ class Launcher:
             self.on_status(Status.STARTING, "iniciando os agentes…")
             self.start_backend()
             self.wait_ready()
+        self.suspended = False  # only now: a failed resume leaves "Abrir Dev Crew" enabled to try again
         self.ready = True
         self.on_status(Status.RUNNING, "pronto" if not self.opts.fake_agents else "pronto (agentes fake)")
         if self.opts.open_window:
@@ -175,6 +183,61 @@ class Launcher:
         if self.opened_docker:
             self._best_effort("docker_desktop_stop", ["docker", "desktop", "stop"], 180)
             self.opened_docker = False
+
+    def task_phase(self) -> str | None:
+        """Phase of the current task as the gateway reports it (``None``: no task, or no answer)."""
+        try:
+            with urllib.request.urlopen(f"{self.url}/api/task", timeout=3) as resp:
+                task = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+        phase = task.get("phase") if isinstance(task, dict) else None
+        return phase if isinstance(phase, str) else None
+
+    def can_suspend(self) -> bool:
+        return self.ready and not self.attached
+
+    def suspend(self) -> str:
+        """Stop the crew, NATS and (when nobody else uses it) Docker Desktop. Returns what was left running.
+
+        Raises ``LauncherError`` when it must not: a crew started outside the app, or a task in progress.
+        """
+        if self.attached:
+            raise LauncherError("O crew foi iniciado fora do app (dev-up.ps1): pare por lá.")
+        phase = self.task_phase()
+        if phase is not None and phase not in TERMINAL_PHASES:
+            raise LauncherError(
+                f"Há uma tarefa em andamento (fase {phase}). Termine ou cancele antes de parar o Docker."
+            )
+        self.stop()
+        self._best_effort("nats_stop", ["docker", "compose", "-f", str(COMPOSE_FILE), "stop"], 60)
+        self.started_nats = False
+        foreign = self.foreign_containers()
+        if foreign:
+            note = f"Docker mantido aberto: {len(foreign)} contêiner(es) seus ainda rodando"
+        else:
+            self._best_effort("docker_desktop_stop", ["docker", "desktop", "stop"], 180)
+            note = "Docker fechado"
+        self.opened_docker = False
+        self.suspended = True
+        return note
+
+    def foreign_containers(self) -> list[str]:
+        """Running containers that are neither the NATS of the crew nor a sandbox of a finished task."""
+        fmt = '{{.Names}}|{{.Label "crew.task"}}|{{.Label "com.docker.compose.project"}}'
+        try:
+            done = winproc.run_hidden(["docker", "ps", "--format", fmt], timeout=20)
+        except (OSError, subprocess.TimeoutExpired):
+            return ["?"]  # cannot tell: leave Docker Desktop alone
+        if done.returncode != 0:
+            return ["?"]
+        found = []
+        for line in done.stdout.splitlines():
+            name, _, rest = line.partition("|")
+            task, _, project = rest.partition("|")
+            if name and not task and project != COMPOSE_FILE.parent.name:
+                found.append(name)
+        return found
 
     def _best_effort(self, event: str, args: list[str], timeout: float) -> None:
         """Shutdown steps never raise: the user is quitting, a leftover container is not worth a dialog."""

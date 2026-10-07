@@ -5,12 +5,13 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from PIL import Image
 
 from crew.config import CrewConfig, GatewayCfg, RepoCfg
+from crew.contracts.common import TERMINAL_PHASES, TaskPhase
 from crew.desktop import icons, launcher, shortcut, winproc
 from crew.desktop.icons import Status
 from crew.desktop.launcher import Launcher, LauncherError, LaunchOptions
@@ -300,6 +301,162 @@ def test_shutdown_survives_docker_errors(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(winproc, "run_hidden", boom)
     lau.shutdown()
     assert not lau.opened_docker
+
+
+# ------------------------------------------------------------------------------ suspend ("Parar o Docker")
+
+
+def _run_hidden_recorder(ran: list[str], ps_stdout: str = "") -> Any:
+    def run_hidden(args: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
+        if args[1:2] == ["ps"]:
+            return subprocess.CompletedProcess(args, 0, ps_stdout, "")
+        ran.append(" ".join(args[1:2] + args[-1:]))
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    return run_hidden
+
+
+def _running_launcher(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str | None) -> Launcher:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    lau.proc = FakeProc(code=None, pid=55)  # type: ignore[assignment]
+    lau.ready = lau.started_nats = lau.opened_docker = True
+    monkeypatch.setattr(lau, "task_phase", lambda: phase)
+    monkeypatch.setattr(winproc, "kill_tree", lambda pid: setattr(lau.proc, "code", 1))
+    return lau
+
+
+@pytest.mark.parametrize("phase", [None, "done", "cancelled", "failed"])
+def test_suspend_stops_the_crew_nats_and_docker_desktop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str | None
+) -> None:
+    lau = _running_launcher(tmp_path, monkeypatch, phase)
+    ran: list[str] = []
+    monkeypatch.setattr(winproc, "run_hidden", _run_hidden_recorder(ran))
+    assert lau.suspend() == "Docker fechado"
+    assert ran == ["compose stop", "desktop stop"]
+    assert lau.suspended and not lau.ready and not lau.opened_docker and not lau.started_nats
+    assert lau.backend_exit_code() == 1  # the crew child is gone: it has no bus without the NATS
+
+
+@pytest.mark.parametrize(
+    "phase",
+    sorted(set(get_args(TaskPhase)) - TERMINAL_PHASES),  # every phase that is not over
+)
+def test_suspend_refuses_while_a_task_is_in_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    lau = _running_launcher(tmp_path, monkeypatch, phase)
+    monkeypatch.setattr(winproc, "run_hidden", lambda args, **kw: pytest.fail("nothing may be stopped"))
+    with pytest.raises(LauncherError, match=phase):
+        lau.suspend()
+    assert lau.ready and not lau.suspended and lau.backend_exit_code() is None
+
+
+def test_suspend_never_touches_an_attached_crew(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    lau = _running_launcher(tmp_path, monkeypatch, None)
+    lau.attached = True
+    assert not lau.can_suspend()
+    monkeypatch.setattr(winproc, "run_hidden", lambda args, **kw: pytest.fail("attached: hands off"))
+    with pytest.raises(LauncherError, match="dev-up"):
+        lau.suspend()
+
+
+def test_suspend_keeps_docker_desktop_when_the_user_has_other_containers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lau = _running_launcher(tmp_path, monkeypatch, "done")
+    ran: list[str] = []
+    ps = "postgres|||\ncrew-dev-crew-full-t-7|T-7|\n"  # a user's container + a sandbox of a finished task
+    monkeypatch.setattr(winproc, "run_hidden", _run_hidden_recorder(ran, ps))
+    assert lau.suspend() == "Docker mantido aberto: 1 contêiner(es) seus ainda rodando"
+    assert ran == ["compose stop"] and lau.suspended
+
+
+def test_foreign_containers_ignores_the_nats_and_the_crew_sandboxes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+    ps = "infra-nats-1||infra\ncrew-x-t-1|T-1|\nredis|||\n"
+    monkeypatch.setattr(winproc, "run_hidden", _run_hidden_recorder([], ps))
+    assert lau.foreign_containers() == ["redis"]
+
+
+def test_foreign_containers_assumes_the_worst_when_docker_does_not_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+
+    def boom(args: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(args, 1)
+
+    monkeypatch.setattr(winproc, "run_hidden", boom)
+    assert lau.foreign_containers() == ["?"]  # unknown: Docker Desktop stays open
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [(b'{"task_id":"T-1","phase":"developing"}', "developing"), (b"null", None), (b"not json", None)],
+)
+def test_task_phase_reads_the_gateway(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: bytes, expected: str | None
+) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+
+    class Resp:
+        def __enter__(self) -> Resp:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return body
+
+    monkeypatch.setattr(launcher.urllib.request, "urlopen", lambda url, timeout=0: Resp())
+    assert lau.task_phase() == expected
+
+
+def test_task_phase_is_none_when_the_gateway_is_down(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch)
+
+    def down(url: str, timeout: float = 0) -> Any:
+        raise launcher.urllib.error.URLError("down")
+
+    monkeypatch.setattr(launcher.urllib.request, "urlopen", down)
+    assert lau.task_phase() is None
+
+
+def test_start_after_a_suspend_brings_everything_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lau, _, statuses = make_launcher(tmp_path, monkeypatch, open_window=False)
+    lau.suspended = True
+    calls: list[str] = []
+    monkeypatch.setattr(lau, "gateway_ready", lambda: False)
+    monkeypatch.setattr(launcher, "port_open", lambda host, port, timeout=1.0: False)
+    monkeypatch.setattr(lau, "ensure_docker", lambda *, required: calls.append("docker"))
+    for step in ("start_nats", "init_streams", "start_backend", "wait_ready"):
+        monkeypatch.setattr(lau, step, lambda step=step: calls.append(step))
+    lau.start()
+    assert calls == ["docker", "start_nats", "init_streams", "start_backend", "wait_ready"]
+    assert lau.ready and not lau.suspended and statuses[-1][0] is Status.RUNNING
+
+
+def test_a_failed_resume_stays_suspended_so_it_can_be_tried_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lau, _, _ = make_launcher(tmp_path, monkeypatch, open_window=False)
+    lau.suspended = True
+    monkeypatch.setattr(lau, "gateway_ready", lambda: False)
+    monkeypatch.setattr(launcher, "port_open", lambda host, port, timeout=1.0: False)
+
+    def no_docker(*, required: bool) -> None:
+        raise LauncherError("Docker não encontrado.")
+
+    monkeypatch.setattr(lau, "ensure_docker", no_docker)
+    with pytest.raises(LauncherError):
+        lau.start()
+    assert lau.suspended and not lau.ready
 
 
 # ----------------------------------------------------------------------------------- tray / shortcut
