@@ -10,7 +10,7 @@ export function DeveloperBody({ view, stage }: BodyProps) {
   return (
     <>
       {view?.escalation?.stage === 'developer' && (
-        <EscalationPanel reason={view.escalation.reason} />
+        <EscalationPanel reason={view.escalation.reason} epicId={view.escalation.epic_id} />
       )}
       {rounds.length > 0 ? (
         <div className={b.sec}>

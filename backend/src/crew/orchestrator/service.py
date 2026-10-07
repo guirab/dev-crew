@@ -76,6 +76,7 @@ from .store import Store
 log = structlog.get_logger(__name__)
 
 COMMAND_TIMEOUT_S = 30.0
+PROGRESS_VIEW_EVERY_S = 2.0
 
 
 @dataclass
@@ -112,6 +113,7 @@ class OrchestratorService:
         self._inbox: asyncio.Queue[_Item] = asyncio.Queue()
         self._bg: set[asyncio.Task[None]] = set()
         self._git_lock = asyncio.Lock()  # worktree/commit/merge on one repo, one at a time
+        self._last_view_at = 0.0
 
     # ================================================================= lifecycle
 
@@ -273,6 +275,11 @@ class OrchestratorService:
         for effect in effects:
             if not isinstance(effect, Persist):
                 await self._run_effect(effect)
+        if isinstance(event, AgentProgressed) and new_state is not None and new_state.split:
+            # lanes have no live progress stream of their own in the UI: refresh their view, throttled
+            now = asyncio.get_running_loop().time()
+            if now - self._last_view_at >= PROGRESS_VIEW_EVERY_S:
+                await self._publish_view()
         return reply
 
     def _prepare(self, event: Event) -> Event:
@@ -363,6 +370,7 @@ class OrchestratorService:
     async def _publish_view(self) -> None:
         if self.state is None:
             return
+        self._last_view_at = asyncio.get_running_loop().time()
         await self.bus.publish_event(self.state.task_id, "view", self.state.to_view(), source="orchestrator")
 
     async def _dispatch(self, effect: DispatchJob) -> None:

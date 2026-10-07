@@ -110,9 +110,7 @@ describe('EstimateBox', () => {
     )
     expect(screen.getAllByText('—')).toHaveLength(2)
     expect(screen.getByText('sem calibração')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Uso agora \(plano pro\): sessão 10% · semana 14%/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Uso agora \(plano pro\): sessão 10% · semana 14%/)).toBeInTheDocument()
   })
 
   it('avisa quando o plano atravessa mais de uma sessão de 5 h', () => {

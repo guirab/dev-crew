@@ -3,6 +3,7 @@ import type { StageKey } from '../contracts/aliases'
 import type { TaskView } from '../contracts/generated'
 import { useCrewStore } from '../store/crew'
 import { Connector } from './Connector'
+import { EpicsSection } from './EpicsSection'
 import { LimitBanner } from './LimitBanner'
 import { LoopRail } from './LoopRail'
 import { SourcePicker } from './SourcePicker'
@@ -89,13 +90,17 @@ export function FlowColumn({ view }: { view: TaskView | null }) {
       <Connector id="plan" edges={edges} />
       {card('approval')}
       <Connector id="approval" edges={edges} />
-      <LoopRail edges={edges}>
-        {card('developer')}
-        <Connector id="develop" edges={edges} />
-        {card('tester')}
-        <Connector id="test" edges={edges} />
-        {card('reviewer')}
-      </LoopRail>
+      {view && view.epics.length > 0 ? (
+        <EpicsSection view={view} />
+      ) : (
+        <LoopRail edges={edges}>
+          {card('developer')}
+          <Connector id="develop" edges={edges} />
+          {card('tester')}
+          <Connector id="test" edges={edges} />
+          {card('reviewer')}
+        </LoopRail>
+      )}
       <Connector id="finish" edges={edges} />
       {card('done')}
       {!view && !sourceOpen && <p className={styles.hint}>escolha a origem da tarefa ↑</p>}

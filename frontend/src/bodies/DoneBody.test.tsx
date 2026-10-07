@@ -22,7 +22,7 @@ describe('DoneBody', () => {
     expect(kpi('execuções de teste')).toHaveTextContent(String(view.test_runs.length))
     expect(kpi('rodadas de review')).toHaveTextContent(String(view.counters.review_round))
     expect(kpi('duração')).toHaveTextContent('6m 52s') // 412s
-    expect(kpi('custo')).toHaveTextContent('$1.84')
+    expect(kpi('equivalente API')).toHaveTextContent('$1.84')
 
     expect(screen.getByText('shop/report.py')).toBeInTheDocument()
     expect(screen.getByText('tests/test_report_dates.py')).toBeInTheDocument()

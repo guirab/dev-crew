@@ -23,7 +23,7 @@ export function ReviewerBody({ view, stage }: BodyProps) {
   return (
     <>
       {view?.escalation?.stage === 'reviewer' && (
-        <EscalationPanel reason={view.escalation.reason} />
+        <EscalationPanel reason={view.escalation.reason} epicId={view.escalation.epic_id} />
       )}
       {comments.length > 0 ? (
         <div className={b.sec}>

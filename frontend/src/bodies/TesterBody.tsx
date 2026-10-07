@@ -10,7 +10,9 @@ export function TesterBody({ view, stage }: BodyProps) {
   const runs = view?.test_runs ?? []
   return (
     <>
-      {view?.escalation?.stage === 'tester' && <EscalationPanel reason={view.escalation.reason} />}
+      {view?.escalation?.stage === 'tester' && (
+        <EscalationPanel reason={view.escalation.reason} epicId={view.escalation.epic_id} />
+      )}
       {runs.length > 0 ? (
         <div className={b.sec}>
           <h4>Execuções</h4>

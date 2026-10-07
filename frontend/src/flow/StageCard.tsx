@@ -16,6 +16,8 @@ interface StageCardProps {
   onToggle: () => void
   /** Id do painel controlado pelo header. Gerado se omitido. */
   panelId?: string
+  /** Id do card no DOM (padrão `stage-<key>`); faixas de épico usam um prefixo próprio. */
+  domId?: string
   /** Conteúdo exibido só quando aberto. Sem `children`, o card é só o header. */
   children?: ReactNode
 }
@@ -29,6 +31,7 @@ export function StageCard({
   open,
   onToggle,
   panelId,
+  domId,
   children,
 }: StageCardProps) {
   const generatedId = useId()
@@ -39,7 +42,7 @@ export function StageCard({
   return (
     <div
       className={cx(styles.card, styles[status], open && styles.open)}
-      id={`stage-${stageKey}`}
+      id={domId ?? `stage-${stageKey}`}
       data-stage={stageKey}
       data-status={status}
     >

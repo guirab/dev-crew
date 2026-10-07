@@ -1,0 +1,42 @@
+.section {
+  border: 1px dashed var(--line-2);
+  border-radius: 18px;
+  padding: 14px 14px 2px;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 4px 12px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.count {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.next {
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.lead {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}

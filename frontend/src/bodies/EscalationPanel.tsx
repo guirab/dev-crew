@@ -8,10 +8,18 @@ import b from './body.module.css'
  * Escalada: o loop estourou e a decisão é do usuário. A UI só envia o comando escolhido;
  * quem sabe quantas tentativas, qual transição e o que acontece depois é o orquestrador.
  */
-export function EscalationPanel({ reason }: { reason: string }) {
+export function EscalationPanel({
+  reason,
+  epicId = null,
+}: {
+  reason: string
+  /** Faixa de um plano dividido: o comando leva o épico e não há "Voltar pro Planner". */
+  epicId?: string | null
+}) {
   const [instruction, setInstruction] = useState('')
   const send = useSendCommand()
   const text = instruction.trim()
+  const lane = epicId ? { epic_id: epicId } : {}
 
   return (
     <div className={b.sec}>
@@ -34,7 +42,7 @@ export function EscalationPanel({ reason }: { reason: string }) {
           variant="primary"
           disabled={send.isPending || text === ''}
           onClick={() => {
-            send.mutate({ type: 'escalation', action: 'instruct', text })
+            send.mutate({ type: 'escalation', action: 'instruct', text, ...lane })
           }}
         >
           Enviar instrução
@@ -42,19 +50,21 @@ export function EscalationPanel({ reason }: { reason: string }) {
         <Button
           disabled={send.isPending}
           onClick={() => {
-            send.mutate({ type: 'escalation', action: 'more_attempts' })
+            send.mutate({ type: 'escalation', action: 'more_attempts', ...lane })
           }}
         >
           +2 tentativas
         </Button>
-        <Button
-          disabled={send.isPending}
-          onClick={() => {
-            send.mutate({ type: 'escalation', action: 'replan' })
-          }}
-        >
-          Voltar pro Planner
-        </Button>
+        {!epicId && (
+          <Button
+            disabled={send.isPending}
+            onClick={() => {
+              send.mutate({ type: 'escalation', action: 'replan' })
+            }}
+          >
+            Voltar pro Planner
+          </Button>
+        )}
         <Button
           disabled={send.isPending}
           onClick={() => {

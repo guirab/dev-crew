@@ -1,0 +1,79 @@
+import { useState } from 'react'
+import { useSendCommand } from '../api/commands'
+import { CommandErrorMessage } from '../bodies/CommandErrorMessage'
+import { EpicList } from '../bodies/EpicList'
+import type { TaskView } from '../contracts/generated'
+import { Button } from '../ui/Button'
+import { EpicLane } from './EpicLane'
+import styles from './EpicsSection.module.css'
+
+/** Épicos de um plano dividido (D53): uma faixa por épico, lado a lado no tempo, em ordem do plano. */
+export function EpicsSection({ view }: { view: TaskView }) {
+  const lanes = view.epics
+  const running = lanes.filter((l) => l.status === 'running' || l.status === 'preparing').length
+  return (
+    <section className={styles.section} aria-label="Épicos">
+      <h3 className={styles.title}>
+        Épicos
+        <span className={styles.count}>
+          {lanes.filter((l) => l.kind === 'epic' && l.status === 'merged').length}/
+          {lanes.filter((l) => l.kind === 'epic').length} prontos
+          {running > 0 && ` · ${running} em paralelo`}
+        </span>
+      </h3>
+      {view.phase === 'awaiting_selection' && <NextBatch view={view} />}
+      {lanes.map((lane) => (
+        <EpicLane key={lane.id} view={view} lane={lane} />
+      ))}
+    </section>
+  )
+}
+
+/** Os épicos escolhidos ficaram prontos: rodar os próximos ou concluir com o que já foi feito. */
+function NextBatch({ view }: { view: TaskView }) {
+  const send = useSendCommand()
+  const epics = view.plan?.epics ?? []
+  const pending = new Set(view.epics.filter((e) => e.status === 'pending').map((e) => e.id))
+  const locked = new Set(epics.map((e) => e.id).filter((id) => !pending.has(id)))
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(pending))
+  const toggle = (id: string) => {
+    const next = new Set(picked)
+    if (!next.delete(id)) next.add(id)
+    setPicked(next)
+  }
+  const chosen = epics.map((e) => e.id).filter((id) => picked.has(id) && pending.has(id))
+
+  return (
+    <div className={styles.next} role="group" aria-label="Próximos épicos">
+      <p className={styles.lead}>
+        Os épicos escolhidos estão prontos na branch. Rode os próximos ou conclua agora (os
+        pendentes ficam registrados no plano).
+      </p>
+      <EpicList
+        epics={epics}
+        estimates={view.estimate?.epics ?? []}
+        selection={{ selected: picked, onToggle: toggle, locked }}
+      />
+      <div className={styles.row}>
+        <Button
+          variant="primary"
+          disabled={send.isPending || chosen.length === 0}
+          onClick={() => {
+            send.mutate({ type: 'run_epics', epics: chosen })
+          }}
+        >
+          Rodar {chosen.length} épico{chosen.length === 1 ? '' : 's'}
+        </Button>
+        <Button
+          disabled={send.isPending}
+          onClick={() => {
+            send.mutate({ type: 'finish_task' })
+          }}
+        >
+          Concluir agora
+        </Button>
+      </div>
+      <CommandErrorMessage error={send.error} />
+    </div>
+  )
+}
