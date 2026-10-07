@@ -4,8 +4,15 @@
   gap: 14px;
 }
 
+/*
+ * Os três cards de origem passam da coluna do fluxo (700px): ficam centralizados, mais largos e
+ * horizontais, pra título e descrição caberem sem quebrar. O resto do fluxo não muda.
+ */
 .three {
-  grid-template-columns: repeat(3, 1fr);
+  --picker-w: min(1040px, calc(100vw - 48px));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: var(--picker-w);
+  margin-inline: calc(50% - var(--picker-w) / 2);
 }
 
 .panel {
@@ -20,5 +27,7 @@
   .row,
   .three {
     grid-template-columns: 1fr;
+    width: auto;
+    margin-inline: 0;
   }
 }
