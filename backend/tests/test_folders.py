@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -45,7 +46,8 @@ def test_parent_goes_up_and_the_root_has_none(tmp_path: Path) -> None:
     cfg = make_cfg(tmp_path)
     assert folders.list_folders(str(sub), cfg).parent == str(tmp_path.resolve())
     root = Path(tmp_path.resolve().anchor)
-    assert folders.list_folders(str(root), cfg).parent is None
+    # on Windows the parent of a drive root is the drives level (""), elsewhere there is nothing above "/"
+    assert folders.list_folders(str(root), cfg).parent == ("" if sys.platform == "win32" else None)
 
 
 def test_drives_level_lists_the_drives(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -62,6 +64,7 @@ def test_drive_root_goes_up_to_the_drives_level(tmp_path: Path, monkeypatch: pyt
     assert folders.list_folders(str(root), make_cfg(tmp_path)).parent == ""
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="on Windows an empty path is the drives level")
 def test_empty_path_off_windows_lists_the_root(tmp_path: Path) -> None:
     listing = folders.list_folders("", make_cfg(tmp_path))
     assert listing.path == folders.list_drives()[0] and listing.parent is None
