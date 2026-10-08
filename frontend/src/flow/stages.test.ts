@@ -141,13 +141,22 @@ describe('stageTag / stageCounter', () => {
 
 describe('stageProgress', () => {
   const base = fixture('escalated').counters
-  const counters = { ...base, test_attempt: 2, max_test_attempts: 3, review_round: 1, max_review_rounds: 2 }
+  const counters = {
+    ...base,
+    test_attempt: 2,
+    max_test_attempts: 3,
+    review_round: 1,
+    max_review_rounds: 2,
+  }
 
   it('tester/reviewer ativos usam n/máx dos contadores', () => {
     const t = stageProgress('tester', 'active', counters)
     expect(t).toMatchObject({ kind: 'determinate' })
     expect(t?.kind === 'determinate' && t.value).toBeCloseTo(2 / 3)
-    expect(stageProgress('reviewer', 'active', counters)).toEqual({ kind: 'determinate', value: 0.5 })
+    expect(stageProgress('reviewer', 'active', counters)).toEqual({
+      kind: 'determinate',
+      value: 0.5,
+    })
   })
 
   it('sem contador > 0 fica indeterminada; n > máx limita a 1', () => {
