@@ -75,7 +75,7 @@ Estrutura:
 
 ## Regras
 
-- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
+- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`; 2026-10-07 `TaskSummary` (`GET /api/tasks`)). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
 - Tipos TS dos contratos são gerados. Nunca editar à mão e nunca usar `any`.
 - Os agentes nunca:
   - commitam, fazem push ou alteram o histórico git (no modo épicos quem commita e faz merge é o dev-crew);

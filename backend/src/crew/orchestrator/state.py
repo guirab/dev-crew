@@ -39,6 +39,7 @@ from ..contracts import (
     StageView,
     TaskPhase,
     TaskSpec,
+    TaskSummary,
     TaskView,
     TestResult,
     UsageLimit,
@@ -249,6 +250,28 @@ class TaskState(BaseModel):
         if self.plan is None:
             return None
         return next((e for e in self.plan.epics if e.id == epic_id), None)
+
+    def to_summary(self, now: datetime) -> TaskSummary:
+        """History line: the duration of a task still in progress runs until ``now``."""
+        running = not self.terminal
+        end = self.ended_at or (now if running else self.started_at)
+        commit_message = self.final.commit_message if self.final else None
+        first_line = next((ln.strip() for ln in (commit_message or "").splitlines() if ln.strip()), "")
+        return TaskSummary(
+            task_id=self.task_id,
+            title=self.title,
+            repo=self.repo.name,
+            phase=self.phase,
+            running=running,
+            started_at=self.started_at,
+            ended_at=self.ended_at,
+            duration_s=round(max((end - self.started_at).total_seconds(), 0.0), 1),
+            cost_usd=round(self.cost_usd, 6),
+            tokens=self.tokens,
+            summary=first_line or self.description.strip() or self.title,
+            commit_message=commit_message,
+            files_changed=len(self.final.files) if self.final else None,
+        )
 
     def to_view(self) -> TaskView:
         stages = Stages.model_validate(

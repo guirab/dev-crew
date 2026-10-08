@@ -35,6 +35,31 @@
   }
 }
 
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.tab:hover {
+  color: var(--fg);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: var(--green-2);
+}
+
 .task {
   font-size: 13px;
   color: var(--muted);

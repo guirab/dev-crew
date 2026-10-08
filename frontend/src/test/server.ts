@@ -10,6 +10,7 @@ import { MockFolders } from '../mocks/folders'
  */
 export const server = setupServer(
   http.get('*/api/repos', () => HttpResponse.json(REPOS)),
+  http.get('*/api/tasks', () => HttpResponse.json([])),
   http.get('*/api/folders', ({ request }) => {
     const path = new URL(request.url).searchParams.get('path') ?? undefined
     const listing = new MockFolders().list(path)

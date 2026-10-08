@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatResetTime, formatTokens } from './format'
+import { formatDateTime, formatResetTime, formatTokens } from './format'
 
 describe('formatResetTime', () => {
   const now = new Date(2026, 9, 6, 10, 0)
@@ -26,5 +26,15 @@ describe('formatTokens', () => {
     [2_500_000, '2,5 mi'],
   ])('%d → %s', (value, expected) => {
     expect(formatTokens(value)).toBe(expected)
+  })
+})
+
+describe('formatDateTime', () => {
+  it('data e hora locais', () => {
+    expect(formatDateTime(new Date(2026, 9, 7, 14, 5).toISOString())).toBe('07/10/2026 14:05')
+  })
+
+  it('ISO inválido: vazio', () => {
+    expect(formatDateTime('x')).toBe('')
   })
 })

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { fixture, fixtures } from '../test/fixtures'
-import { isCommandReply, isNullableTaskView, isRepoList, isTaskView, isWsMessage } from './guards'
+import {
+  isCommandReply,
+  isNullableTaskView,
+  isRepoList,
+  isTaskSummaryList,
+  isTaskView,
+  isWsMessage,
+} from './guards'
 
 describe('isTaskView', () => {
   it('aceita as 8 fixtures do contrato', () => {
@@ -50,6 +57,29 @@ describe('listas e respostas', () => {
   it('isRepoList', () => {
     expect(isRepoList([{ name: 'a', base_branch: 'main' }])).toBe(true)
     expect(isRepoList([{ name: 'a' }])).toBe(false)
+  })
+
+  it('isTaskSummaryList', () => {
+    const item = {
+      task_id: 'T-1',
+      title: 'x',
+      repo: 'r',
+      phase: 'done',
+      running: false,
+      started_at: '2026-10-07T12:00:00Z',
+      ended_at: null,
+      duration_s: 1,
+      cost_usd: 0,
+      tokens: 0,
+      commit_message: null,
+      files_changed: null,
+      summary: 's',
+    }
+    expect(isTaskSummaryList([])).toBe(true)
+    expect(isTaskSummaryList([item])).toBe(true)
+    expect(isTaskSummaryList([{ ...item, phase: 'dancing' }])).toBe(false)
+    expect(isTaskSummaryList([{ ...item, duration_s: '1' }])).toBe(false)
+    expect(isTaskSummaryList({})).toBe(false)
   })
 
   it('isCommandReply tolera error/view ausentes', () => {

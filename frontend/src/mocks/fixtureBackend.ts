@@ -1,6 +1,7 @@
-import type { RepoInfo, TaskView } from '../contracts/generated'
+import type { RepoInfo, TaskSummary, TaskView } from '../contracts/generated'
 import { isTaskView } from '../api/guards'
 import type { CommandOutcome, MockBackend } from './backend'
+import { historyOf } from './data'
 import { MockFolders } from './folders'
 
 const fixtureLoaders = import.meta.glob('../../../contracts/fixtures/view.*.json', {
@@ -43,6 +44,10 @@ export class FixtureBackend implements MockBackend {
 
   getView(): TaskView {
     return this.view
+  }
+
+  getTasks(): TaskSummary[] {
+    return historyOf(this.view)
   }
 
   subscribe(): () => void {

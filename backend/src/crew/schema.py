@@ -21,6 +21,7 @@ OUTBOUND: list[type[BaseModel]] = [
     c.AccountUsage,
     c.FolderListing,
     c.FolderProbe,
+    c.TaskSummary,
 ]
 # Models the UI builds and sends (validation mode: fields with defaults are optional).
 INBOUND: list[type[BaseModel]] = [

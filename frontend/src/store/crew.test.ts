@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fixture } from '../test/fixtures'
-import { resetCrewStore, selectActiveView, useCrewStore } from './crew'
+import { isRunning, resetCrewStore, useCrewStore } from './crew'
 
 const progress = (task_id: string, text: string, agent: 'developer' | 'tester' = 'developer') =>
   ({
@@ -60,15 +60,49 @@ describe('useCrewStore', () => {
     expect(useCrewStore.getState().view?.phase).toBe('planning')
   })
 
-  it('dismissTask esconde só a tarefa dispensada; uma nova tarefa volta a aparecer', () => {
+  it('abre sempre no menu de nova tarefa, mesmo com uma tarefa terminal no primeiro snapshot', () => {
+    expect(useCrewStore.getState().screen).toBe('new')
     useCrewStore.getState().applyView(fixture('done'))
-    expect(selectActiveView(useCrewStore.getState())?.task_id).toBe('T-107')
+    expect(useCrewStore.getState().screen).toBe('new')
+  })
 
-    useCrewStore.getState().dismissTask()
-    expect(selectActiveView(useCrewStore.getState())).toBeNull()
+  it('o snapshot do REST na abertura também não troca a tela', () => {
+    const store = useCrewStore.getState()
+    store.hydrate(fixture('developing'), store.viewVersion)
+    expect(useCrewStore.getState().screen).toBe('new')
+  })
 
-    useCrewStore.getState().applyView({ ...fixture('planning'), task_id: 'T-108' })
-    expect(selectActiveView(useCrewStore.getState())?.task_id).toBe('T-108')
+  it('tarefa nova depois do primeiro snapshot abre o fluxo; reconexão com a mesma não mexe', () => {
+    const store = useCrewStore.getState()
+    store.applyView(null)
+    store.setScreen('history')
+    useCrewStore.getState().applyView(fixture('interviewing'))
+    expect(useCrewStore.getState().screen).toBe('task')
+
+    useCrewStore.getState().setScreen('new')
+    useCrewStore.getState().applyView({ ...fixture('interviewing'), phase: 'developing' }) // mesmo task_id
+    expect(useCrewStore.getState().screen).toBe('new')
+
+    useCrewStore.getState().applyView({ ...fixture('interviewing'), task_id: 'T-109' })
+    expect(useCrewStore.getState().screen).toBe('task')
+  })
+
+  it('voltar a "sem tarefa" não troca a tela', () => {
+    const store = useCrewStore.getState()
+    store.applyView(fixture('developing'))
+    store.setScreen('history')
+    useCrewStore.getState().applyView(null)
+    expect(useCrewStore.getState().screen).toBe('history')
+  })
+
+  it('isRunning: toda fase não terminal conta', () => {
+    expect(isRunning(null)).toBe(false)
+    for (const phase of ['awaiting_approval', 'escalated', 'limited', 'developing'] as const) {
+      expect(isRunning({ ...fixture('developing'), phase }), phase).toBe(true)
+    }
+    for (const phase of ['done', 'cancelled', 'failed'] as const) {
+      expect(isRunning({ ...fixture('done'), phase }), phase).toBe(false)
+    }
   })
 
   it('setConnection', () => {

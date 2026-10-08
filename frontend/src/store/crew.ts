@@ -1,8 +1,12 @@
 import { create } from 'zustand'
-import type { StageKey } from '../contracts/aliases'
+import type { StageKey, TaskPhase } from '../contracts/aliases'
 import type { LogLine, TaskView, WsProgress } from '../contracts/generated'
 
+const TERMINAL_PHASES: readonly TaskPhase[] = ['done', 'cancelled', 'failed']
+
 export type ConnectionState = 'connecting' | 'open' | 'closed'
+
+export type Screen = 'new' | 'history' | 'task'
 
 const MAX_PROGRESS_LINES = 50
 
@@ -16,8 +20,8 @@ interface CrewState {
   connection: ConnectionState
   /** Linhas de progresso entre snapshots. O snapshot seguinte é a verdade e as descarta. */
   progress: Partial<Record<StageKey, LogLine[]>>
-  /** Tarefa terminal que o usuário dispensou com "Nova tarefa" (decisão só de UI). */
-  dismissedTaskId: string | null
+  /** Tela aberta: menu de origem (`new`), histórico ou o fluxo da tarefa. Sempre abre em `new`. */
+  screen: Screen
 
   applyView: (view: TaskView | null) => void
   /** Aplica um snapshot vindo do REST só se nenhum snapshot chegou desde `sinceVersion`. */
@@ -25,7 +29,7 @@ interface CrewState {
   markHydrated: () => void
   applyProgress: (msg: WsProgress) => void
   setConnection: (connection: ConnectionState) => void
-  dismissTask: () => void
+  setScreen: (screen: Screen) => void
 }
 
 const initialState = {
@@ -34,20 +38,20 @@ const initialState = {
   viewVersion: 0,
   connection: 'connecting',
   progress: {},
-  dismissedTaskId: null,
+  screen: 'new',
 } satisfies Partial<CrewState>
 
 export const useCrewStore = create<CrewState>()((set) => ({
   ...initialState,
 
   applyView: (view) => {
-    set((s) => ({ view, hydrated: true, viewVersion: s.viewVersion + 1, progress: {} }))
+    set((s) => ({ ...snapshot(s, view), hydrated: true }))
   },
 
   hydrate: (view, sinceVersion) => {
     set((s) =>
       s.viewVersion === sinceVersion
-        ? { view, hydrated: true, viewVersion: s.viewVersion + 1, progress: {} }
+        ? { ...snapshot(s, view), hydrated: true }
         : { hydrated: true },
     )
   },
@@ -69,14 +73,31 @@ export const useCrewStore = create<CrewState>()((set) => ({
     set({ connection })
   },
 
-  dismissTask: () => {
-    set((s) => ({ dismissedTaskId: s.view?.task_id ?? null }))
+  setScreen: (screen) => {
+    set({ screen })
   },
 }))
 
-/** Tarefa visível: o snapshot, a menos que o usuário tenha dispensado essa tarefa terminal. */
-export function selectActiveView(s: Pick<CrewState, 'view' | 'dismissedTaskId'>): TaskView | null {
-  return s.view && s.view.task_id !== s.dismissedTaskId ? s.view : null
+/**
+ * Aplica um snapshot. Uma tarefa nova depois do primeiro snapshot (iniciada por qualquer origem)
+ * abre o fluxo; o primeiro snapshot (abrir/recarregar) e a reconexão com a mesma tarefa não mexem na tela.
+ */
+function snapshot(
+  s: Pick<CrewState, 'view' | 'hydrated' | 'viewVersion' | 'screen'>,
+  view: TaskView | null,
+): Pick<CrewState, 'view' | 'viewVersion' | 'progress' | 'screen'> {
+  const started = s.hydrated && view !== null && view.task_id !== s.view?.task_id
+  return {
+    view,
+    viewVersion: s.viewVersion + 1,
+    progress: {},
+    screen: started ? 'task' : s.screen,
+  }
+}
+
+/** Tarefa em andamento: qualquer fase não terminal (inclui aguardando aprovação, escalada e limitada). */
+export function isRunning(view: TaskView | null): view is TaskView {
+  return view !== null && !TERMINAL_PHASES.includes(view.phase)
 }
 
 export function resetCrewStore(): void {

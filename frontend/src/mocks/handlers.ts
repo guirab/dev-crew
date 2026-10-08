@@ -69,6 +69,10 @@ export function createRestHandlers(backend: MockBackend, { latencyMs = 0 }: Rest
         : HttpResponse.json({ detail: `a pasta não existe: ${path}` }, { status: 404 })
     }),
     http.get('*/api/task', () => HttpResponse.json(backend.getView())),
+    http.get('*/api/tasks', async () => {
+      await lag()
+      return HttpResponse.json(backend.getTasks())
+    }),
     http.get('*/api/usage', () =>
       HttpResponse.json({
         plan: 'pro',

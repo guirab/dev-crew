@@ -5,6 +5,7 @@ import type {
   FolderListing,
   FolderProbe,
   RepoInfo,
+  TaskSummary,
   TaskView,
 } from '../contracts/generated'
 import {
@@ -14,6 +15,7 @@ import {
   isFolderProbe,
   isNullableTaskView,
   isRepoList,
+  isTaskSummaryList,
 } from './guards'
 
 /** Erro de chamada ao gateway. `status` 0 = sem resposta (rede/servidor fora). */
@@ -71,6 +73,10 @@ export function fetchRepos(): Promise<RepoInfo[]> {
 
 export function fetchCurrentTask(): Promise<TaskView | null> {
   return getJson('/api/task', isNullableTaskView)
+}
+
+export function fetchTasks(): Promise<TaskSummary[]> {
+  return getJson('/api/tasks', isTaskSummaryList)
 }
 
 export function fetchUsage(): Promise<AccountUsage> {

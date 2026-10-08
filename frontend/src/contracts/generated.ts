@@ -579,6 +579,38 @@ export interface RepoInfo {
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "TaskSummary".
+ */
+export interface TaskSummary {
+  task_id: string;
+  title: string;
+  repo: string;
+  phase:
+    | "interviewing"
+    | "planning"
+    | "awaiting_approval"
+    | "developing"
+    | "testing"
+    | "reviewing"
+    | "executing"
+    | "awaiting_selection"
+    | "escalated"
+    | "limited"
+    | "done"
+    | "cancelled"
+    | "failed";
+  running: boolean;
+  started_at: string;
+  ended_at: string | null;
+  duration_s: number;
+  cost_usd: number;
+  tokens: number;
+  commit_message: string | null;
+  files_changed: number | null;
+  summary: string;
+}
+/**
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "WsView".
  */
 export interface WsView {

@@ -1,5 +1,12 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
-import { fetchCurrentTask, fetchFolderProbe, fetchFolders, fetchRepos, fetchUsage } from './client'
+import {
+  fetchCurrentTask,
+  fetchFolderProbe,
+  fetchFolders,
+  fetchRepos,
+  fetchTasks,
+  fetchUsage,
+} from './client'
 
 export const reposQuery = queryOptions({
   queryKey: ['repos'],
@@ -16,6 +23,18 @@ export const currentTaskQuery = queryOptions({
 
 export function useRepos() {
   return useQuery(reposQuery)
+}
+
+/** Histórico de tarefas (`GET /api/tasks`). Sempre rebusca ao abrir a aba. */
+export const tasksQuery = queryOptions({
+  queryKey: ['tasks'],
+  queryFn: fetchTasks,
+  staleTime: 0,
+  retry: false,
+})
+
+export function useTaskHistory() {
+  return useQuery({ ...tasksQuery, refetchOnMount: 'always' })
 }
 
 /** Uso da assinatura (cache do Claude Code). Atualiza a cada minuto; falha = sem chip. */

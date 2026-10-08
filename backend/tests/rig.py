@@ -171,7 +171,7 @@ async def start_rig(
     if orchestrator:
         await start_orchestrator(rig)
     if gateway:
-        rig.gateway = Gateway(bus, cfg, dist=dist)
+        rig.gateway = Gateway(bus, cfg, dist=dist, store=rig.store)
         rig.spawn(rig.gateway.run(rig.stop), "gateway")
         await _wait_port(cfg.gateway.port)
     return rig

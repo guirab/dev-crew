@@ -1755,6 +1755,110 @@
       "title": "StartTask",
       "type": "object"
     },
+    "TaskSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "interviewing",
+            "planning",
+            "awaiting_approval",
+            "developing",
+            "testing",
+            "reviewing",
+            "executing",
+            "awaiting_selection",
+            "escalated",
+            "limited",
+            "done",
+            "cancelled",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "duration_s": {
+          "type": "number"
+        },
+        "cost_usd": {
+          "default": 0.0,
+          "type": "number"
+        },
+        "tokens": {
+          "default": 0,
+          "type": "integer"
+        },
+        "commit_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "files_changed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "title",
+        "repo",
+        "phase",
+        "running",
+        "started_at",
+        "ended_at",
+        "duration_s",
+        "cost_usd",
+        "tokens",
+        "commit_message",
+        "files_changed",
+        "summary"
+      ],
+      "title": "TaskSummary",
+      "type": "object"
+    },
     "TaskView": {
       "additionalProperties": false,
       "properties": {

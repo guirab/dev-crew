@@ -15,10 +15,12 @@ from sqlalchemy import Engine, event, text
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
-from ..contracts import AccountUsage, AgentJob, TokenUsage
+from ..contracts import AccountUsage, AgentJob, TaskSummary, TokenUsage
 from .state import TaskState
 
 log = structlog.get_logger(__name__)
+
+HISTORY_LIMIT = 50
 
 JobStatus = str  # dispatched | done | failed | limited | cancelled
 
@@ -168,6 +170,21 @@ class Store:
             except ValidationError as e:
                 log.warning("task_state_incompatible", task_id=row.task_id, errors=e.error_count())
                 return None
+
+    def list_tasks(self, limit: int = HISTORY_LIMIT) -> list[TaskSummary]:
+        """Summaries of the most recent tasks (highest sequence first), terminal or not.
+
+        A row saved by an older, incompatible contract is skipped, like in ``load_latest``.
+        """
+        now = datetime.now(UTC)
+        out: list[TaskSummary] = []
+        with Session(self.engine) as s:
+            for row in s.exec(select(TaskRow).order_by(col(TaskRow.seq).desc()).limit(limit)):
+                try:
+                    out.append(TaskState.model_validate_json(row.state_json).to_summary(now))
+                except ValidationError as e:
+                    log.warning("task_state_incompatible", task_id=row.task_id, errors=e.error_count())
+        return out
 
     def next_task_id(self) -> str:
         with Session(self.engine) as s:

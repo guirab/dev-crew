@@ -15,6 +15,13 @@ Formato:
 
 ---
 
+## 2026-10-07 · T-8 · Histórico de tarefas — ✅ aplicado (exceção ao congelamento, como D38/D39)
+
+- Saída nova: `TaskSummary` (`backend/src/crew/contracts/history.py`): `task_id`, `title`, `repo`, `phase`, `running`, `started_at`, `ended_at`, `duration_s`, `cost_usd`, `tokens`, `commit_message`, `files_changed`, `summary`. Tudo calculado no backend (`TaskState.to_summary`); `summary` é a 1ª linha da mensagem de commit do relatório final ou, sem relatório, a descrição da tarefa.
+- Endpoint novo: `GET /api/tasks` (só leitura) devolve `list[TaskSummary]` lido da tabela `task` do SQLite, da mais recente para a mais antiga, no máximo 50. O stream de eventos e `TaskView` não mudam.
+
+---
+
 ## 2026-10-07 · T-7 · Adicionar repositório existente pela UI — ✅ aplicado (exceção ao congelamento, como D38/D39)
 
 - Comando `AddRepo` (`add_repo`): `name`, `path`, `base_branch`, `test_cmd` (obrigatório), `lint_cmd`, `setup_cmd`, `sandbox_image`, `deps_dirs`, `init_git`. O orquestrador valida, opcionalmente faz `git init` + commit inicial vazio, registra em `~/.dev-crew/repos.toml` e não inicia tarefa.

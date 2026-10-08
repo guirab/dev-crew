@@ -1,6 +1,6 @@
 import { useSendCommand } from '../api/commands'
 import type { TaskView } from '../contracts/generated'
-import { useCrewStore } from '../store/crew'
+import { isRunning, useCrewStore } from '../store/crew'
 import { Button } from '../ui/Button'
 import styles from './Header.module.css'
 import { UsageChip } from './UsageChip'
@@ -11,9 +11,10 @@ const PHASE_LABEL: Partial<Record<TaskView['phase'], string>> = {
 }
 
 export function Header({ view }: { view: TaskView | null }) {
-  const dismissTask = useCrewStore((s) => s.dismissTask)
+  const screen = useCrewStore((s) => s.screen)
+  const setScreen = useCrewStore((s) => s.setScreen)
   const cancel = useSendCommand()
-  const finished = view?.phase === 'done' || view?.phase === 'cancelled'
+  const shown = screen === 'task' ? view : null
 
   return (
     <header className={styles.header}>
@@ -21,11 +22,35 @@ export function Header({ view }: { view: TaskView | null }) {
         <span className={styles.prompt}>&gt;</span> dev-crew
         <span className={styles.caret} aria-hidden="true" />
       </h1>
-      {view && (
+      <div role="tablist" aria-label="Seções" className={styles.tabs}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={screen !== 'history'}
+          className={styles.tab}
+          onClick={() => {
+            setScreen('new')
+          }}
+        >
+          Nova tarefa
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={screen === 'history'}
+          className={styles.tab}
+          onClick={() => {
+            setScreen('history')
+          }}
+        >
+          Histórico
+        </button>
+      </div>
+      {shown && (
         <span className={styles.task}>
-          <b>{view.task_id}</b> · {view.title}
-          {PHASE_LABEL[view.phase] && (
-            <span className={styles.phase}>{PHASE_LABEL[view.phase]}</span>
+          <b>{shown.task_id}</b> · {shown.title}
+          {PHASE_LABEL[shown.phase] && (
+            <span className={styles.phase}>{PHASE_LABEL[shown.phase]}</span>
           )}
         </span>
       )}
@@ -36,24 +61,19 @@ export function Header({ view }: { view: TaskView | null }) {
           {cancel.error.message}
         </span>
       )}
-      {view &&
-        (finished ? (
-          <Button variant="primary" size="sm" onClick={dismissTask}>
-            Nova tarefa
-          </Button>
-        ) : (
-          <Button
-            variant="link"
-            disabled={cancel.isPending}
-            onClick={() => {
-              if (window.confirm('Cancelar a tarefa atual? As alterações locais ficam no repo.')) {
-                cancel.mutate({ type: 'cancel_task' })
-              }
-            }}
-          >
-            cancelar tarefa
-          </Button>
-        ))}
+      {shown && isRunning(shown) && (
+        <Button
+          variant="link"
+          disabled={cancel.isPending}
+          onClick={() => {
+            if (window.confirm('Cancelar a tarefa atual? As alterações locais ficam no repo.')) {
+              cancel.mutate({ type: 'cancel_task' })
+            }
+          }}
+        >
+          cancelar tarefa
+        </Button>
+      )}
     </header>
   )
 }

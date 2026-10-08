@@ -1,0 +1,37 @@
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--green-2);
+  border-radius: 10px;
+  background: var(--green-soft);
+  font-size: 13.5px;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text b {
+  font-family: var(--mono);
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 1px 6px;
+  color: var(--green);
+  cursor: pointer;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.link:hover {
+  color: var(--fg);
+}

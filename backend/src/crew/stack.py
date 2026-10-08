@@ -183,6 +183,7 @@ async def run_stack(
     bus = await Bus.connect(cfg.nats.url, name=f"crew-{only or 'up'}")
     await bus.ensure_streams()
     store: Store | None = None
+    gateway_store: Store | None = None
     tasks: list[asyncio.Task[None]] = []
 
     def launch(name: str, factory: Callable[[], Awaitable[None]]) -> None:
@@ -193,7 +194,9 @@ async def run_stack(
             svc, store = build_orchestrator(bus, cfg, opts)
             launch("orchestrator", lambda: svc.run(stop))
         if only in (None, "gateway"):
-            gateway = Gateway(bus, cfg, dist=opts.dist, usage=UsageReader())
+            if store is None:  # gateway alone: its own connection to the same SQLite file (WAL)
+                gateway_store = Store(opts.db or db_path())
+            gateway = Gateway(bus, cfg, dist=opts.dist, usage=UsageReader(), store=store or gateway_store)
             launch("gateway", lambda: gateway.run(stop))
         if only is None or only.startswith("agent:"):
             selected = AGENTS if only is None else (_agent_name(only),)
@@ -214,8 +217,9 @@ async def run_stack(
             t.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
         await bus.close()
-        if store is not None:
-            store.close()
+        for opened in (store, gateway_store):
+            if opened is not None:
+                opened.close()
         log.info("stack_stopped")
 
 

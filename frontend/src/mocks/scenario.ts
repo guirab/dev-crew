@@ -21,13 +21,14 @@ import type {
   ReviewResult,
   StageView,
   StartTask,
+  TaskSummary,
   TaskView,
   TestResult,
   WsMessage,
 } from '../contracts/generated'
 import type { EdgeKey, EdgeStatus, StageKey, StageStatus, TaskPhase } from '../contracts/aliases'
 import type { CommandOutcome, MockBackend } from './backend'
-import { INTERVIEW_ROUNDS } from './data'
+import { historyOf, INTERVIEW_ROUNDS } from './data'
 import { MockFolders } from './folders'
 
 export interface ScenarioOptions {
@@ -245,6 +246,10 @@ export class ScenarioBackend implements MockBackend {
       estimate: s.plan ? MOCK_ESTIMATE : null,
       epics: [],
     }
+  }
+
+  getTasks(): TaskSummary[] {
+    return historyOf(this.getView())
   }
 
   /** Custo fictício: US$ 0,35 por job (developer + tester + reviewer). */

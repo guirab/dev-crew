@@ -1,4 +1,11 @@
-import type { Command, CommandReply, RepoInfo, TaskView, WsMessage } from '../contracts/generated'
+import type {
+  Command,
+  CommandReply,
+  RepoInfo,
+  TaskSummary,
+  TaskView,
+  WsMessage,
+} from '../contracts/generated'
 import type { MockFolders } from './folders'
 
 export interface CommandOutcome {
@@ -14,6 +21,8 @@ export interface MockBackend {
   /** Disco fictício do navegador de pastas (`list`/`probe` devolvem `null` = o gateway responde 404). */
   readonly folders: MockFolders
   getView: () => TaskView | null
+  /** Histórico (`GET /api/tasks`): a tarefa atual, se houver, e as antigas, da mais recente à mais antiga. */
+  getTasks: () => TaskSummary[]
   /** Recebe cada `WsMessage` emitida. Retorna o unsubscribe. */
   subscribe: (listener: (msg: WsMessage) => void) => () => void
   handle: (command: Command) => CommandOutcome

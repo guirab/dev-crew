@@ -4,6 +4,7 @@ import type {
   FolderListing,
   FolderProbe,
   RepoInfo,
+  TaskSummary,
   TaskView,
   WsMessage,
 } from '../contracts/generated'
@@ -160,4 +161,29 @@ export function isFolderProbe(v: unknown): v is FolderProbe {
     (v.branch === null || typeof v.branch === 'string') &&
     typeof v.registered === 'boolean'
   )
+}
+
+const isStringOrNull = (v: unknown): boolean => v === null || typeof v === 'string'
+
+function isTaskSummary(v: unknown): v is TaskSummary {
+  return (
+    isRecord(v) &&
+    typeof v.task_id === 'string' &&
+    typeof v.title === 'string' &&
+    typeof v.repo === 'string' &&
+    PHASES.some((p) => p === v.phase) &&
+    typeof v.running === 'boolean' &&
+    typeof v.started_at === 'string' &&
+    isStringOrNull(v.ended_at) &&
+    typeof v.duration_s === 'number' &&
+    typeof v.cost_usd === 'number' &&
+    typeof v.tokens === 'number' &&
+    isStringOrNull(v.commit_message) &&
+    isNumberOrNull(v.files_changed) &&
+    typeof v.summary === 'string'
+  )
+}
+
+export function isTaskSummaryList(v: unknown): v is TaskSummary[] {
+  return Array.isArray(v) && v.every(isTaskSummary)
 }

@@ -4,6 +4,13 @@ export function formatClock(iso: string): string {
   return Number.isNaN(date.getTime()) ? '' : date.toTimeString().slice(0, 8)
 }
 
+/** "07/10/2026 14:05" no fuso local; vazio se o ISO for inválido. */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.toLocaleDateString('pt-BR')} ${date.toTimeString().slice(0, 5)}`
+}
+
 /** 45 → "45s", 125 → "2m 05s". */
 export function formatDuration(totalSeconds: number): string {
   const total = Math.max(0, Math.round(totalSeconds))

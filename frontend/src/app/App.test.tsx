@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
+import { HISTORY } from '../mocks/data'
 import { createRestHandlers } from '../mocks/handlers'
 import { ScenarioBackend } from '../mocks/scenario'
 import { useCrewStore } from '../store/crew'
@@ -61,7 +62,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(screen.queryByRole('button', { name: /Manual/ })).not.toBeInTheDocument()
   })
 
-  it('título da aba e favicon acompanham o snapshot e voltam ao base ao dispensar', () => {
+  it('título da aba e favicon acompanham a tarefa em andamento e a tela da tarefa', () => {
     const icon = () => document.querySelector('link[rel="icon"]')?.getAttribute('href')
     renderWithClient(<App />)
     expect(document.title).toBe('Dev Crew')
@@ -83,14 +84,88 @@ describe('App (UI + cenário mock, sem WS)', () => {
     act(() => {
       useCrewStore.getState().applyView({ ...base, phase: 'done' })
     })
+    expect(document.title).toBe('Dev Crew') // terminal e fora da tela da tarefa: base
+    expect(icon()).toBe('/favicon.svg')
+
+    act(() => {
+      useCrewStore.getState().setScreen('task')
+    })
     expect(document.title).toBe(`✓ Concluída · ${base.title.trim()} · Dev Crew`)
     expect(icon()).toBe('/favicon-done.svg')
 
     act(() => {
-      useCrewStore.getState().dismissTask()
+      useCrewStore.getState().setScreen('new')
     })
     expect(document.title).toBe('Dev Crew')
     expect(icon()).toBe('/favicon.svg')
+  })
+
+  it.each(['done', 'cancelled', 'failed'] as const)(
+    'ao abrir ou recarregar com a última tarefa %s, a tela é o menu de origem',
+    (phase) => {
+      useCrewStore.getState().applyView({ ...fixture('done'), phase })
+      renderWithClient(<App />)
+      expect(screen.getByRole('tab', { name: 'Nova tarefa' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByRole('button', { name: /Manual/ })).toBeInTheDocument()
+      expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+    },
+  )
+
+  it.each(['developing', 'awaiting_approval', 'escalated', 'limited'] as const)(
+    'com tarefa em %s, a aba "Nova tarefa" avisa e o link abre o fluxo dela',
+    async (phase) => {
+      const view = { ...fixture('developing'), phase }
+      useCrewStore.getState().applyView(view)
+      const user = userEvent.setup()
+      renderWithClient(<App />)
+
+      expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+      expect(screen.getByText(/Tarefa em andamento:/)).toHaveTextContent(view.task_id)
+      await user.click(screen.getByRole('button', { name: 'ver tarefa' }))
+
+      expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
+      expect(screen.getByText(view.title)).toBeInTheDocument() // header
+      expect(screen.queryByText(/Tarefa em andamento:/)).not.toBeInTheDocument()
+    },
+  )
+
+  it('sem tarefa em andamento não há aviso', () => {
+    useCrewStore.getState().applyView(fixture('done'))
+    renderWithClient(<App />)
+    expect(screen.queryByText(/Tarefa em andamento:/)).not.toBeInTheDocument()
+  })
+
+  it('a aba "Histórico" lista as tarefas do gateway e "Nova tarefa" volta ao menu', async () => {
+    wire(backend)
+    const user = userEvent.setup()
+    renderWithClient(<App />)
+
+    await user.click(screen.getByRole('tab', { name: 'Histórico' }))
+    expect(screen.getByRole('tab', { name: 'Histórico' })).toHaveAttribute('aria-selected', 'true')
+    const items = await screen.findAllByRole('listitem')
+    expect(items).toHaveLength(HISTORY.length)
+    expect(screen.getByText('T-104')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Manual/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Nova tarefa' }))
+    expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+  })
+
+  it('iniciar uma tarefa pelo Manual mostra o fluxo dela', async () => {
+    wire(backend)
+    const user = userEvent.setup()
+    renderWithClient(<App />)
+
+    await user.click(stageButton('manual'))
+    await user.type(screen.getByLabelText('título'), 'Algo novo')
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+
+    expect(await screen.findByText('T-107')).toBeInTheDocument()
+    expect(useCrewStore.getState().screen).toBe('task')
+    expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
   })
 
   it('mostra a faixa "reconectando…" quando o WS cai, e mostra os cards mesmo sem snapshot', () => {
@@ -127,7 +202,6 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await waitFor(() => {
       expect(stageCard('done')).toHaveAttribute('data-status', 'done')
     }, SLOW)
-    expect(screen.getByRole('button', { name: 'Nova tarefa' })).toBeInTheDocument()
     expect(within(stageCard('tester')).getByText(/PASSOU · 48\/48/)).toBeInTheDocument()
     expect(within(stageCard('reviewer')).getByText(/APROVADO/)).toBeInTheDocument()
 
@@ -140,7 +214,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(within(stageCard('tester')).getByText('FALHOU')).toBeInTheDocument()
 
     // "Nova tarefa" volta ao estado inicial (só origem em pick)
-    await user.click(screen.getByRole('button', { name: 'Nova tarefa' }))
+    await user.click(screen.getByRole('tab', { name: 'Nova tarefa' }))
     expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
     expect(stageCard('done')).toHaveAttribute('data-status', 'idle')
     expect(screen.queryByText('T-107')).not.toBeInTheDocument()
@@ -213,7 +287,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(stageButton('tester')).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('cancelar tarefa (com confirmação) mostra "cancelada" e libera "Nova tarefa"', async () => {
+  it('cancelar tarefa (com confirmação) mostra "cancelada" e tira o botão de cancelar', async () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
@@ -224,7 +298,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
 
     expect(confirm).toHaveBeenCalledTimes(1)
     expect(await screen.findByText('cancelada')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Nova tarefa' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'cancelar tarefa' })).not.toBeInTheDocument()
   })
 
   it('cancelar tarefa sem confirmar não envia nada', async () => {

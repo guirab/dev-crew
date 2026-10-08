@@ -35,9 +35,11 @@ from ..contracts import (
     FolderListing,
     FolderProbe,
     RepoInfo,
+    TaskSummary,
     TaskView,
 )
 from ..orchestrator.machine import CONFLICT_ERRORS
+from ..orchestrator.store import Store
 from ..usage import UsageReader
 from .hub import Hub
 
@@ -68,10 +70,12 @@ class Gateway:
         *,
         dist: Path | None = DEFAULT_DIST,
         usage: UsageReader | None = None,
+        store: Store | None = None,
     ) -> None:
         self.bus = bus
         self.cfg = cfg
         self.usage = usage
+        self.store = store
         self.hub = Hub(bus)
         self.origins = allowed_origins(cfg.gateway.host, cfg.gateway.port)
         self.app = self._build_app(dist)
@@ -140,6 +144,13 @@ class Gateway:
             except ValidationError:
                 raise HTTPException(status_code=502, detail="resposta inválida do orquestrador") from None
             return Response(_VIEW_OR_NONE.dump_json(view), media_type="application/json")
+
+        @app.get("/api/tasks")
+        async def tasks() -> list[TaskSummary]:
+            """History: the most recent tasks straight from the database, newest first."""
+            if self.store is None:
+                return []
+            return await asyncio.to_thread(self.store.list_tasks)
 
         @app.post("/api/commands", dependencies=[Depends(same_origin)])
         async def commands(command: Command) -> JSONResponse:

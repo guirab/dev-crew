@@ -142,6 +142,29 @@ async def test_get_task_null_then_view_after_start(rig: Rig) -> None:
         assert view.task_id == "T-1" and view.phase == "interviewing"
 
 
+async def test_get_tasks_empty_then_lists_the_started_task(rig: Rig) -> None:
+    async with client(rig) as http:
+        empty = await http.get("/api/tasks")
+        assert empty.status_code == 200 and empty.json() == []
+        start = {"type": "start_task", "repo": "sample-repo", "title": "CSV", "description": "exportar"}
+        assert (await http.post("/api/commands", json=start)).status_code == 200
+        r = await http.get("/api/tasks")
+    assert r.status_code == 200
+    items = TypeAdapter(list[c.TaskSummary]).validate_python(r.json())
+    assert len(items) == 1
+    item = items[0]
+    assert (item.task_id, item.title, item.repo, item.running) == ("T-1", "CSV", "sample-repo", True)
+    assert item.summary == "exportar" and item.commit_message is None and item.files_changed is None
+
+
+async def test_get_tasks_without_a_store_is_empty(tmp_path: Path) -> None:
+    cfg = CrewConfig(repos=[RepoCfg(name="r", path=tmp_path, test_cmd="pytest -q")])
+    transport = httpx.ASGITransport(app=Gateway(MagicMock(), cfg, dist=None).app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as http:
+        r = await http.get("/api/tasks")
+    assert r.status_code == 200 and r.json() == []
+
+
 async def test_commands_status_mapping(rig: Rig) -> None:
     async with client(rig) as http:
         start = {"type": "start_task", "repo": "sample-repo", "title": "CSV"}

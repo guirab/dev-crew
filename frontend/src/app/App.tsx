@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react'
 import { FlowColumn } from '../flow/FlowColumn'
-import { selectActiveView, useCrewStore } from '../store/crew'
+import { HistoryList } from '../history/HistoryList'
+import { isRunning, useCrewStore } from '../store/crew'
 import { Header } from './Header'
 import { ReconnectBanner } from './ReconnectBanner'
+import { RunningTaskNotice } from './RunningTaskNotice'
 import { useTabStatus } from './tabStatus'
 import styles from './App.module.css'
 
@@ -12,8 +14,9 @@ const DemoBar = import.meta.env.MODE === 'mock' ? lazy(() => import('../mocks/De
 
 /** Layout: header + fluxo vertical. Render puro do store; a conexão WS é montada em `main.tsx`. */
 export function App() {
-  const view = useCrewStore(selectActiveView)
-  useTabStatus(view)
+  const view = useCrewStore((s) => s.view)
+  const screen = useCrewStore((s) => s.screen)
+  useTabStatus(isRunning(view) || screen === 'task' ? view : null)
   const hydrated = useCrewStore((s) => s.hydrated)
   const connection = useCrewStore((s) => s.connection)
   // Sem snapshot ainda e WS tentando conectar: não pisca os cards de origem clicáveis.
@@ -24,11 +27,18 @@ export function App() {
       <ReconnectBanner />
       <Header view={view} />
       <main className={styles.wrap} aria-busy={!ready}>
-        {ready ? (
-          // key: cada tarefa começa com todos os cards fechados.
-          <FlowColumn key={view?.task_id ?? 'none'} view={view} />
-        ) : (
+        {!ready ? (
           <p className={styles.status}>conectando…</p>
+        ) : screen === 'history' ? (
+          <HistoryList />
+        ) : screen === 'task' && view ? (
+          // key: cada tarefa começa com todos os cards fechados.
+          <FlowColumn key={view.task_id} view={view} />
+        ) : (
+          <>
+            <RunningTaskNotice />
+            <FlowColumn key="none" view={null} />
+          </>
         )}
       </main>
       {DemoBar && (
