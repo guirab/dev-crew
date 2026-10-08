@@ -132,23 +132,61 @@ export function stageIcon(key: StageKey, status: StageStatus): string {
   return STAGE_META[key].icon
 }
 
+/** Contador n/máx de quem tem máximo definido (Tester, Reviewer); `null` sem contagem > 0. */
+function boundedCounter(
+  key: StageKey,
+  counters: Counters | null | undefined,
+): { n: number; max: number } | null {
+  if (!counters) return null
+  if (key === 'tester' && counters.test_attempt > 0) {
+    return { n: counters.test_attempt, max: counters.max_test_attempts }
+  }
+  if (key === 'reviewer' && counters.review_round > 0) {
+    return { n: counters.review_round, max: counters.max_review_rounds }
+  }
+  return null
+}
+
 /** Contador à direita do rótulo: `tester 2/3`, `reviewer 1/2`, `developer rodada n`. */
 export function stageCounter(key: StageKey, counters: Counters | null | undefined): string {
   if (!counters) return ''
+  const bounded = boundedCounter(key, counters)
+  if (bounded) return `${bounded.n}/${bounded.max}`
   switch (key) {
-    case 'tester':
-      return counters.test_attempt > 0
-        ? `${counters.test_attempt}/${counters.max_test_attempts}`
-        : ''
-    case 'reviewer':
-      return counters.review_round > 0
-        ? `${counters.review_round}/${counters.max_review_rounds}`
-        : ''
     case 'developer':
       return counters.dev_round > 0 ? `rodada ${counters.dev_round}` : ''
     default:
       return ''
   }
+}
+
+export type StageProgress = { kind: 'determinate'; value: number } | { kind: 'indeterminate' }
+
+const PROGRESS_STAGES: readonly StageKey[] = [
+  'interviewer',
+  'planner',
+  'developer',
+  'tester',
+  'reviewer',
+]
+
+/**
+ * Barra de progresso do card. O backend não emite porcentagem: usa só o status e os contadores.
+ * Tester/Reviewer: n/máx; Entrevistador/Planner/Developer: indeterminada enquanto `active`.
+ */
+export function stageProgress(
+  key: StageKey,
+  status: StageStatus,
+  counters: Counters | null | undefined,
+): StageProgress | null {
+  if (!PROGRESS_STAGES.includes(key)) return null
+  if (status === 'done') return { kind: 'determinate', value: 1 }
+  if (status !== 'active' && status !== 'waiting' && status !== 'error') return null
+  const bounded = boundedCounter(key, counters)
+  if (bounded && bounded.max > 0) {
+    return { kind: 'determinate', value: Math.min(Math.max(bounded.n / bounded.max, 0), 1) }
+  }
+  return status === 'active' ? { kind: 'indeterminate' } : null
 }
 
 export function stageTag(

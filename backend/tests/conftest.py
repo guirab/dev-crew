@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 import shutil
 import socket
 import subprocess
@@ -15,6 +17,19 @@ from crew.bus import Bus
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES_DIR = REPO_ROOT / "contracts" / "fixtures"
+
+# The agents' sandbox exports these so ``git status`` works on the worktree (read-only /repo.git, autocrlf).
+# Tests build their own throwaway repositories and must not inherit them: a ``git init`` would try to write
+# into /repo.git, and a temp dir would look like it lives inside the repo.
+_SANDBOX_GIT_ENV = re.compile(
+    r"^(GIT_DIR|GIT_WORK_TREE|GIT_INDEX_FILE|GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+))$"
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in [n for n in os.environ if _SANDBOX_GIT_ENV.match(n)]:
+        monkeypatch.delenv(name, raising=False)
 
 
 def _free_port() -> int:

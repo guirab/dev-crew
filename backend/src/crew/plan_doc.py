@@ -78,6 +78,8 @@ def render(
     if plan.risks:
         lines += ["## Riscos", "", *_bullets(plan.risks), ""]
     lines += ["## Estratégia de testes", "", plan.test_strategy, ""]
+    if plan.essential_code:
+        lines += ["## Código essencial", "", "```", plan.essential_code.strip("\n"), "```", ""]
     if estimate is not None:
         lines += ["## Estimativa", "", f"- Tokens: ~{estimate.tokens:,}".replace(",", ".")]
         lines.append(f"- Equivalente API: ~US$ {estimate.usd:.2f}")

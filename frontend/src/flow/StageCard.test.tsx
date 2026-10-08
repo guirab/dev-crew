@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import type { StageStatus } from '../contracts/aliases'
+import type { StageKey, StageStatus } from '../contracts/aliases'
 import { Connector } from './Connector'
 import { LoopRail } from './LoopRail'
 import { StageCard } from './StageCard'
@@ -32,6 +32,57 @@ describe('StageCard', () => {
     const card = container.querySelector('[data-stage="tester"]')
     expect(card).toHaveAttribute('data-status', status)
     expect(card).toHaveClass(status)
+  })
+
+  describe('barra de progresso', () => {
+    const counters = {
+      dev_round: 1,
+      test_attempt: 2,
+      max_test_attempts: 4,
+      review_round: 1,
+      max_review_rounds: 2,
+    }
+    const renderCard = (stageKey: StageKey, status: StageStatus) =>
+      render(
+        <StageCard
+          stageKey={stageKey}
+          status={status}
+          description="x"
+          counters={counters}
+          open={false}
+          onToggle={() => undefined}
+        />,
+      )
+
+    it('tester ativo: determinada com aria-valuenow', () => {
+      renderCard('tester', 'active')
+      const bar = screen.getByRole('progressbar')
+      expect(bar).toHaveAttribute('aria-valuenow', '50')
+      expect(bar).toHaveAttribute('aria-valuemax', '100')
+    })
+
+    it.each(['interviewer', 'planner', 'developer'] as const)(
+      '%s ativo: indeterminada (sem aria-valuenow)',
+      (key) => {
+        renderCard(key, 'active')
+        expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
+      },
+    )
+
+    it('done: barra cheia', () => {
+      renderCard('reviewer', 'done')
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+    })
+
+    it.each([
+      ['tester', 'idle'],
+      ['developer', 'skipped'],
+      ['approval', 'active'],
+      ['done', 'done'],
+    ] as const)('%s em %s: sem barra', (key, status) => {
+      renderCard(key, status)
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    })
   })
 
   it('nasce fechado: só título + descrição, sem corpo', () => {

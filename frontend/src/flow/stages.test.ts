@@ -12,6 +12,7 @@ import {
   stageCounter,
   stageDescription,
   stageIcon,
+  stageProgress,
   stageTag,
   stagesToCollapse,
   withProgress,
@@ -138,6 +139,50 @@ describe('stageTag / stageCounter', () => {
   })
 })
 
+describe('stageProgress', () => {
+  const base = fixture('escalated').counters
+  const counters = { ...base, test_attempt: 2, max_test_attempts: 3, review_round: 1, max_review_rounds: 2 }
+
+  it('tester/reviewer ativos usam n/máx dos contadores', () => {
+    const t = stageProgress('tester', 'active', counters)
+    expect(t).toMatchObject({ kind: 'determinate' })
+    expect(t?.kind === 'determinate' && t.value).toBeCloseTo(2 / 3)
+    expect(stageProgress('reviewer', 'active', counters)).toEqual({ kind: 'determinate', value: 0.5 })
+  })
+
+  it('sem contador > 0 fica indeterminada; n > máx limita a 1', () => {
+    expect(stageProgress('tester', 'active', { ...counters, test_attempt: 0 })).toEqual({
+      kind: 'indeterminate',
+    })
+    expect(stageProgress('tester', 'active', undefined)).toEqual({ kind: 'indeterminate' })
+    expect(stageProgress('tester', 'error', { ...counters, test_attempt: 5 })).toEqual({
+      kind: 'determinate',
+      value: 1,
+    })
+  })
+
+  it('entrevistador, planner e developer ativos são indeterminados', () => {
+    for (const key of ['interviewer', 'planner', 'developer'] as const) {
+      expect(stageProgress(key, 'active', counters)).toEqual({ kind: 'indeterminate' })
+    }
+  })
+
+  it('done enche a barra; idle e skipped não mostram', () => {
+    expect(stageProgress('developer', 'done', counters)).toEqual({ kind: 'determinate', value: 1 })
+    expect(stageProgress('tester', 'idle', counters)).toBeNull()
+    expect(stageProgress('tester', 'skipped', counters)).toBeNull()
+    expect(stageProgress('planner', 'waiting', counters)).toBeNull()
+  })
+
+  it('manual, approval e done nunca têm barra', () => {
+    for (const key of ['manual', 'approval', 'done'] as const) {
+      for (const status of ['active', 'done', 'waiting', 'idle'] as const) {
+        expect(stageProgress(key, status, counters)).toBeNull()
+      }
+    }
+  })
+})
+
 describe('stageIcon', () => {
   it('✓ quando done, ! quando error, senão o ícone do estágio', () => {
     expect(stageIcon('tester', 'done')).toBe('✓')
@@ -210,5 +255,67 @@ describe('stagesToCollapse', () => {
     expect(stagesToCollapse(a, b)).toEqual([])
     expect(stagesToCollapse(null, a)).toEqual([])
     expect(stagesToCollapse(a, null)).toEqual([])
+  })
+})
+
+describe('stageProgress', () => {
+  const counters = {
+    dev_round: 2,
+    test_attempt: 2,
+    max_test_attempts: 3,
+    review_round: 1,
+    max_review_rounds: 2,
+  }
+  const none = { ...counters, test_attempt: 0, review_round: 0 }
+
+  it('tester/reviewer ativos usam n/máx dos contadores', () => {
+    expect(stageProgress('tester', 'active', counters)).toEqual({
+      kind: 'determinate',
+      value: 2 / 3,
+    })
+    expect(stageProgress('reviewer', 'active', counters)).toEqual({
+      kind: 'determinate',
+      value: 0.5,
+    })
+  })
+
+  it('sem contador > 0 fica indeterminada', () => {
+    expect(stageProgress('tester', 'active', none)).toEqual({ kind: 'indeterminate' })
+    expect(stageProgress('reviewer', 'active', null)).toEqual({ kind: 'indeterminate' })
+  })
+
+  it.each(['interviewer', 'planner', 'developer'] as const)('%s ativo é indeterminada', (key) => {
+    expect(stageProgress(key, 'active', counters)).toEqual({ kind: 'indeterminate' })
+  })
+
+  it('done é cheia', () => {
+    expect(stageProgress('developer', 'done', counters)).toEqual({ kind: 'determinate', value: 1 })
+  })
+
+  it('idle e skipped não mostram barra', () => {
+    expect(stageProgress('tester', 'idle', counters)).toBeNull()
+    expect(stageProgress('planner', 'skipped', counters)).toBeNull()
+  })
+
+  it('waiting/error mantêm a fração dos determinados; os outros somem', () => {
+    expect(stageProgress('tester', 'error', counters)).toEqual({
+      kind: 'determinate',
+      value: 2 / 3,
+    })
+    expect(stageProgress('interviewer', 'waiting', counters)).toBeNull()
+  })
+
+  it('aprovação, concluída e origem nunca mostram barra', () => {
+    for (const key of ['approval', 'done', 'manual'] as const) {
+      expect(stageProgress(key, 'active', counters)).toBeNull()
+      expect(stageProgress(key, 'done', counters)).toBeNull()
+    }
+  })
+
+  it('limita o valor a 1', () => {
+    expect(stageProgress('tester', 'active', { ...counters, test_attempt: 5 })).toEqual({
+      kind: 'determinate',
+      value: 1,
+    })
   })
 })

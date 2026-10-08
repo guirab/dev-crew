@@ -3,9 +3,28 @@ import type { ReactNode } from 'react'
 import type { StageKey, StageStatus } from '../contracts/aliases'
 import type { Counters } from '../contracts/generated'
 import { cx } from '../lib/cx'
-import { STAGE_META, stageIcon, stageTag } from './stages'
-import type { StageMeta } from './stages'
+import { STAGE_META, stageIcon, stageProgress, stageTag } from './stages'
+import type { StageMeta, StageProgress } from './stages'
 import styles from './StageCard.module.css'
+
+function ProgressBar({ progress }: { progress: StageProgress }) {
+  const determinate = progress.kind === 'determinate'
+  return (
+    <span
+      className={cx(styles.bar, !determinate && styles.indeterminate)}
+      role="progressbar"
+      aria-label="Progresso da etapa"
+      aria-valuemin={determinate ? 0 : undefined}
+      aria-valuemax={determinate ? 100 : undefined}
+      aria-valuenow={determinate ? Math.round(progress.value * 100) : undefined}
+    >
+      <span
+        className={styles.fill}
+        style={determinate ? { width: `${String(progress.value * 100)}%` } : undefined}
+      />
+    </span>
+  )
+}
 
 interface StageCardProps {
   stageKey: StageKey
@@ -42,6 +61,7 @@ export function StageCard({
   const bodyId = panelId ?? generatedId
   const meta = metaOverride ?? STAGE_META[stageKey]
   const tag = stageTag(stageKey, status, counters)
+  const progress = metaOverride ? null : stageProgress(stageKey, status, counters)
 
   return (
     <div
@@ -63,6 +83,7 @@ export function StageCard({
         <span className={styles.txt}>
           <span className={styles.tt}>{meta.title}</span>
           <span className={styles.ds}>{description}</span>
+          {progress && <ProgressBar progress={progress} />}
         </span>
         <span className={styles.tag}>{tag}</span>
         <span className={styles.chev} aria-hidden="true">

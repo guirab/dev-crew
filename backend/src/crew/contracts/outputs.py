@@ -82,6 +82,7 @@ class Plan(Contract):
     split_rationale: str = ""  # why one execution or why these epics: shown to the user before approval
     epics: list[Epic] = []
     project_setup: ProjectSetup | None = None
+    essential_code: str | None = None  # code example only when essential (API contract, critical signature)
 
 
 class DevResult(Contract):

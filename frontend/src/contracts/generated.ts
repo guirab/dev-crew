@@ -310,6 +310,7 @@ export interface Plan {
   split_rationale: string;
   epics: Epic[];
   project_setup: ProjectSetup | null;
+  essential_code: string | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema

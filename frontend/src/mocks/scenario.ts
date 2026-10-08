@@ -591,6 +591,7 @@ export class ScenarioBackend implements MockBackend {
       split_rationale: 'Mudança coesa em 4 arquivos: uma execução só, sem épicos.',
       epics: [],
       project_setup: null,
+      essential_code: null,
     }
     this.finish(
       'planner',

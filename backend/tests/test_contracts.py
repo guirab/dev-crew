@@ -81,6 +81,33 @@ def test_result_event_discriminates_output(output: c.AgentOutput) -> None:
     assert back == evt
 
 
+def _plan(**extra: object) -> c.Plan:
+    return c.Plan(
+        summary="s",
+        steps=["a"],
+        files=[c.PlanFile(path="x.py", change="A")],
+        acceptance_criteria=["ok"],
+        test_strategy="t",
+        **extra,  # type: ignore[arg-type]
+    )
+
+
+def test_plan_essential_code_is_optional() -> None:
+    assert _plan().essential_code is None
+    plan = _plan(essential_code="def f(x: int) -> int: ...")
+    assert c.Plan.model_validate_json(plan.model_dump_json()).essential_code == plan.essential_code
+    prop = build_schema()["$defs"]["Plan"]["properties"]["essential_code"]
+    assert prop["default"] is None
+    assert {"type": "null"} in prop["anyOf"]
+
+
+def test_plan_doc_essential_code_section_only_when_present() -> None:
+    from crew.plan_doc import render
+
+    assert "Código essencial" not in render("T-1", "t", _plan())
+    assert "## Código essencial\n\n```\nx = 1\n```" in render("T-1", "t", _plan(essential_code="x = 1"))
+
+
 def test_envelope_wrap_and_decode() -> None:
     progress = c.AgentProgress(agent="tester", job_id=uuid4(), kind="tool", text="$ pytest -q")
     env = c.Envelope.wrap("T-1", "progress", progress, source="tester")

@@ -280,3 +280,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+.fold {
+  margin-top: 14px;
+  font-size: 13.5px;
+}
+
+.fold summary {
+  cursor: pointer;
+  color: var(--muted);
+  font: 600 11px var(--mono);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.fold[open] summary {
+  margin-bottom: 8px;
+}
+
+.code {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  font: 12.5px var(--mono);
+}

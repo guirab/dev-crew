@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { Estimate, Plan } from '../contracts/generated'
 import { EpicList } from './EpicList'
 import type { EpicSelection } from './EpicList'
@@ -17,9 +18,20 @@ export function selectedShare(estimate: Estimate, selected: ReadonlySet<string>)
   return chosen / total
 }
 
+/** Seção recolhida (fechada por padrão), com `<details>` nativo pra não perder o estado ao atualizar. */
+function Fold({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <details className={b.fold}>
+      <summary>{title}</summary>
+      {children}
+    </details>
+  )
+}
+
 /**
- * Plano completo (reusado pelo Planner e pela Aprovação). Plano dividido mostra os épicos no lugar
- * dos passos; com `selection`, cada épico pode ser marcado pra rodar agora.
+ * Plano completo (reusado pelo Planner e pela Aprovação). Resumo, passos (ou épicos) e riscos ficam
+ * à vista; o resto abre sob demanda. Plano dividido mostra os épicos no lugar dos passos; com
+ * `selection`, cada épico pode ser marcado pra rodar agora.
  */
 export function PlanView({
   plan,
@@ -44,29 +56,17 @@ export function PlanView({
           </ol>
         )}
       </div>
-      {plan.split_rationale && (
-        <div className={b.sec}>
-          <h4>Por que assim</h4>
-          <p style={{ margin: 0 }}>{plan.split_rationale}</p>
-        </div>
-      )}
-      {split ? (
+      {split && (
         <EpicList epics={plan.epics} estimates={estimate?.epics ?? []} selection={selection} />
-      ) : (
+      )}
+      {plan.risks.length > 0 && (
         <div className={b.sec}>
-          <h4>Arquivos</h4>
-          <div className={b.chips}>
-            {plan.files.map((file) => (
-              <span
-                key={file.path}
-                className={b.chip}
-                data-change={file.change}
-                title={CHANGE_LABEL[file.change]}
-              >
-                {file.path}
-              </span>
+          <h4>Riscos</h4>
+          <ul>
+            {plan.risks.map((risk, i) => (
+              <li key={`${i}|${risk}`}>{risk}</li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
       {plan.project_setup && (
@@ -87,29 +87,46 @@ export function PlanView({
           </p>
         </div>
       )}
-      <div className={b.sec}>
-        <h4>Critérios de aceite</h4>
+      {plan.essential_code && (
+        <div className={b.sec}>
+          <h4>Código essencial</h4>
+          <pre className={b.code}>
+            <code>{plan.essential_code}</code>
+          </pre>
+        </div>
+      )}
+      {!split && (
+        <Fold title="Arquivos">
+          <div className={b.chips}>
+            {plan.files.map((file) => (
+              <span
+                key={file.path}
+                className={b.chip}
+                data-change={file.change}
+                title={CHANGE_LABEL[file.change]}
+              >
+                {file.path}
+              </span>
+            ))}
+          </div>
+        </Fold>
+      )}
+      <Fold title="Critérios de aceite">
         <ul>
           {plan.acceptance_criteria.map((criterion, i) => (
             <li key={`${i}|${criterion}`}>{criterion}</li>
           ))}
         </ul>
-      </div>
-      {plan.risks.length > 0 && (
-        <div className={b.sec}>
-          <h4>Riscos</h4>
-          <ul>
-            {plan.risks.map((risk, i) => (
-              <li key={`${i}|${risk}`}>{risk}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      </Fold>
       {plan.test_strategy && (
-        <div className={b.sec}>
-          <h4>Estratégia de testes</h4>
+        <Fold title="Estratégia de testes">
           <p style={{ margin: 0 }}>{plan.test_strategy}</p>
-        </div>
+        </Fold>
+      )}
+      {plan.split_rationale && (
+        <Fold title="Por que assim">
+          <p style={{ margin: 0 }}>{plan.split_rationale}</p>
+        </Fold>
       )}
       {estimate && (
         <EstimateBox

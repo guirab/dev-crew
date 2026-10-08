@@ -65,7 +65,8 @@
     "execution": "single",
     "split_rationale": "",
     "epics": [],
-    "project_setup": null
+    "project_setup": null,
+    "essential_code": null
   },
   "feedback": null,
   "interview_history": [],

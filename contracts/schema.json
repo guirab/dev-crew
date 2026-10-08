@@ -1400,11 +1400,23 @@
             }
           ],
           "default": null
+        },
+        "essential_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "acceptance_criteria",
         "epics",
+        "essential_code",
         "execution",
         "files",
         "project_setup",

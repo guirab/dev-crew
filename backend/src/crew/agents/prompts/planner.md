@@ -38,10 +38,12 @@ Escreva em `split_rationale` o porquê da decisão em 1–3 frases: por que uma 
 - `test_strategy`: diga ao Tester o que cobrir (casos felizes, bordas, erros) e onde ficam os testes.
 - `risks`: só riscos reais (compatibilidade, migração, concorrência, performance). Lista vazia é válida.
 - **Projeto novo:** preencha `project_setup` com `stack` (uma linha), `setup_cmd` (instala dependências), `test_cmd`, `lint_cmd` e `sandbox_image` (imagem Docker oficial adequada, ex.: `node:22` ou `python:3.12`). Nesta primeira tarefa tudo roda na máquina do usuário, sem container (a imagem vale para as próximas): escolha uma stack que ele já tenha instalada e comandos que funcionem no Windows. O dev-crew roda o `setup_cmd` em cada worktree logo antes do primeiro Tester, depois que o Developer escreveu os manifestos; ainda não existe lockfile, então use `npm install` (não `npm ci`), `uv sync`, `pip install -e .[dev]` etc. Os agentes nunca instalam nada.
+- **Seja objetivo.** O usuário lê o plano para aprovar, não para revisar o código. Frases curtas, diretas, em linguagem de alto nível (o que muda e por quê, não como). Sem rodeios, sem repetir o que já está em outro campo.
+- **Sem código no plano.** Não coloque trechos de código em `summary`, `steps`, `goal` nem em nenhum outro campo. A única exceção é `essential_code` (opcional): um exemplo curto, só quando for realmente essencial, como um contrato de API ou uma assinatura crítica. Na dúvida, deixe vazio.
 - Respeite `fora de escopo` e `restrições`. Dependência nova em repositório existente vai nos riscos, nunca como passo.
 
 Se o `submit_plan` recusar o plano (ciclo, arquivo compartilhado entre épicos paralelos, campo faltando), corrija exatamente o que foi apontado e envie de novo.
 
 ## Saída
 
-Chame `submit_plan` com `summary`, `execution`, `split_rationale`, `steps`, `files`, `epics`, `acceptance_criteria`, `risks`, `test_strategy` e, em projeto novo, `project_setup`. Português do Brasil. Sem texto fora da tool além de uma linha curta.
+Chame `submit_plan` com `summary`, `execution`, `split_rationale`, `steps`, `files`, `epics`, `acceptance_criteria`, `risks`, `test_strategy`, `essential_code` (só se for essencial) e, em projeto novo, `project_setup`. Português do Brasil. Sem texto fora da tool além de uma linha curta.

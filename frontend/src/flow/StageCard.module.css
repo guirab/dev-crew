@@ -62,6 +62,45 @@
   text-overflow: ellipsis;
 }
 
+.bar {
+  display: block;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--line-2);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--green);
+  transition: width 0.3s;
+}
+
+.indeterminate .fill {
+  width: 40%;
+  animation: slide 1.4s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indeterminate .fill {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 .tag {
   font: 11.5px var(--mono);
   color: var(--muted);
