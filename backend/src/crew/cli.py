@@ -1,4 +1,4 @@
-"""`crew` command line: up, svc, doctor, cleanup, app, install-app, streams, gen-schema.
+"""`crew` command line: up, svc, doctor, cleanup, app, install-app, streams, skills, gen-schema.
 
 `agent` is Stream B's.
 """
@@ -20,6 +20,8 @@ DEFAULT_NATS_URL = os.environ.get("CREW_NATS_URL", "nats://127.0.0.1:4222")
 app = typer.Typer(help="dev-crew: equipe de dev multi-agente local", no_args_is_help=True)
 streams_app = typer.Typer(help="Streams e consumers do NATS JetStream", no_args_is_help=True)
 app.add_typer(streams_app, name="streams")
+skills_app = typer.Typer(help="Skills do Matt Pocock copiadas para os prompts (D65)", no_args_is_help=True)
+app.add_typer(skills_app, name="skills")
 app.add_typer(agent_app, name="agent")
 
 ConfigOpt = typer.Option(
@@ -54,6 +56,21 @@ def streams_init(url: str = typer.Option(DEFAULT_NATS_URL, help="URL do NATS")) 
 
     asyncio.run(_run())
     typer.echo("streams ok")
+
+
+@skills_app.command("sync")
+def skills_sync(
+    ref: str = typer.Option("main", "--ref", help="Commit, tag ou branch de mattpocock/skills a fixar"),
+) -> None:
+    """Copia as skills do manifest em `ref` para agents/prompts/matt e reescreve o skills.lock.json."""
+    from .agents import skills
+
+    try:
+        commit = skills.sync(ref)
+    except skills.SkillsSyncError as e:
+        typer.secho(str(e), fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from e
+    typer.echo(f"skills fixadas em {commit[:12]}; revise o diff e rode os testes -m live")
 
 
 # ----------------------------------------------------------------------------------------- up / svc

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import AgentJob, Epic, Feedback, InterviewTurn, Plan, TaskSpec
+from .skills import skills_text
 from .specs import AgentSpec, effective_test_globs
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -28,8 +29,10 @@ def _read_prompt(name: str) -> str:
 
 
 def system_prompt_text(agent: str) -> str:
-    """Shared rules followed by the agent's own prompt (appended to the Claude Code preset)."""
-    return f"{_read_prompt('_shared')}\n\n{_read_prompt(agent)}\n"
+    """Shared rules, the agent's own prompt, then its Matt Pocock skills (D65), appended to the preset."""
+    text = f"{_read_prompt('_shared')}\n\n{_read_prompt(agent)}\n"
+    method = skills_text(agent)
+    return f"{text}\n{method}\n" if method else text
 
 
 def _bullets(items: list[str]) -> str:
