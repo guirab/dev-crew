@@ -1383,7 +1383,11 @@ def _developer_result(
     s: TaskState, p: Pipe, dev: DevResult, at: datetime
 ) -> tuple[TaskState | None, list[Effect]]:
     p.dev_rounds.append(dev.model_copy(update={"round": p.dev_round}))
-    where = "no worktree do épico" if _lane(p) is not None else "no repo local · sem commit"
+    lane = _lane(p)
+    if lane is None:
+        where = "no repo local · sem commit"
+    else:
+        where = "na branch da tarefa" if lane.kind != "epic" else "no worktree do épico"
     _set(p, "developer", "done", f"Rodada {p.dev_round} salva {where}", at)
     if p.deps_setup == "pending" and _deps_cmd(s):
         return _commit(s, *_run_setup(s, p, at))

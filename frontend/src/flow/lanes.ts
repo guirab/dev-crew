@@ -70,6 +70,10 @@ export function mergeDescription(stage: StageView): string {
 /** Linha de status do card fechado: o que a faixa está fazendo agora. */
 export function laneSummary(lane: EpicView): string {
   if (lane.status === 'merged' && lane.commit) return `juntado · ${lane.commit.slice(0, 8)}`
+  if (lane.status === 'merged' && lane.kind === 'review') {
+    const rounds = lane.counters.review_round
+    return `aprovado · ${String(rounds)} rodada${rounds === 1 ? '' : 's'} de review`
+  }
   if (lane.escalation) return lane.escalation.reason
   for (const key of ['reviewer', 'tester', 'developer'] as const) {
     const stage = lane.stages[key]

@@ -99,6 +99,13 @@ describe('EpicsSection', () => {
     expect(within(region).queryByText('Reviewer')).not.toBeInTheDocument()
   })
 
+  it('o review final aprovado mostra as rodadas', () => {
+    const review = lane('REV', 'merged', { kind: 'review', title: 'Review final' })
+    review.counters = { ...review.counters, review_round: 2 }
+    renderWithClient(<EpicsSection view={splitView([review])} />)
+    expect(screen.getByText('aprovado · 2 rodadas de review')).toBeInTheDocument()
+  })
+
   it('o review final abre Developer, Tester e Reviewer', async () => {
     const user = userEvent.setup()
     const review = lane('REV', 'running', { kind: 'review', title: 'Review final' })
