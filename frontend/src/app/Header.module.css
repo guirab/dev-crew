@@ -103,3 +103,8 @@
   padding: 3px 10px;
   white-space: nowrap;
 }
+
+.stale {
+  color: var(--warn);
+  border-color: currentColor;
+}

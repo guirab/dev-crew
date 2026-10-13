@@ -303,3 +303,13 @@ def test_plan_estimate_reaches_the_view() -> None:
 
     d.feed(ev.AgentResult(task_id=s.task_id, evt=evt, at=d.tick(), estimate=est))
     assert d.s.phase == "awaiting_approval" and d.s.to_view().estimate == est
+
+
+def test_an_expired_login_is_not_a_measurement() -> None:
+    # the CLI exits 0 even when the OAuth session expired: the JSON result says what happened
+    from crew.usage import cli_error
+
+    expired = '{"type":"result","is_error":true,"result":"Failed to authenticate: OAuth session expired"}'
+    assert cli_error(expired) == "Failed to authenticate: OAuth session expired"
+    assert cli_error('{"type":"result","is_error":false,"result":""}') is None
+    assert cli_error("not json") == "saída ilegível do claude"

@@ -37,11 +37,12 @@ export function useTaskHistory() {
   return useQuery({ ...tasksQuery, refetchOnMount: 'always' })
 }
 
-/** Uso da assinatura (cache do Claude Code). Atualiza a cada minuto; falha = sem chip. */
+/** Uso da assinatura (cache do Claude Code). Atualiza a cada minuto, mesmo com a janela atrás de outra. */
 export const usageQuery = queryOptions({
   queryKey: ['usage'],
   queryFn: fetchUsage,
   refetchInterval: 60_000,
+  refetchIntervalInBackground: true,
   retry: false,
 })
 

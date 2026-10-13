@@ -102,12 +102,13 @@ def parse_auth_status(stdout: bytes | str) -> str | None:
 def refresh_cli_cache(exe: str) -> bool:
     """Ask the CLI to measure the usage now: ``claude -p /usage`` rewrites ``cachedUsageUtilization``.
 
-    A slash command answered locally: no model call, no quota spent, ~4 s. ``True`` when it exited 0.
+    A slash command answered locally: no model call, no quota spent, ~4 s. ``True`` only when it measured:
+    with an expired login the CLI still exits 0, so the JSON result's ``is_error`` decides.
     """
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0  # type: ignore[attr-defined,unused-ignore]
     try:
         proc = subprocess.run(
-            [exe, "-p", "/usage", "--no-session-persistence"],
+            [exe, "-p", "/usage", "--no-session-persistence", "--output-format", "json"],
             capture_output=True,
             timeout=REFRESH_TIMEOUT_S,
             check=False,
@@ -117,7 +118,23 @@ def refresh_cli_cache(exe: str) -> bool:
     except (OSError, subprocess.TimeoutExpired):
         log.warning("usage_refresh_unavailable")
         return False
-    return proc.returncode == 0
+    error = cli_error(proc.stdout) if proc.returncode == 0 else f"exit {proc.returncode}"
+    if error:
+        log.warning("usage_refresh_failed", error=error)
+    return error is None
+
+
+def cli_error(stdout: bytes | str) -> str | None:
+    """The error of a ``claude -p --output-format json`` run (``None``: it worked)."""
+    try:
+        result = json.loads(stdout)
+    except ValueError:
+        return "saída ilegível do claude"
+    if not isinstance(result, dict):
+        return "saída ilegível do claude"
+    if result.get("is_error"):
+        return str(result.get("result") or "erro sem mensagem")[:200]
+    return None
 
 
 class UsageReader:
