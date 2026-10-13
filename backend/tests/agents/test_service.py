@@ -366,3 +366,25 @@ async def test_tester_touching_production_code_fails_the_job(
         payload = env.decode_payload()
         assert isinstance(payload, AgentFailedEvt)
         assert "alterou código de produção: src/app.py" in payload.error and not payload.retryable
+
+
+async def test_real_tester_verdict_follows_the_suite_exit_code(bus: Bus, tmp_path: Any) -> None:
+    from crew.contracts import AgentResultEvt
+
+    from ..git_helpers import make_git_repo
+    from .factories import make_repo
+
+    repo = make_git_repo(tmp_path / "repo")
+    job = make_job("tester", task_id="T-gate", workspace=repo).model_copy(
+        update={"repo": make_repo(test_cmd="exit 1")}
+    )
+    real = AgentRuntimeSettings(model="claude-sonnet-5-5", fake=False)
+    async with started(
+        bus, "tester", job.task_id, runner=TouchRunner("tests/test_new.py"), settings=real
+    ) as worker:
+        await bus.publish_job(job)
+        env = await worker.until("failed", "result")
+    payload = env.decode_payload()
+    assert isinstance(payload, AgentResultEvt) and isinstance(payload.output, TestResult)
+    assert not payload.output.ok
+    assert payload.output.failures[0].test == "[dev-crew] testes: `exit 1`"

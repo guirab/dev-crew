@@ -11,8 +11,8 @@ import structlog
 
 from ..bus import Bus, FatalJobError, JobControl, job_loop
 from ..bus.subjects import cancel_subject
-from ..contracts import AgentJob, AgentName, AgentProgress, AgentResultEvt
-from . import prodguard
+from ..contracts import AgentJob, AgentName, AgentProgress, AgentResultEvt, TestResult
+from . import prodguard, testgate
 from .progress import ProgressLine, ProgressSink
 from .runner import Runner, SdkRunner
 from .settings import AgentRuntimeSettings
@@ -45,13 +45,16 @@ async def run_agent(
     active = runner or make_runner(settings)
 
     async def handle(job: AgentJob, ctl: JobControl) -> None:
-        await _handle_job(bus, agent, active, job)
+        # fake agents never run the suite, so there is no exit code to check (D70)
+        await _handle_job(bus, agent, active, job, verify_tests=not settings.fake)
 
     log.info("agent_worker_started", agent=agent, fake=settings.fake, model=settings.model)
     await job_loop(bus, agent, handle, stop=stop, heartbeat_s=heartbeat_s)
 
 
-async def _handle_job(bus: Bus, agent: AgentName, runner: Runner, job: AgentJob) -> None:
+async def _handle_job(
+    bus: Bus, agent: AgentName, runner: Runner, job: AgentJob, *, verify_tests: bool
+) -> None:
     started = time.monotonic()
 
     async def emit(line: ProgressLine) -> None:
@@ -96,10 +99,14 @@ async def _handle_job(bus: Bus, agent: AgentName, runner: Runner, job: AgentJob)
         if touched:
             raise FatalJobError(prodguard.describe(touched))
 
+    output = outcome.output
+    if verify_tests and isinstance(output, TestResult):
+        output = await testgate.enforce(output, job)
+
     result = AgentResultEvt(
         agent=agent,
         job_id=job.job_id,
-        output=outcome.output,
+        output=output,
         cost_usd=outcome.cost_usd,
         session_id=outcome.session_id,
         duration_s=round(time.monotonic() - started, 3),

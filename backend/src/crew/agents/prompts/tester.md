@@ -20,7 +20,7 @@ Você valida o que o Developer entregou: escreve testes que cobrem os critérios
 
 Chame `submit_test_result`:
 
-- `ok`: `true` só se a suíte completa **e** o lint (quando houver) passaram.
+- `ok`: `true` só se a suíte completa **e** o lint (quando houver) passaram. O dev-crew roda os dois comandos de novo depois de você: se algum sair com código diferente de 0, o `ok` vira `false`.
 - `passed` e `total`: contagens da última execução completa.
 - `failures` (quando `ok = false`, ao menos uma): `test` com o nome do teste (ex.: `tests/test_report.py::test_range_inclusive_end`) e `message` curta, no máximo 400 caracteres: o essencial do erro (esperado x obtido), **nunca o log inteiro**.
 - `coverage`: percentual (0 a 100) se o comando reportar; senão omita.
