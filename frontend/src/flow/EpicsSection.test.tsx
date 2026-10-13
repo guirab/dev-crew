@@ -76,7 +76,9 @@ describe('EpicsSection', () => {
     for (const name of ['A fazer', 'Em andamento', 'Precisa de você', 'Concluído']) {
       expect(screen.getByRole('group', { name })).toBeInTheDocument()
     }
-    expect(within(screen.getByRole('group', { name: 'Concluído' })).getByText('Épico E1')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: 'Concluído' })).getByText('Épico E1'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
   })
 
