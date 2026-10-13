@@ -3,7 +3,7 @@
 Equipe de desenvolvimento multi-agente local. Você descreve uma tarefa e os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream.
 
 - Tarefa pequena: uma execução só. As alterações ficam locais (sem commit) com uma mensagem de commit sugerida.
-- Tarefa grande ou projeto inteiro: o Planner divide em **épicos** com dependências, o plano mostra a estimativa de custo (tokens, US$ equivalente, % da sessão de 5 h e da semana) e você escolhe quais rodar agora. Épicos sem dependência entre si rodam **em paralelo**, cada um no seu worktree. O dev-crew faz **um commit por épico** e junta tudo na branch `crew/<task>` (sem push).
+- Tarefa de feature ou projeto inteiro: o Planner corta em **tickets** pequenos (épicos, no método `to-tickets` do Matt Pocock) com dependências, o plano mostra a estimativa de custo (tokens, US$ equivalente, % da sessão de 5 h e da semana) e você escolhe quais rodar agora. Épicos sem dependência entre si rodam **em paralelo**, cada um no seu worktree. O dev-crew faz **um commit por épico** e junta tudo na branch `crew/<task>` (sem push).
 - **Projeto novo** do zero: o card "Novo projeto" cria a pasta com git, e o Planner escolhe a stack e os comandos, começando pela fundação (E0).
 
 - Plano e contexto: vault Obsidian em `C:/Users/guilh/Documents/Vaults/dev-crew-vault` (ver `.obsidian-vault`)
@@ -104,7 +104,8 @@ A CLI roda como `python -m crew.cli` porque o Smart App Control bloqueia o `crew
 
 - O Planner decide se divide (mudança pequena e coesa fica numa execução só) e justifica no plano. Épicos paralelos nunca editam o mesmo arquivo; quem precisa do mesmo arquivo vira dependência.
 - Na aprovação você marca os épicos que rodam agora; os dependentes entram junto. Quando o lote termina, o card de aprovação oferece os próximos ou **Concluir agora** (o que ficou de fora fica registrado como pendente).
-- Cada épico: worktree `crew/<task>-E1`, Developer → Tester → Reviewer com os mesmos loops de correção. Aprovado, o dev-crew commita e faz merge na branch da tarefa. Conflito de merge vira uma faixa de integração (`M-E2`) que resolve, testa e revisa antes de concluir o merge.
+- Cada épico (ticket): worktree `crew/<task>-E1`, Developer → Tester com o loop de correção. Testes passando (o dev-crew confere o exit code de `test_cmd` e `lint_cmd`), o dev-crew commita e faz merge na branch da tarefa. Conflito de merge vira uma faixa de integração (`M-E2`) que resolve e testa antes de concluir o merge.
+- Fim do lote ou **Concluir agora**: a faixa **Review final** roda o Reviewer uma vez sobre a branch inteira (passadas Spec e Standards); o que ele pedir passa por Developer → Tester e sai num commit `fix: ajustes do review final`.
 - O plano fica salvo no projeto em `docs/plano/<task>.md`, atualizado no fim de cada lote.
 - `[parallel] workers_per_agent` (padrão 3) limita quantos épicos têm um agente trabalhando ao mesmo tempo. Na assinatura Pro, paralelo esgota a sessão de 5 h mais rápido: confira a estimativa antes de aprovar.
 - Um agente parado 30 min sem nenhuma atividade (e sem comando rodando) escala sozinho (D52).
@@ -121,7 +122,7 @@ A CLI roda como `python -m crew.cli` porque o Smart App Control bloqueia o `crew
 | Onde | Comando |
 |---|---|
 | backend | `uv run pytest` · `uv run ruff check .` · `uv run mypy src` |
-| backend | `uv run python -m crew.cli streams init` · `uv run python -m crew.cli gen-schema` |
+| backend | `uv run python -m crew.cli streams init` · `uv run python -m crew.cli gen-schema` · `uv run python -m crew.cli skills sync --ref <sha>` (skills do Matt Pocock nos prompts) |
 | frontend | `npm run gen:types` · `npm run typecheck` · `npm run lint` · `npm test` · `npm run build` |
 | frontend | `npm run dev:mock` (UI sem backend, MSW) · `npm run test:e2e` |
 | infra | `docker compose -f infra/docker-compose.yml up -d` / `down` |

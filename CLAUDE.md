@@ -7,6 +7,9 @@ This file provides guidance to Claude Code when working with code in this reposi
 dev-crew: equipe de desenvolvimento multi-agente local. O usuário descreve uma tarefa. Os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream.
 - Execução única: alterações locais em um git worktree, sem commit, com uma mensagem de commit sugerida.
 - Plano dividido em épicos (M6, D53–D57): épicos sem dependência rodam em paralelo, cada um no seu worktree; o dev-crew (nunca um agente) faz um commit por épico e o merge local em `crew/<task>`, sem push. Plano salvo em `docs/plano/<task>.md` no projeto.
+- Tickets (D67–D68): em tarefa de feature o Planner corta em épicos pequenos (S/M, L recusado). Cada épico roda Developer → Tester e é juntado quando os testes passam; o Reviewer roda uma vez, na faixa `REV` (review final) sobre `crew/<task>`, com rodadas de correção.
+- Skills do Matt Pocock (D65–D66): cópia fixa em `backend/src/crew/agents/prompts/matt/` (`skills.lock.json`), anexada ao system prompt de cada agente com os overrides de `prompts/_matt.md`. Atualizar só com `crew skills sync --ref <sha>`, nunca editando à mão.
+- O `ok` do Tester vem do exit code de `test_cmd` e `lint_cmd`, que o worker roda de novo depois do job (D70).
 - Projeto novo (D58): o dev-crew cria pasta + git, registra em `~/.dev-crew/repos.toml`, e o Planner define stack e comandos.
 - Repositório existente adicionado pela UI (`add_repo`): escolhido no navegador de pastas (`GET /api/folders`, só leitura), registrado em `~/.dev-crew/repos.toml`; sem git, o botão "Inicializar o git" cria só um commit vazio.
 
@@ -70,12 +73,13 @@ Estrutura:
 - Back: `uv run pytest` · `uv run ruff check .` · `uv run mypy src`
 - CLI: `uv run python -m crew.cli doctor` · `uv run python -m crew.cli streams init` · `uv run python -m crew.cli up --fake-agents` · `uv run python -m crew.cli cleanup <task>`
 - Contratos: `uv run python -m crew.cli gen-schema` e depois `npm run gen:types`
+- Skills do Matt: `uv run python -m crew.cli skills sync --ref <sha>` (revise o diff e rode `-m live`)
 - Front: `npm run dev:mock` · `npm run typecheck` · `npm run lint` · `npm test` · `npm run format:check` · `npm run build` (o gateway serve `frontend/dist`)
 - NATS: `docker compose -f infra/docker-compose.yml up -d`
 
 ## Regras
 
-- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`; 2026-10-07 `TaskSummary` (`GET /api/tasks`)). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
+- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`; 2026-10-07 `TaskSummary` (`GET /api/tasks`); 2026-10-13 `EpicView.kind = "review"`). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
 - Tipos TS dos contratos são gerados. Nunca editar à mão e nunca usar `any`.
 - Os agentes nunca:
   - commitam, fazem push ou alteram o histórico git (no modo épicos quem commita e faz merge é o dev-crew);
