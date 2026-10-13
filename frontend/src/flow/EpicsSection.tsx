@@ -4,11 +4,20 @@ import { CommandErrorMessage } from '../bodies/CommandErrorMessage'
 import { EpicList } from '../bodies/EpicList'
 import type { TaskView } from '../contracts/generated'
 import { Button } from '../ui/Button'
+import { EpicBoard } from './EpicBoard'
 import { EpicLane } from './EpicLane'
 import styles from './EpicsSection.module.css'
 
-/** Épicos de um plano dividido (D53): uma faixa por épico, lado a lado no tempo, em ordem do plano. */
+type EpicsMode = 'board' | 'list'
+
+const MODES: readonly { id: EpicsMode; label: string }[] = [
+  { id: 'board', label: 'Board' },
+  { id: 'list', label: 'Lista' },
+]
+
+/** Épicos de um plano dividido (D53): board kanban por padrão ou uma faixa por épico, em ordem do plano. */
 export function EpicsSection({ view }: { view: TaskView }) {
+  const [mode, setMode] = useState<EpicsMode>('board')
   const lanes = view.epics
   const running = lanes.filter((l) => l.status === 'running' || l.status === 'preparing').length
   return (
@@ -20,11 +29,28 @@ export function EpicsSection({ view }: { view: TaskView }) {
           {lanes.filter((l) => l.kind === 'epic').length} prontos
           {running > 0 && ` · ${running} em paralelo`}
         </span>
+        <span className={styles.toggle} role="group" aria-label="Vista dos épicos">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className={styles.mode}
+              aria-pressed={mode === m.id}
+              onClick={() => {
+                setMode(m.id)
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </span>
       </h3>
       {view.phase === 'awaiting_selection' && <NextBatch view={view} />}
-      {lanes.map((lane) => (
-        <EpicLane key={lane.id} view={view} lane={lane} />
-      ))}
+      {mode === 'board' ? (
+        <EpicBoard view={view} />
+      ) : (
+        lanes.map((lane) => <EpicLane key={lane.id} view={view} lane={lane} />)
+      )}
     </section>
   )
 }

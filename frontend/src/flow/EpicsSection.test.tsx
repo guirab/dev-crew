@@ -68,7 +68,34 @@ function splitView(lanes: EpicView[], phase: TaskView['phase'] = 'executing'): T
 }
 
 describe('EpicsSection', () => {
-  it('uma faixa por épico, com status e o que está acontecendo', () => {
+  it('abre no board, com as quatro colunas e o NextBatch acima', () => {
+    const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
+    renderWithClient(<EpicsSection view={view} />)
+    expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'false')
+    for (const name of ['A fazer', 'Em andamento', 'Precisa de você', 'Concluído']) {
+      expect(screen.getByRole('group', { name })).toBeInTheDocument()
+    }
+    expect(within(screen.getByRole('group', { name: 'Concluído' })).getByText('Épico E1')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
+  })
+
+  it('alterna entre board e lista, mantendo o NextBatch', async () => {
+    const user = userEvent.setup()
+    const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
+    renderWithClient(<EpicsSection view={view} />)
+    await user.click(screen.getByRole('button', { name: 'Lista' }))
+    expect(screen.getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('group', { name: 'A fazer' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Épico E1/ })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Board' }))
+    expect(screen.getByRole('group', { name: 'A fazer' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
+  })
+
+  it('uma faixa por épico, com status e o que está acontecendo', async () => {
+    const user = userEvent.setup()
     const running = lane('E1', 'running', {
       stages: {
         developer: { status: 'active', now: 'Editando core.py', logs: [] },
@@ -82,10 +109,21 @@ describe('EpicsSection', () => {
       lane('E3', 'waiting'),
     ])
     renderWithClient(<EpicsSection view={view} />)
+    await user.click(screen.getByRole('button', { name: 'Lista' }))
     expect(screen.getByText('1/3 prontos · 1 em paralelo')).toBeInTheDocument()
     expect(screen.getByText('Editando core.py')).toBeInTheDocument()
     expect(screen.getByText('juntado · abcdef12')).toBeInTheDocument()
     expect(screen.getByText('na fila')).toBeInTheDocument()
+  })
+
+  it('a escolha da vista não persiste: remontar volta ao board', async () => {
+    const user = userEvent.setup()
+    const view = splitView([lane('E1', 'running')])
+    const { unmount } = renderWithClient(<EpicsSection view={view} />)
+    await user.click(screen.getByRole('button', { name: 'Lista' }))
+    unmount()
+    renderWithClient(<EpicsSection view={view} />)
+    expect(screen.getByRole('group', { name: 'Em andamento' })).toBeInTheDocument()
   })
 
   it('o ticket abre Developer, Tester e Merge (sem Reviewer, D68)', async () => {
@@ -130,7 +168,8 @@ describe('EpicsSection', () => {
     })
     renderWithClient(<EpicsSection view={splitView([escalated])} />)
     await user.click(screen.getByRole('button', { name: /Épico E2/ }))
-    await user.click(screen.getByRole('button', { name: /Tester/ }))
+    const region = screen.getByRole('region', { name: 'Épico E2' })
+    await user.click(within(region).getByRole('button', { name: /Tester/ }))
     expect(screen.queryByRole('button', { name: 'Voltar pro Planner' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '+2 tentativas' }))
     await waitFor(() => {
@@ -148,6 +187,9 @@ describe('EpicsSection', () => {
       'awaiting_selection',
     )
     renderWithClient(<EpicsSection view={view} />)
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lista' }))
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'rodar E1 agora' })).toBeDisabled()
     await user.click(screen.getByRole('checkbox', { name: 'rodar E3 agora' }))
     await user.click(screen.getByRole('button', { name: 'Rodar 1 épico' }))
