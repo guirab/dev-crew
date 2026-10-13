@@ -31,3 +31,13 @@ def test_snapshot_ignores_tests_and_detects_production_changes(tmp_path: Path) -
 def test_describe_lists_a_bounded_number_of_files() -> None:
     text = prodguard.describe([f"f{i}.py" for i in range(10)], limit=3)
     assert text.startswith("o Tester alterou código de produção: f0.py, f1.py, f2.py (+7)")
+
+
+def test_the_plan_doc_is_dev_crews_own_file(tmp_path: Path) -> None:
+    # dev-crew may rewrite it while a Tester runs in the task worktree (D57, D68)
+    repo = make_git_repo(tmp_path)
+    (repo / "docs" / "plano").mkdir(parents=True)
+    (repo / "docs" / "plano" / "T-1.md").write_text("v1", "utf-8")
+    before = prodguard.snapshot(repo, ())
+    (repo / "docs" / "plano" / "T-1.md").write_text("v2", "utf-8")
+    assert prodguard.changed(before, prodguard.snapshot(repo, ())) == []

@@ -3,7 +3,14 @@ import type { EpicView, TaskView } from '../contracts/generated'
 import { cx } from '../lib/cx'
 import { formatTokens } from '../lib/format'
 import { Connector } from './Connector'
-import { EPIC_CARD_STATUS, EPIC_STATUS_LABEL, laneSummary, laneView } from './lanes'
+import {
+  EPIC_CARD_STATUS,
+  EPIC_STATUS_LABEL,
+  laneSummary,
+  laneView,
+  mergeDescription,
+  mergeMeta,
+} from './lanes'
 import { LoopRail } from './LoopRail'
 import { StageBody } from './StageBody'
 import { StageCard } from './StageCard'
@@ -14,8 +21,9 @@ import styles from './EpicLane.module.css'
 type LaneStage = 'developer' | 'tester' | 'reviewer'
 
 /**
- * Uma faixa de um plano dividido: o épico (ou a integração de um merge que conflitou). Fechada mostra
- * status e o que está acontecendo; aberta mostra Developer → Tester → Reviewer como no fluxo simples.
+ * Uma faixa de um plano dividido: o épico (ticket), a integração de um merge que conflitou ou o review
+ * final. Fechada mostra status e o que está acontecendo; aberta mostra Developer → Tester → Merge (no
+ * review final, Developer → Tester → Reviewer).
  */
 export function EpicLane({ view, lane }: { view: TaskView; lane: EpicView }) {
   const [open, setOpen] = useState(false)
@@ -33,21 +41,26 @@ export function EpicLane({ view, lane }: { view: TaskView; lane: EpicView }) {
     })
   }
 
-  const stageCard = (key: LaneStage) => (
-    <StageCard
-      stageKey={key}
-      domId={`lane-${lane.id}-${key}`}
-      status={lane.stages[key].status}
-      description={stageDescription(key, lane.stages[key])}
-      counters={lane.counters}
-      open={openStages.has(key)}
-      onToggle={() => {
-        toggleStage(key)
-      }}
-    >
-      <StageBody stageKey={key} view={pseudo} stage={lane.stages[key]} />
-    </StageCard>
-  )
+  const stageCard = (key: LaneStage) => {
+    const merge = key === 'reviewer' && lane.kind !== 'review'
+    const stage = lane.stages[key]
+    return (
+      <StageCard
+        stageKey={key}
+        domId={`lane-${lane.id}-${key}`}
+        status={stage.status}
+        description={merge ? mergeDescription(stage) : stageDescription(key, stage)}
+        meta={merge ? mergeMeta(stage.status) : undefined}
+        counters={lane.counters}
+        open={openStages.has(key)}
+        onToggle={() => {
+          toggleStage(key)
+        }}
+      >
+        <StageBody stageKey={key} view={pseudo} stage={stage} />
+      </StageCard>
+    )
+  }
 
   return (
     <div

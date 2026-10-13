@@ -1,4 +1,5 @@
-"""Split plans in the state machine (D53-D57): lanes in parallel, merges, integration, batches."""
+"""Split plans in the state machine (D53-D57, D68): lanes in parallel, merges, integration, batches, the
+final review."""
 
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from crew.orchestrator.effects import (
 from crew.orchestrator.machine import recovery_effects
 from crew.orchestrator.state import LaneState
 
-from .core_helpers import Driver, dev, fail_run, pass_run, review_ok
+from .core_helpers import Driver, dev, fail_run, pass_run, review_changes, review_ok
 
 
 def epic(epic_id: str, deps: tuple[str, ...] = ()) -> c.Epic:
@@ -87,10 +88,9 @@ class Split(Driver):
         self.feed(ev.AgentFailed(task_id=self.s.task_id, evt=evt, at=self.tick()))
 
     def pass_lane(self, lane_id: str) -> None:
-        """Developer → Tester (pass) → Reviewer (approved)."""
+        """Developer → Tester (pass): a ticket goes straight to its merge (D68)."""
         self.lane_result(lane_id, dev())
         self.lane_result(lane_id, pass_run())
-        self.lane_result(lane_id, review_ok(commit=None))
 
     def merged(self, epic_id: str, sha: str = "a1b2c3d4e5") -> None:
         self.feed(ev.EpicMerged(self.s.task_id, epic_id, self.tick(), sha=sha))
@@ -219,7 +219,10 @@ def test_finish_task_reports_commits_and_pending_epics() -> None:
     d.pass_lane("E1")
     d.merged("E1", "abcdef0123")
     d.command(c.FinishTask())
+    assert not d.has(BuildFinalReport) and d.lane(m.REVIEW_LANE).status == "running"
+    d.lane_result(m.REVIEW_LANE, review_ok(commit="feat: agenda com clientes"))
     report = d.one(BuildFinalReport)
+    assert report.commit_message is None  # nothing fixed by the final review
     assert (
         report.commit_doc
         and report.plan_doc is not None
@@ -232,6 +235,7 @@ def test_finish_task_reports_commits_and_pending_epics() -> None:
         ("E1", "abcdef0123", "feat(E1): épico E1")
     ]
     assert s.final.pending_epics == ["E2", "E3", "E4"] and s.final.plan_doc == "docs/plano/T-107.md"
+    assert s.final.commit_message == "feat: agenda com clientes"
 
 
 def test_all_epics_merged_builds_the_final_report() -> None:
@@ -257,7 +261,68 @@ def test_all_epics_merged_builds_the_final_report() -> None:
     d2.ready("E3")
     d2.pass_lane("E3")
     d2.merged("E3")
+    assert d2.lane(m.REVIEW_LANE).current_agent == "reviewer" and not d2.has(BuildFinalReport)
+    d2.lane_result(m.REVIEW_LANE, review_ok())
     assert d2.has(BuildFinalReport) and d2.s.boot == "build_report"
+
+
+# ------------------------------------------------------------------ final review (D68)
+
+
+def test_a_ticket_never_meets_the_reviewer() -> None:
+    d = approved(["E1"])
+    d.ready("E1")
+    d.lane_result("E1", dev())
+    d.lane_result("E1", pass_run())
+    lane = d.lane("E1")
+    assert lane.status == "merging" and lane.review_round == 0 and "reviewer" not in lane.attempts
+    assert d.one(MergeEpic).commit_message == "feat(E1): épico E1"
+
+
+def test_final_review_reviews_the_whole_task_branch() -> None:
+    d = approved(["E1"])
+    d.ready("E1")
+    d.pass_lane("E1")
+    d.merged("E1")
+    d.command(c.FinishTask())
+    job = d.job
+    assert (job.agent, job.epic_id, job.workspace_path) == ("reviewer", None, "/wt/T-107")
+    review = d.lane(m.REVIEW_LANE)
+    assert review.kind == "review" and d.s.phase == "executing"
+    assert [v.id for v in d.s.to_view().epics][-1] == m.REVIEW_LANE
+
+
+def test_final_review_fix_round_then_commit_of_the_fixes() -> None:
+    d = approved(["E1"])
+    d.ready("E1")
+    d.pass_lane("E1")
+    d.merged("E1")
+    d.command(c.FinishTask())
+    d.lane_result(m.REVIEW_LANE, review_changes())
+    assert d.job.agent == "developer" and d.job.feedback is not None
+    assert d.job.feedback.kind == "review_comments"
+    d.lane_result(m.REVIEW_LANE, dev())
+    d.lane_result(m.REVIEW_LANE, pass_run())
+    assert d.job.agent == "reviewer" and not d.has(MergeEpic)  # the review lane goes back to review
+    d.lane_result(m.REVIEW_LANE, review_ok())
+    report = d.one(BuildFinalReport)
+    assert report.commit_message == "fix: ajustes do review final (T-107)"
+
+
+def test_final_review_escalates_after_its_rounds() -> None:
+    d = approved(["E1"])
+    d.ready("E1")
+    d.pass_lane("E1")
+    d.merged("E1")
+    d.command(c.FinishTask())
+    for _ in range(2):
+        d.lane_result(m.REVIEW_LANE, review_changes())
+        if d.lane(m.REVIEW_LANE).status == "running":
+            d.lane_result(m.REVIEW_LANE, dev())
+            d.lane_result(m.REVIEW_LANE, pass_run())
+    assert d.lane(m.REVIEW_LANE).status == "escalated" and d.s.phase == "escalated"
+    d.command(c.EscalationAction(action="instruct", text="aceite o minor", epic_id=m.REVIEW_LANE))
+    assert d.job.agent == "developer" and d.lane(m.REVIEW_LANE).status == "running"
 
 
 # ------------------------------------------------------------------ escalation / limit / io errors

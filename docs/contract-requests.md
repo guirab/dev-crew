@@ -15,6 +15,13 @@ Formato:
 
 ---
 
+## 2026-10-13 · D68 · Faixa de review final — ✅ aplicado (exceção ao congelamento, como D38/D39)
+
+- `EpicView.kind` ganha `"review"`: a faixa `REV` roda o Reviewer uma vez sobre a branch da tarefa depois do lote (ou do `finish_task`), com rodadas Developer → Tester de correção. Tickets e integração não passam mais pelo Reviewer: o terceiro estágio da faixa vira "Merge" na UI.
+- Nada mais muda: `ReviewComment` continua sem `axis` (os eixos vão no texto, `[Spec]`/`[Standards]`).
+
+---
+
 ## 2026-10-07 · T-8 · Histórico de tarefas — ✅ aplicado (exceção ao congelamento, como D38/D39)
 
 - Saída nova: `TaskSummary` (`backend/src/crew/contracts/history.py`): `task_id`, `title`, `repo`, `phase`, `running`, `started_at`, `ended_at`, `duration_s`, `cost_usd`, `tokens`, `commit_message`, `files_changed`, `summary`. Tudo calculado no backend (`TaskState.to_summary`); `summary` é a 1ª linha da mensagem de commit do relatório final ou, sem relatório, a descrição da tarefa.

@@ -7,6 +7,8 @@ from datetime import datetime
 
 from .contracts import Estimate, Plan
 
+PLAN_DOC_DIR = "docs/plano"
+
 STATUS_LABEL = {
     "pending": "pendente",
     "waiting": "na fila",

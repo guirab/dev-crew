@@ -96,15 +96,16 @@ def _lane_stages() -> dict[StageKey, StageState]:
 
 
 class LaneState(BaseModel):
-    """One lane of a split plan (D53-D55): an epic in its own worktree, or the integration lane that
-    resolves the merge conflict of an epic in the task worktree.
+    """One lane of a split plan (D53-D55, D68): an epic (ticket) in its own worktree, the integration lane
+    that resolves the merge conflict of an epic in the task worktree, or the final review lane that reviews
+    the whole task branch once and fixes what the Reviewer asks for.
 
     It carries the same pipeline fields as ``TaskState`` (stages, edges, counters, job bookkeeping), so the
     Developer → Tester → Reviewer logic of the machine runs on either.
     """
 
     id: str
-    kind: Literal["epic", "integration"] = "epic"
+    kind: Literal["epic", "integration", "review"] = "epic"
     title: str
     status: EpicStatus
     limits: Limits = Field(default_factory=Limits)

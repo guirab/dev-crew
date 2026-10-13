@@ -525,6 +525,12 @@ class OrchestratorService:
         doc: str | None = None
         try:
             ws = self._task_ws(effect.task_id, effect.repo, effect.workspace_path)
+            if effect.commit_message is not None:
+                try:
+                    async with self._git_lock:
+                        await self.workspace.commit_all(ws, effect.commit_message)
+                except Exception as e:  # the fixes stay as local changes and show up in the report
+                    log.warning("review_fix_commit_failed", task_id=effect.task_id, error=str(e))
             if effect.plan_doc is not None:
                 try:
                     async with self._git_lock:

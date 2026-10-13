@@ -21,6 +21,7 @@ import structlog
 from .. import sandbox
 from ..config import RepoCfg
 from ..contracts import FileChange, FinalFile
+from ..plan_doc import PLAN_DOC_DIR
 from . import git
 
 log = structlog.get_logger(__name__)
@@ -29,7 +30,6 @@ WorkspaceMode = Literal["worktree", "inplace"]
 TASK_ID_RE = re.compile(r"^T-\d+$")
 EPIC_ID_RE = re.compile(r"^E\d+$")
 CREW_AUTHOR = ("-c", "user.name=dev-crew", "-c", "user.email=dev-crew@localhost")
-PLAN_DOC_DIR = "docs/plano"
 MAX_COUNTED_BYTES = 5 * 1024 * 1024
 FETCH_TIMEOUT_S = 30.0
 

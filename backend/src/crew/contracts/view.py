@@ -75,7 +75,7 @@ class EpicView(Contract):
     """One lane of a split plan: an epic, or the integration lane that resolves a merge conflict."""
 
     id: str
-    kind: Literal["epic", "integration"] = "epic"
+    kind: Literal["epic", "integration", "review"] = "epic"
     title: str
     goal: str = ""
     size: EpicSize = "M"

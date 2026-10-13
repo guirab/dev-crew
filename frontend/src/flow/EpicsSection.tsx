@@ -46,8 +46,8 @@ function NextBatch({ view }: { view: TaskView }) {
   return (
     <div className={styles.next} role="group" aria-label="Próximos épicos">
       <p className={styles.lead}>
-        Os épicos escolhidos estão prontos na branch. Rode os próximos ou conclua agora (os
-        pendentes ficam registrados no plano).
+        Os épicos escolhidos estão prontos na branch. Rode os próximos ou conclua agora: o Reviewer
+        revisa a tarefa inteira uma vez e os pendentes ficam registrados no plano.
       </p>
       <EpicList
         epics={epics}

@@ -8,10 +8,12 @@ Conventions
 
 Pipelines
 - A single execution runs Developer → Tester → Reviewer on the task itself (``TaskState``).
-- A split plan (D53) runs the same pipeline once per epic, on a ``LaneState`` with its own worktree, in
-  parallel when the dependency graph allows. An approved epic is committed and merged into the task
-  branch, one merge at a time (D54); a conflicting merge gets an integration lane that runs the pipeline
-  in the task worktree (D55). The pipeline functions take the pipe (``p``) they act on.
+- A split plan (D53) runs Developer → Tester once per epic (ticket), on a ``LaneState`` with its own
+  worktree, in parallel when the dependency graph allows. An epic whose tests pass is committed and merged
+  into the task branch, one merge at a time (D54, D68); a conflicting merge gets an integration lane that
+  runs Developer → Tester in the task worktree (D55). When the batch is over (or the user finishes), a
+  final review lane runs the Reviewer once on the task branch, with Developer → Tester fix rounds (D68).
+  The pipeline functions take the pipe (``p``) they act on.
 """
 
 from __future__ import annotations
@@ -246,7 +248,7 @@ def _make_job(s: TaskState, p: Pipe, agent: AgentName, feedback: Feedback | None
         interview_history=list(s.interview_turns) if agent in ("interviewer", "planner") else [],
         workspace_path=lane.workspace_path if lane else s.workspace_path,
         resume_session_id=p.sessions.get(agent),
-        epic_id=lane.id if lane else None,
+        epic_id=lane.id if lane and lane.kind != "review" else None,  # the final review sees the whole task
     )
 
 
@@ -776,6 +778,9 @@ def _integration_id(epic_id: str) -> str:
     return f"M-{epic_id}"
 
 
+REVIEW_LANE: Final = "REV"
+
+
 def _approve_split(
     state: TaskState, s: TaskState, plan: Plan, picked: list[str], at: datetime
 ) -> tuple[TaskState | None, list[Effect]]:
@@ -846,6 +851,22 @@ def _finish_task(state: TaskState, s: TaskState, at: datetime) -> tuple[TaskStat
 
 
 def _finalize_split(s: TaskState, at: datetime) -> list[Effect]:
+    """The batch is over (or the user finished): the Reviewer reviews the whole task branch once (D68)."""
+    lane = LaneState(
+        id=REVIEW_LANE,
+        kind="review",
+        title="Review final",
+        status="running",
+        limits=s.limits.model_copy(),
+        workspace_path=s.workspace_path,
+        branch=s.branch,
+        deps_setup=_deps_setup_for_new_pipe(s),
+    )
+    s.lanes[REVIEW_LANE] = lane
+    return _advance(s, at, "reviewer", edge=None, now="Revisando a tarefa inteira", p=lane)
+
+
+def _build_report(s: TaskState, at: datetime) -> list[Effect]:
     s.boot = "build_report"
     s.phase = "executing"
     _go(s, "rv-dn", "done")
@@ -857,12 +878,15 @@ def _final_report_effect(s: TaskState, at: datetime | None = None) -> BuildFinal
     assert s.workspace_path is not None
     if s.plan is None:
         return BuildFinalReport(s.task_id, s.repo.name, s.workspace_path)
+    review = s.lanes.get(REVIEW_LANE)
+    fixed = review is not None and review.dev_round > 0
     return BuildFinalReport(
         s.task_id,
         s.repo.name,
         s.workspace_path,
         plan_doc=_render_plan_doc(s, updated=at),
         commit_doc=s.split,
+        commit_message=f"fix: ajustes do review final ({s.task_id})" if fixed else None,
     )
 
 
@@ -899,15 +923,19 @@ def _pump_merges(s: TaskState) -> list[Effect]:
 
 
 def _lane_approved(s: TaskState, lane: LaneState, at: datetime) -> list[Effect]:
-    lane.status = "merging"
+    """An epic or integration lane passed its tests (D68), or the final review approved the task."""
     _settle_edge(lane)
+    if lane.kind == "review":
+        lane.status = "merged"
+        return _build_report(s, at)
+    lane.status = "merging"
     s.phase = _split_phase(s)
     if lane.kind == "integration":
         assert lane.merge_of is not None
-        _log(lane, "reviewer", "Conflito resolvido — concluindo o merge", at)
+        _log(lane, "reviewer", "Conflito resolvido e testado — concluindo o merge", at)
         return [_finish_merge_effect(s, lane.merge_of)]
     lane.commit_message = (lane.review.commit_message if lane.review else None) or _epic_commit_fallback(lane)
-    _log(lane, "reviewer", "Aprovado — commitando e juntando na branch da tarefa", at)
+    _log(lane, "reviewer", "Testes passaram — commitando e juntando na branch da tarefa", at)
     s.merge_queue.append(lane.id)
     return _pump_merges(s)
 
@@ -1172,7 +1200,11 @@ def _on_io_event(
             s.ended_at = ev.at
             if s.split:
                 _set(s, "done", "done", f"Pronto: branch {s.branch} com um commit por épico", ev.at)
-                commit_message = _fallback_commit_message(s)
+                review = s.lanes.get(REVIEW_LANE)
+                approved = review.review if review is not None else None
+                commit_message = (approved.commit_message if approved else None) or _fallback_commit_message(
+                    s
+                )
             else:
                 _set(s, "done", "done", "Pronto pra você revisar e commitar", ev.at)
                 assert s.review is not None
@@ -1368,6 +1400,10 @@ def _tester_result(
         p.test_attempt = 0
         cov = f" · cobertura {round(res.coverage * 100)}%" if res.coverage is not None else ""
         _set(p, "tester", "done", f"PASSOU · {res.passed}/{res.total}{cov}", at)
+        lane = _lane(p)
+        if lane is not None and lane.kind != "review":
+            # D68: a ticket is done when its tests pass; the Reviewer runs once, on the whole task
+            return _commit(s, *_lane_approved(s, lane, at))
         effects = _advance(s, at, "reviewer", edge="ts-rv", p=p)
         return _commit(s, *effects)
 

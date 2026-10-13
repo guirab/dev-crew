@@ -501,7 +501,7 @@ export interface EpicEstimate {
  */
 export interface EpicView {
   id: string;
-  kind: "epic" | "integration";
+  kind: "epic" | "integration" | "review";
   title: string;
   goal: string;
   size: "S" | "M" | "L";

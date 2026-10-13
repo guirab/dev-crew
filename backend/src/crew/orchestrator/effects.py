@@ -44,6 +44,7 @@ class BuildFinalReport:
     workspace_path: str
     plan_doc: str | None = None  # markdown to save in docs/plano/T-n.md first (D57)
     commit_doc: bool = False  # split plan: the doc is committed on the task branch
+    commit_message: str | None = None  # split plan: commit what the final review fixed first (D68)
 
 
 @dataclass(frozen=True)

@@ -80,7 +80,9 @@ async def test_parallel_epics_merge_into_the_task_branch(nats_url: str, tmp_path
         assert not (wt.parent / "T-1-E1").exists()  # merged epic worktrees are removed
 
         statuses = {e.id: e.status for e in done.epics}
-        assert statuses == {"E1": "merged", "E2": "merged", "E3": "merged"}
+        assert statuses == {"E1": "merged", "E2": "merged", "E3": "merged", "REV": "merged"}
+        # the fake Reviewer asks for changes once: the final review's fixes get their own commit (D68)
+        assert "fix: ajustes do review final (T-1)" in log
         # E1 and E2 really ran at the same time: both were running in one published view
         assert any({e.id for e in v.epics if e.status == "running"} >= {"E1", "E2"} for v in rig.views)
     finally:

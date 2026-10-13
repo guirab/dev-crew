@@ -88,11 +88,23 @@ describe('EpicsSection', () => {
     expect(screen.getByText('na fila')).toBeInTheDocument()
   })
 
-  it('a faixa abre Developer, Tester e Reviewer', async () => {
+  it('o ticket abre Developer, Tester e Merge (sem Reviewer, D68)', async () => {
     const user = userEvent.setup()
     renderWithClient(<EpicsSection view={splitView([lane('E1', 'running')])} />)
     await user.click(screen.getByRole('button', { name: /Épico E1/ }))
     const region = screen.getByRole('region', { name: 'Épico E1' })
+    for (const title of ['Developer', 'Tester', 'Merge']) {
+      expect(within(region).getByText(title)).toBeInTheDocument()
+    }
+    expect(within(region).queryByText('Reviewer')).not.toBeInTheDocument()
+  })
+
+  it('o review final abre Developer, Tester e Reviewer', async () => {
+    const user = userEvent.setup()
+    const review = lane('REV', 'running', { kind: 'review', title: 'Review final' })
+    renderWithClient(<EpicsSection view={splitView([lane('E1', 'merged'), review])} />)
+    await user.click(screen.getByRole('button', { name: /Review final/ }))
+    const region = screen.getByRole('region', { name: 'Review final' })
     for (const title of ['Developer', 'Tester', 'Reviewer']) {
       expect(within(region).getByText(title)).toBeInTheDocument()
     }

@@ -1,5 +1,6 @@
 import type { StageStatus } from '../contracts/aliases'
-import type { EpicView, TaskView } from '../contracts/generated'
+import type { EpicView, StageView, TaskView } from '../contracts/generated'
+import type { StageMeta } from './stages'
 
 type EpicStatus = EpicView['status']
 
@@ -49,6 +50,21 @@ export function laneView(view: TaskView, lane: EpicView): TaskView {
     review: lane.review,
     escalation: lane.escalation,
   }
+}
+
+const MERGE_DESC = 'Commit e merge na branch da tarefa'
+
+/**
+ * Num ticket (e na integração) o terceiro estágio não é o Reviewer (D68): os testes passaram, o dev-crew
+ * commita e junta na branch da tarefa. O Reviewer roda uma vez só, na faixa "Review final".
+ */
+export function mergeMeta(status: StageStatus): StageMeta {
+  const icon = status === 'done' ? '✓' : status === 'error' ? '!' : '⤵'
+  return { title: 'Merge', desc: MERGE_DESC, icon }
+}
+
+export function mergeDescription(stage: StageView): string {
+  return stage.now && stage.status !== 'idle' ? stage.now : MERGE_DESC
 }
 
 /** Linha de status do card fechado: o que a faixa está fazendo agora. */

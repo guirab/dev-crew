@@ -12,7 +12,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ..plan_doc import PLAN_DOC_DIR
 from .pathjail import matches_any_glob
+
+# dev-crew itself writes the plan doc in the task worktree, possibly while a Tester runs there (D57, D68)
+_CREW_FILES = (f"{PLAN_DOC_DIR}/**",)
 
 Snapshot = dict[str, str]  # relative path -> sha1 of the content
 
@@ -29,7 +33,7 @@ def snapshot(workspace: Path, test_globs: tuple[str, ...]) -> Snapshot:
     ignore_case = sys.platform == "win32"
     out: Snapshot = {}
     for rel in sorted(set(listed.stdout.decode("utf-8", errors="replace").split("\0")) - {""}):
-        if matches_any_glob(rel, test_globs, ignore_case=ignore_case):
+        if matches_any_glob(rel, (*test_globs, *_CREW_FILES), ignore_case=ignore_case):
             continue
         path = workspace / rel
         out[rel] = (
