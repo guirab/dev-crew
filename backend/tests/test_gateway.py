@@ -464,6 +464,7 @@ async def test_serves_frontend_dist_when_present(nats_url: str, tmp_path: Path) 
         async with client(rig) as http:
             page = await http.get("/")
             assert page.status_code == 200 and "<title>crew</title>" in page.text
+            assert page.headers["cache-control"] == "no-cache"  # a new build shows up on a plain reload
             assert (await http.get("/api/repos")).status_code == 200, "API routes win over the static mount"
     finally:
         await rig.aclose()

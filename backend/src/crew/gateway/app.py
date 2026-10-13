@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 import structlog
 import uvicorn
@@ -60,6 +61,17 @@ def allowed_origins(host: str, port: int) -> frozenset[str]:
 
 def _unavailable(what: str) -> HTTPException:
     return HTTPException(status_code=503, detail=f"{what} indisponível: nenhum serviço respondeu")
+
+
+class _FrontendFiles(StaticFiles):
+    """``frontend/dist`` with ``index.html`` always revalidated: after a new build the installed window
+    otherwise keeps the old page (and its old hashed bundle) for hours. Hashed assets stay cacheable."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        if response.media_type == "text/html":
+            response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 class Gateway:
@@ -173,7 +185,7 @@ class Gateway:
 
         if dist is not None and dist.is_dir():
             # last, so /api and /ws win; html=True serves index.html for "/"
-            app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+            app.mount("/", _FrontendFiles(directory=dist, html=True), name="frontend")
         return app
 
     # ------------------------------------------------------------------ run
