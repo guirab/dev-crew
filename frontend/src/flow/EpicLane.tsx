@@ -27,40 +27,8 @@ type LaneStage = 'developer' | 'tester' | 'reviewer'
  */
 export function EpicLane({ view, lane }: { view: TaskView; lane: EpicView }) {
   const [open, setOpen] = useState(false)
-  const [openStages, setOpenStages] = useState<ReadonlySet<LaneStage>>(new Set())
   const bodyId = useId()
   const status = EPIC_CARD_STATUS[lane.status]
-  const pseudo = laneView(view, lane)
-  const edges = lane.edges
-
-  const toggleStage = (key: LaneStage) => {
-    setOpenStages((current) => {
-      const next = new Set(current)
-      if (!next.delete(key)) next.add(key)
-      return next
-    })
-  }
-
-  const stageCard = (key: LaneStage) => {
-    const merge = key === 'reviewer' && lane.kind !== 'review'
-    const stage = lane.stages[key]
-    return (
-      <StageCard
-        stageKey={key}
-        domId={`lane-${lane.id}-${key}`}
-        status={stage.status}
-        description={merge ? mergeDescription(stage) : stageDescription(key, stage)}
-        meta={merge ? mergeMeta(stage.status) : undefined}
-        counters={lane.counters}
-        open={openStages.has(key)}
-        onToggle={() => {
-          toggleStage(key)
-        }}
-      >
-        <StageBody stageKey={key} view={pseudo} stage={stage} />
-      </StageCard>
-    )
-  }
 
   return (
     <div
@@ -93,26 +61,73 @@ export function EpicLane({ view, lane }: { view: TaskView; lane: EpicView }) {
           ▾
         </span>
       </button>
-      {open && (
-        <div id={bodyId} className={cx(card.bd, styles.body)} role="region" aria-label={lane.title}>
-          {lane.depends_on.length > 0 && (
-            <p className={styles.meta}>depende de {lane.depends_on.join(', ')}</p>
-          )}
-          {lane.branch && (
-            <p className={styles.meta}>
-              branch {lane.branch}
-              {lane.worktree_path ? ` · ${lane.worktree_path}` : ''}
-            </p>
-          )}
-          <LoopRail edges={edges}>
-            {stageCard('developer')}
-            <Connector id="develop" edges={edges} />
-            {stageCard('tester')}
-            <Connector id="test" edges={edges} />
-            {stageCard('reviewer')}
-          </LoopRail>
-        </div>
+      {open && <LaneBody view={view} lane={lane} id={bodyId} className={styles.body} />}
+    </div>
+  )
+}
+
+/** O corpo aberto de uma faixa: dependências, branch e Developer → Tester → Merge/Reviewer. */
+export function LaneBody({
+  view,
+  lane,
+  id,
+  className,
+}: {
+  view: TaskView
+  lane: EpicView
+  id?: string
+  className?: string
+}) {
+  const [openStages, setOpenStages] = useState<ReadonlySet<LaneStage>>(new Set())
+  const pseudo = laneView(view, lane)
+  const edges = lane.edges
+  const toggleStage = (key: LaneStage) => {
+    setOpenStages((current) => {
+      const next = new Set(current)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+  }
+
+  const stageCard = (key: LaneStage) => {
+    const merge = key === 'reviewer' && lane.kind !== 'review'
+    const stage = lane.stages[key]
+    return (
+      <StageCard
+        stageKey={key}
+        domId={`lane-${lane.id}-${key}`}
+        status={stage.status}
+        description={merge ? mergeDescription(stage) : stageDescription(key, stage)}
+        meta={merge ? mergeMeta(stage.status) : undefined}
+        counters={lane.counters}
+        open={openStages.has(key)}
+        onToggle={() => {
+          toggleStage(key)
+        }}
+      >
+        <StageBody stageKey={key} view={pseudo} stage={stage} />
+      </StageCard>
+    )
+  }
+
+  return (
+    <div id={id} className={cx(card.bd, className)} role="region" aria-label={lane.title}>
+      {lane.depends_on.length > 0 && (
+        <p className={styles.meta}>depende de {lane.depends_on.join(', ')}</p>
       )}
+      {lane.branch && (
+        <p className={styles.meta}>
+          branch {lane.branch}
+          {lane.worktree_path ? ` · ${lane.worktree_path}` : ''}
+        </p>
+      )}
+      <LoopRail edges={edges}>
+        {stageCard('developer')}
+        <Connector id="develop" edges={edges} />
+        {stageCard('tester')}
+        <Connector id="test" edges={edges} />
+        {stageCard('reviewer')}
+      </LoopRail>
     </div>
   )
 }

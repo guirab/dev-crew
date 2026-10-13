@@ -29,6 +29,45 @@ export const EPIC_CARD_STATUS: Record<EpicStatus, StageStatus> = {
   failed: 'error',
 }
 
+export type BoardColumn = 'todo' | 'doing' | 'attention' | 'done'
+
+/** As colunas do board, na ordem em que aparecem. */
+export const BOARD_COLUMNS: readonly { id: BoardColumn; label: string }[] = [
+  { id: 'todo', label: 'A fazer' },
+  { id: 'doing', label: 'Em andamento' },
+  { id: 'attention', label: 'Precisa de você' },
+  { id: 'done', label: 'Concluído' },
+]
+
+/** Em que coluna do board cada status de faixa cai. */
+export const EPIC_BOARD_COLUMN: Record<EpicStatus, BoardColumn> = {
+  pending: 'todo',
+  waiting: 'todo',
+  preparing: 'doing',
+  running: 'doing',
+  merging: 'doing',
+  escalated: 'attention',
+  limited: 'attention',
+  failed: 'attention',
+  merged: 'done',
+}
+
+/**
+ * A etapa em que a faixa está agora (Developer, Tester, Merge; Reviewer no review final), só quando há
+ * estágio ativo ou em erro. Faixas em A fazer e Concluído não têm etapa.
+ */
+export function laneStage(lane: EpicView): string | null {
+  const column = EPIC_BOARD_COLUMN[lane.status]
+  if (column === 'todo' || column === 'done') return null
+  for (const key of ['reviewer', 'tester', 'developer'] as const) {
+    const status = lane.stages[key].status
+    if (status !== 'active' && status !== 'error') continue
+    if (key === 'reviewer') return lane.kind === 'review' ? 'Reviewer' : 'Merge'
+    return key === 'tester' ? 'Tester' : 'Developer'
+  }
+  return null
+}
+
 /**
  * A faixa vista como uma tarefa: os corpos de Developer/Tester/Reviewer leem `view.dev_rounds`,
  * `view.escalation` etc., então eles servem pras faixas sem mudança.
