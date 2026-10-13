@@ -60,7 +60,7 @@ function BoardCard({ view, lane }: { view: TaskView; lane: EpicView }) {
           <span className={cx(card.ic, styles.ic)} aria-hidden="true">
             {lane.kind === 'integration' ? '⇄' : lane.id}
           </span>
-          <span className={cx(card.txt, card.tt)}>{lane.title}</span>
+          <span className={cx(card.txt, card.tt, styles.title)}>{lane.title}</span>
           <span className={card.chev} aria-hidden="true">
             ▾
           </span>
@@ -68,7 +68,7 @@ function BoardCard({ view, lane }: { view: TaskView; lane: EpicView }) {
         <span className={card.ds}>{laneSummary(lane)}</span>
         {stage && <span className={styles.stage}>etapa: {stage}</span>}
         {(lane.depends_on.length > 0 || lane.tokens > 0) && (
-          <span className={card.tag}>
+          <span className={cx(card.tag, styles.meta)}>
             {lane.depends_on.length > 0 && `depende de ${lane.depends_on.join(', ')}`}
             {lane.depends_on.length > 0 && lane.tokens > 0 && ' · '}
             {lane.tokens > 0 && `${formatTokens(lane.tokens)} tok`}

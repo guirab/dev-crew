@@ -4,6 +4,15 @@
   padding: 14px 14px 2px;
 }
 
+/* 4 colunas não cabem na coluna de 700 px do fluxo: o board ocupa a largura da tela, centralizado */
+@media (min-width: 641px) {
+  .wide {
+    --board-w: min(1600px, calc(100vw - 64px));
+    width: var(--board-w);
+    margin-left: calc((100% - var(--board-w)) / 2);
+  }
+}
+
 .title {
   display: flex;
   align-items: baseline;

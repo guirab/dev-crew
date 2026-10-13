@@ -3,6 +3,7 @@ import { useSendCommand } from '../api/commands'
 import { CommandErrorMessage } from '../bodies/CommandErrorMessage'
 import { EpicList } from '../bodies/EpicList'
 import type { TaskView } from '../contracts/generated'
+import { cx } from '../lib/cx'
 import { Button } from '../ui/Button'
 import { EpicBoard } from './EpicBoard'
 import { EpicLane } from './EpicLane'
@@ -21,7 +22,7 @@ export function EpicsSection({ view }: { view: TaskView }) {
   const lanes = view.epics
   const running = lanes.filter((l) => l.status === 'running' || l.status === 'preparing').length
   return (
-    <section className={styles.section} aria-label="Épicos">
+    <section className={cx(styles.section, mode === 'board' && styles.wide)} aria-label="Épicos">
       <h3 className={styles.title}>
         Épicos
         <span className={styles.count}>
