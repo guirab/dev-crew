@@ -11,7 +11,7 @@ from crew.agents.specs import SPECS
 from .agents.factories import make_job, make_repo
 
 
-def epic(epic_id: str, *files: str, deps: tuple[str, ...] = ()) -> c.Epic:
+def epic(epic_id: str, *files: str, deps: tuple[str, ...] = (), size: c.EpicSize = "M") -> c.Epic:
     return c.Epic(
         id=epic_id,
         title=epic_id,
@@ -20,6 +20,7 @@ def epic(epic_id: str, *files: str, deps: tuple[str, ...] = ()) -> c.Epic:
         files=[c.PlanFile(path=f, change="A") for f in (files or (f"{epic_id}.py",))],
         depends_on=list(deps),
         acceptance_criteria=["ok"],
+        size=size,
     )
 
 
@@ -115,3 +116,11 @@ def test_planner_submit_check_uses_the_graph_and_the_job() -> None:
     fresh = spec.check_for(make_job("planner", repo=fresh_repo))
     assert fresh is not None
     assert "project_setup" in (fresh(plan()) or "")
+
+
+def test_feature_tickets_cannot_be_large_but_a_new_project_can() -> None:
+    big = plan(epic("E0"), epic("E1", deps=("E0",), size="L"), project_setup=None)
+    assert "E1 com size L" in (g.validate(big) or "")
+    setup = c.ProjectSetup(stack="py", setup_cmd="uv sync", test_cmd="pytest", sandbox_image="python:3.12")
+    assert g.validate(big.model_copy(update={"project_setup": setup}), new_project=True) is None
+    assert g.validate(plan(epic("E1", size="S"), epic("E2"))) is None

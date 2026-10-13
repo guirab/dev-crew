@@ -109,7 +109,9 @@ def test_interview_check_rounds() -> None:
 
 def test_plan_check() -> None:
     assert check_plan(make_plan()) is None
-    assert "steps" in (check_plan(make_plan().model_copy(update={"steps": []})) or "")
+    planner = SPECS["planner"].check_for(make_job("planner"))
+    assert planner is not None
+    assert "steps" in (planner(make_plan().model_copy(update={"steps": []})) or "")
     assert "acceptance" in (check_plan(make_plan().model_copy(update={"acceptance_criteria": []})) or "")
 
 

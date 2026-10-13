@@ -99,14 +99,12 @@ def check_interview(r: InterviewResult) -> str | None:
 
 
 def check_plan(r: Plan) -> str | None:
-    if not r.acceptance_criteria:
-        return "acceptance_criteria não pode ser vazio."
-    return plan_graph.validate(r)
+    return None if r.acceptance_criteria else "acceptance_criteria não pode ser vazio."
 
 
 def check_plan_for_job(r: Plan, job: AgentJob) -> str | None:
-    """A brand-new project (D58) needs ``project_setup`` and, when split, the E0 foundation."""
-    return plan_graph.validate(r, new_project=job.repo.new_project) if job.repo.new_project else None
+    """Epic graph: a new project (D58) needs ``project_setup`` and E0; a feature, small tickets (D67)."""
+    return plan_graph.validate(r, new_project=job.repo.new_project)
 
 
 def check_dev(r: DevResult) -> str | None:

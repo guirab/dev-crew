@@ -92,6 +92,12 @@ def validate(plan: Plan, *, new_project: bool = False) -> str | None:
         missing = [d for d in e.depends_on if d not in known]
         if missing:
             return f"{e.id} depende de épico inexistente: {', '.join(missing)}."
+    large = [e.id for e in epics if e.size == "L"]
+    if large and not new_project:  # D67: a feature is cut into small tickets; a new project may go big
+        return (
+            f"{', '.join(large)} com size L: em tarefa de feature divida em tickets menores "
+            "(S de preferência, M só com motivo em split_rationale)."
+        )
     if (cycle := _cycle(epics)) is not None:
         return f"dependência circular: {' → '.join(cycle)}."
     if new_project:
