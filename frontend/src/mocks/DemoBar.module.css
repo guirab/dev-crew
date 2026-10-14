@@ -7,7 +7,9 @@
   align-items: center;
   font: 12px var(--mono);
   color: var(--muted);
-  background: var(--surface);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--line-2);
   border-radius: 10px;
   padding: 6px 10px;

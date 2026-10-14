@@ -1,0 +1,67 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.backdrop span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+}
+
+/* longhands: o shorthand `animation` zeraria o animation-delay de cada mancha */
+.animated span {
+  animation-name: drift;
+  animation-duration: 26s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform;
+}
+
+.a {
+  left: -140px;
+  top: -120px;
+  width: 640px;
+  height: 640px;
+  background: #5a6270;
+  opacity: 0.5;
+}
+
+.b {
+  right: -160px;
+  top: 140px;
+  width: 660px;
+  height: 660px;
+  background: #8aa0b8;
+  opacity: 0.26;
+  animation-delay: -8s;
+}
+
+.c {
+  left: 28%;
+  bottom: -260px;
+  width: 720px;
+  height: 720px;
+  background: #2f3640;
+  opacity: 0.95;
+  animation-delay: -14s;
+}
+
+@keyframes drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(60px, 40px) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .backdrop {
+    display: none;
+  }
+}

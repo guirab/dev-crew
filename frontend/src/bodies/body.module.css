@@ -163,7 +163,7 @@
   padding: 14px;
   border: 1px solid var(--line-2);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--well);
   font: 12.5px/1.6 var(--mono);
   white-space: pre-wrap;
 }

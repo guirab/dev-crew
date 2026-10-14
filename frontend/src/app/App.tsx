@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { FlowColumn } from '../flow/FlowColumn'
 import { HistoryList } from '../history/HistoryList'
 import { isRunning, useCrewStore } from '../store/crew'
+import { Backdrop } from './Backdrop'
 import { Header } from './Header'
 import { ReconnectBanner } from './ReconnectBanner'
 import { RunningTaskNotice } from './RunningTaskNotice'
@@ -24,6 +25,7 @@ export function App() {
 
   return (
     <>
+      <Backdrop animated={isRunning(view)} />
       <ReconnectBanner />
       <Header view={view} />
       <main className={styles.wrap} aria-busy={!ready}>

@@ -10,7 +10,7 @@ body {
 }
 
 body {
-  background: var(--bg) radial-gradient(#2bee860c 1px, transparent 1px) 0 0 / 22px 22px fixed;
+  background: var(--bg);
   color: var(--fg);
   font: 14px/1.5 var(--sans);
   min-height: 100vh;
@@ -27,11 +27,21 @@ textarea {
 input,
 select,
 textarea {
-  background: var(--bg);
+  background: var(--well);
   border: 1px solid var(--line-2);
-  border-radius: 9px;
-  padding: 9px 11px;
+  border-radius: 14px;
+  padding: 9px 12px;
   width: 100%;
+  box-shadow: inset 0 2px 8px rgb(0 0 0 / 30%);
+}
+
+::placeholder {
+  color: var(--dim);
+}
+
+/* lista aberta do select é nativa: fundo translúcido fica ilegível */
+option {
+  background: #14181a;
 }
 
 textarea {
@@ -44,7 +54,9 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px var(--green-soft);
+  box-shadow:
+    inset 0 2px 8px rgb(0 0 0 / 30%),
+    0 0 0 3px var(--green-soft);
 }
 
 /* foco visível verde em tudo que é interativo (inputs têm o próprio realce acima) */

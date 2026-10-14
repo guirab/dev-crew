@@ -6,6 +6,8 @@
   text-align: center;
   font: 12px var(--mono);
   color: var(--warn);
-  background: var(--warn-soft);
-  border-bottom: 1px solid var(--warn);
+  background: var(--glass-wait-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgb(244 181 68 / 60%);
 }

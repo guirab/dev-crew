@@ -1,25 +1,34 @@
 .btn {
-  border: 1px solid var(--line-2);
-  background: var(--surface-2);
-  padding: 8px 16px;
-  border-radius: 9px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  background: rgb(255 255 255 / 10%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 32%);
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    transform 0.4s var(--spring),
+    background 0.2s;
 }
 
-.btn:hover {
-  border-color: var(--green-2);
+.btn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 20%);
+  transform: translateY(-1px) scale(1.03);
 }
 
 .primary {
-  background: var(--green);
-  border-color: var(--green);
-  color: #03140b;
+  background: linear-gradient(180deg, #6dffb0, var(--green));
+  border-color: rgb(255 255 255 / 55%);
+  color: #03150c;
   font-weight: 650;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 80%),
+    0 10px 28px rgb(43 238 134 / 40%);
 }
 
-.primary:hover {
-  box-shadow: 0 0 18px var(--green-glow);
+.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #8affc4, #4df59b);
 }
 
 .btn:disabled {
@@ -29,7 +38,7 @@
 }
 
 .sm {
-  padding: 5px 12px;
+  padding: 5px 13px;
   font-size: 13px;
 }
 

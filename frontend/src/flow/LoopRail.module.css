@@ -29,13 +29,14 @@
   transform: translate(-50%, -50%) rotate(-90deg);
   font: 10.5px var(--mono);
   color: var(--muted);
-  background: var(--bg);
-  padding: 0 5px;
+  background: rgb(10 12 14 / 85%);
+  border-radius: 999px;
+  padding: 1px 7px;
   white-space: nowrap;
 }
 
 .on {
-  --c: var(--green-2);
+  --c: rgb(43 238 134 / 55%);
 }
 
 .active {

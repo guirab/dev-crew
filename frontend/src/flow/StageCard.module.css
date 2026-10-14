@@ -1,12 +1,43 @@
+/*
+ * Vidro sem backdrop-filter: o fundo já é desfocado, então o card parado só precisa do gradiente.
+ * O desfoque de verdade (caro na GPU) fica nos estados que chamam atenção e no card aberto.
+ */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
   transition:
     border-color 0.25s,
     box-shadow 0.25s,
     opacity 0.25s;
   position: relative;
+}
+
+/* aro especular: brilha no canto superior esquerdo e no inferior direito */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+.open,
+.active,
+.waiting,
+.error {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 
 /* header do card: <button aria-expanded>, visualmente igual ao .hd do mockup */
@@ -20,7 +51,7 @@
   cursor: pointer;
   background: none;
   border: none;
-  border-radius: 16px;
+  border-radius: 24px;
   color: inherit;
   text-align: left;
 }
@@ -33,7 +64,7 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-2);
+  border: 1.5px solid rgb(255 255 255 / 35%);
   display: grid;
   place-items: center;
   flex: none;
@@ -48,7 +79,7 @@
 
 .tt {
   display: block;
-  font-weight: 650;
+  font-weight: 700;
   font-size: 16.5px;
   letter-spacing: -0.1px;
 }
@@ -64,18 +95,18 @@
 
 .bar {
   display: block;
-  height: 4px;
+  height: 6px;
   margin-top: 8px;
-  border-radius: 2px;
-  background: var(--line-2);
+  border-radius: 99px;
+  background: rgb(255 255 255 / 14%);
   overflow: hidden;
 }
 
 .fill {
   display: block;
   height: 100%;
-  border-radius: 2px;
-  background: var(--green);
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--green), var(--green-hi));
   transition: width 0.3s;
 }
 
@@ -118,7 +149,7 @@
 }
 
 .idle {
-  opacity: 0.5;
+  opacity: 0.62;
 }
 
 .skipped {
@@ -127,14 +158,16 @@
 
 .pick {
   border-style: dashed;
-  border-color: var(--green-2);
+  border-color: rgb(255 255 255 / 30%);
 }
 
 .pick:hover,
 .pick.open {
   border-style: solid;
-  border-color: var(--green);
-  box-shadow: 0 0 24px var(--green-glow);
+  border-color: rgb(43 238 134 / 55%);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 40px var(--green-glow);
 }
 
 .pick .ic {
@@ -143,10 +176,36 @@
 }
 
 .active {
-  border-color: var(--green);
+  background: var(--glass-active-bg);
+  border-color: transparent;
   box-shadow:
-    0 0 0 1px var(--green),
-    0 0 34px var(--green-glow);
+    inset 0 1px 0 rgb(255 255 255 / 50%),
+    inset 0 -1px 0 rgb(255 255 255 / 8%),
+    0 0 0 1px rgb(43 238 134 / 55%),
+    0 0 60px rgb(43 238 134 / 28%),
+    0 24px 60px rgb(0 0 0 / 38%);
+}
+
+/* brilho que atravessa o card em execução */
+.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 15%) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sheen {
+  0% {
+    background-position: 150% 0;
+  }
+  60%,
+  100% {
+    background-position: -50% 0;
+  }
 }
 
 .active .ic {
@@ -156,7 +215,7 @@
 }
 
 .active .ds {
-  color: var(--green);
+  color: var(--green-hi);
   font: 13.5px var(--mono);
 }
 
@@ -167,15 +226,15 @@
 }
 
 .active .tag {
-  color: var(--green);
+  color: var(--green-hi);
 }
 
 @keyframes ring {
   0% {
-    box-shadow: 0 0 0 0 var(--green-glow);
+    box-shadow: 0 0 0 0 rgb(43 238 134 / 55%);
   }
   100% {
-    box-shadow: 0 0 0 12px transparent;
+    box-shadow: 0 0 0 14px rgb(43 238 134 / 0%);
   }
 }
 
@@ -186,14 +245,19 @@
 }
 
 .done .ic {
-  background: var(--green-soft);
-  border-color: var(--green-2);
+  background: rgb(43 238 134 / 20%);
+  border-color: var(--green);
   color: var(--green);
 }
 
 .waiting {
-  border-color: var(--warn);
-  box-shadow: 0 0 26px var(--warn-soft);
+  background: var(--glass-wait-bg);
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 50%),
+    0 0 0 1px rgb(244 181 68 / 60%),
+    0 0 60px rgb(244 181 68 / 22%),
+    0 24px 60px rgb(0 0 0 / 38%);
 }
 
 .waiting .ic {
@@ -207,8 +271,13 @@
 }
 
 .error {
-  border-color: var(--err);
-  box-shadow: 0 0 26px var(--err-soft);
+  background: var(--glass-err-bg);
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 50%),
+    0 0 0 1px rgb(255 138 130 / 60%),
+    0 0 60px rgb(255 107 107 / 20%),
+    0 24px 60px rgb(0 0 0 / 38%);
 }
 
 .error .ic {
