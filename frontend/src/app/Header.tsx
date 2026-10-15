@@ -1,5 +1,7 @@
 import type { TaskView } from '../contracts/generated'
 import { useCrewStore } from '../store/crew'
+import { Button } from '../ui/Button'
+import { useNotificationPermission } from './notify'
 import styles from './Header.module.css'
 import { UsageChip } from './UsageChip'
 
@@ -8,6 +10,7 @@ export function Header({ view }: { view: TaskView | null }) {
   const screen = useCrewStore((s) => s.screen)
   const setScreen = useCrewStore((s) => s.setScreen)
   const shown = screen === 'task' ? view : null
+  const [permission, askPermission] = useNotificationPermission()
 
   return (
     <header className={styles.header}>
@@ -45,6 +48,15 @@ export function Header({ view }: { view: TaskView | null }) {
         </span>
       )}
       <span className={styles.sp} />
+      {permission === 'default' && (
+        <Button
+          variant="link"
+          title="Avisar no Windows quando a tarefa precisar de você ou terminar"
+          onClick={askPermission}
+        >
+          ativar avisos
+        </Button>
+      )}
       <UsageChip />
     </header>
   )

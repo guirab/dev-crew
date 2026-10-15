@@ -5,6 +5,7 @@ import { HistoryList } from '../history/HistoryList'
 import { isRunning, useCrewStore } from '../store/crew'
 import { Backdrop } from './Backdrop'
 import { Header } from './Header'
+import { useAttentionNotification } from './notify'
 import { NowBar } from './NowBar'
 import { ReconnectBanner } from './ReconnectBanner'
 import { RunningTaskNotice } from './RunningTaskNotice'
@@ -21,6 +22,7 @@ export function App() {
   const view = useCrewStore((s) => s.view)
   const screen = useCrewStore((s) => s.screen)
   useTabStatus(isRunning(view) || screen === 'task' ? view : null)
+  useAttentionNotification(view)
   const hydrated = useCrewStore((s) => s.hydrated)
   const connection = useCrewStore((s) => s.connection)
   // Sem snapshot ainda e WS tentando conectar: não pisca os cards de origem clicáveis.
