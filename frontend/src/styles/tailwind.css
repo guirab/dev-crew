@@ -1,0 +1,72 @@
+/*
+ * Tailwind + shadcn convivendo com a UI antiga (CSS Modules).
+ * - Sem preflight: global.css já faz o reset da UI antiga.
+ * - Só dark: o shadcn lê os tokens do Liquid Glass (tokens.css) em vez de ter paleta própria.
+ * - --muted do tokens.css é cor de texto; o `muted` do shadcn é fundo. Por isso o mapeamento
+ *   fica em @theme inline (sem redefinir --muted).
+ */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --font-heading: var(--sans);
+
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--fg);
+  --color-popover: #101416;
+  --color-popover-foreground: var(--fg);
+  --color-primary: var(--green);
+  --color-primary-foreground: #04130b;
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--fg);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--fg);
+  --color-destructive: var(--err);
+  --color-border: var(--line);
+  --color-input: var(--line-2);
+  --color-ring: var(--green);
+
+  --color-chart-1: var(--green);
+  --color-chart-2: #5ac8fa;
+  --color-chart-3: var(--warn);
+  --color-chart-4: var(--err);
+  --color-chart-5: #b38cff;
+
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--fg);
+  --color-sidebar-primary: var(--green);
+  --color-sidebar-primary-foreground: #04130b;
+  --color-sidebar-accent: var(--surface-2);
+  --color-sidebar-accent-foreground: var(--fg);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--green);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.875rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}

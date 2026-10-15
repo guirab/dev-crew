@@ -15,6 +15,8 @@ export default tseslint.config(
       'test-results',
       'public/mockServiceWorker.js',
       'src/contracts/generated.ts',
+      // código copiado do shadcn (`npx shadcn add`): não editar à mão, então não passa no lint estrito
+      'src/components/ui',
     ],
   },
   js.configs.recommended,

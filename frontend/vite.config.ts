@@ -1,5 +1,6 @@
 import { rmSync } from 'node:fs'
 import { resolve } from 'node:path'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
@@ -16,7 +17,8 @@ function dropMockWorker(): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), mode === 'mock' ? null : dropMockWorker()],
+  plugins: [react(), tailwindcss(), mode === 'mock' ? null : dropMockWorker()],
+  resolve: { alias: { '@': resolve(import.meta.dirname, 'src') } },
   server: {
     port: 5173,
     // `?fixture=<nome>` (modo mock) lê contracts/fixtures, que fica fora de frontend/.
