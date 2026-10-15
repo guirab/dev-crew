@@ -1,3 +1,4 @@
+import { Alert } from '../components/ui/alert'
 import { useCrewStore } from '../store/crew'
 import styles from './ReconnectBanner.module.css'
 
@@ -6,8 +7,8 @@ export function ReconnectBanner() {
   const connection = useCrewStore((s) => s.connection)
   if (connection !== 'closed') return null
   return (
-    <div role="status" className={styles.banner}>
+    <Alert role="status" className={styles.banner}>
       reconectando…
-    </div>
+    </Alert>
   )
 }
