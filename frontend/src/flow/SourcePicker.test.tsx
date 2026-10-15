@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { captureCommands } from '../test/commands'
@@ -38,17 +38,29 @@ describe('origem Novo projeto (D58)', () => {
 })
 
 describe('origem Adicionar repositório', () => {
-  it('sem tarefa ativa abre o formulário com o navegador de pastas e fecha ao clicar de novo', async () => {
+  it('sem tarefa ativa abre o dialog com o navegador de pastas e fecha pelo Esc', async () => {
     const user = userEvent.setup()
     renderWithClient(<SourcePicker />)
 
     await user.click(screen.getByRole('button', { name: /Adicionar repositório/ }))
-    expect(
-      screen.getByRole('region', { name: 'Origem: adicionar repositório' }),
-    ).toBeInTheDocument()
-    expect(await screen.findByRole('list', { name: 'Pastas' })).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Adicionar repositório' })
+    expect(await within(dialog).findByRole('list', { name: 'Pastas' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+  })
+
+  it('fecha o dialog pelo botão de fechar', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SourcePicker />)
 
     await user.click(screen.getByRole('button', { name: /Adicionar repositório/ }))
-    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Adicionar repositório' })
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
   })
 })
