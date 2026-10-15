@@ -137,6 +137,21 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
   })
 })
 
+test.describe('modo mock — histórico', () => {
+  test('reabre uma tarefa antiga e mostra o diff de um arquivo', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('tab', { name: 'Histórico' }).click()
+    await page.getByRole('button', { name: 'Exportar pedidos em CSV' }).click()
+
+    const past = page.getByRole('region', { name: 'Tarefa T-104' })
+    await past.getByTitle('src/export/csv.ts').click()
+    await expect(past.getByLabel('Diff de src/export/csv.ts')).toContainText('+export const total')
+
+    await past.getByRole('button', { name: '← Histórico' }).click()
+    await expect(page.getByRole('list', { name: 'Histórico de tarefas' })).toBeVisible()
+  })
+})
+
 test.describe('modo mock — fixtures estáticas e conexão', () => {
   test('?fixture=escalated renderiza o estado e recusa comandos (somente leitura)', async ({
     page,

@@ -8,6 +8,7 @@
 }
 
 .item {
+  position: relative;
   border: 1px solid var(--line-2);
   border-radius: 12px;
   background: var(--surface);
@@ -83,4 +84,43 @@
   margin-top: 28px;
   font-size: 13px;
   color: var(--err);
+}
+
+/* o título é o botão; o ::after estende o clique pro card inteiro */
+.open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+
+.item:hover {
+  border-color: rgb(43 238 134 / 35%);
+}
+
+.open:focus-visible {
+  outline: none;
+}
+
+.open:focus-visible::after {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+
+.pastHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 14px;
 }

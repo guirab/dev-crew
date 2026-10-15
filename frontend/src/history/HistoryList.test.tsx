@@ -1,12 +1,19 @@
 import { screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
-import { HISTORY } from '../mocks/data'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it } from 'vitest'
+import { HISTORY, taskOf } from '../mocks/data'
+import { resetCrewStore, useCrewStore } from '../store/crew'
+import { fixture } from '../test/fixtures'
 import { renderWithClient } from '../test/render'
 import { server } from '../test/server'
 import { HistoryList } from './HistoryList'
 
 describe('HistoryList', () => {
+  afterEach(() => {
+    resetCrewStore()
+  })
+
   it('mostra "carregando…" e depois o estado vazio', async () => {
     renderWithClient(<HistoryList />)
     expect(screen.getByText('carregando…')).toBeInTheDocument()
@@ -53,12 +60,56 @@ describe('HistoryList', () => {
     expect(await screen.findByText('em andamento')).toBeInTheDocument()
   })
 
-  it('itens são só informativos: sem botões nem links', async () => {
-    server.use(http.get('*/api/tasks', () => HttpResponse.json(HISTORY)))
+  it('clicar numa tarefa antiga abre o resultado dela, só leitura, e volta pra lista', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/tasks', () => HttpResponse.json(HISTORY)),
+      http.get('*/api/tasks/:id', ({ params }) =>
+        HttpResponse.json(taskOf(null, String(params.id))),
+      ),
+    )
     renderWithClient(<HistoryList />)
-    await screen.findAllByRole('listitem')
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: 'Exportar pedidos em CSV' }))
+
+    const past = await screen.findByRole('region', { name: 'Tarefa T-104' })
+    expect(await within(past).findByTitle('src/export/csv.ts')).toBeInTheDocument()
+    expect(within(past).getByText('concluída')).toBeInTheDocument()
+    expect(within(past).getByText(/^feat: exportar pedidos em CSV/)).toBeInTheDocument()
+
+    await user.click(within(past).getByRole('button', { name: '← Histórico' }))
+    expect(await screen.findAllByRole('listitem')).toHaveLength(HISTORY.length)
+  })
+
+  it('tarefa sem resultado (falhou) avisa que não há alterações', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/tasks', () => HttpResponse.json(HISTORY)),
+      http.get('*/api/tasks/:id', ({ params }) =>
+        HttpResponse.json(taskOf(null, String(params.id))),
+      ),
+    )
+    renderWithClient(<HistoryList />)
+    await user.click(
+      await screen.findByRole('button', { name: 'Validar CPF no cadastro de clientes' }),
+    )
+    expect(await screen.findByText(/Sem resultado/)).toBeInTheDocument()
+  })
+
+  it('a tarefa atual abre o fluxo em vez da tela de leitura', async () => {
+    const user = userEvent.setup()
+    const [first] = HISTORY
+    if (!first) throw new Error('sem dados')
+    const current = fixture('done')
+    useCrewStore.setState({ view: current, screen: 'history' })
+    server.use(
+      http.get('*/api/tasks', () =>
+        HttpResponse.json([{ ...first, task_id: current.task_id, title: current.title }]),
+      ),
+    )
+    renderWithClient(<HistoryList />)
+    await user.click(await screen.findByRole('button', { name: current.title }))
+    expect(useCrewStore.getState().screen).toBe('task')
   })
 
   it('erro do servidor aparece como alerta', async () => {

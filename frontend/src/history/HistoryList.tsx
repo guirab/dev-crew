@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useTaskHistory } from '../api/queries'
 import type { TaskPhase } from '../contracts/aliases'
 import type { TaskSummary } from '../contracts/generated'
 import { cx } from '../lib/cx'
 import { formatDateTime, formatDuration, formatTokens, formatUsd } from '../lib/format'
+import { useCrewStore } from '../store/crew'
+import { PastTask } from './PastTask'
 import styles from './HistoryList.module.css'
 
 const STATUS_LABEL: Record<TaskPhase, string> = {
@@ -28,12 +31,15 @@ function statusClass(phase: TaskPhase): string | undefined {
   return styles.running
 }
 
-function Item({ task }: { task: TaskSummary }) {
+function Item({ task, onOpen }: { task: TaskSummary; onOpen: () => void }) {
   return (
     <li className={styles.item}>
       <div className={styles.head}>
         <b className={styles.id}>{task.task_id}</b>
-        <span className={styles.title}>{task.title}</span>
+        {/* o botão cobre o card inteiro (::after) */}
+        <button type="button" className={cx(styles.title, styles.open)} onClick={onOpen}>
+          {task.title}
+        </button>
         <span className={cx(styles.status, statusClass(task.phase))}>
           {STATUS_LABEL[task.phase]}
         </span>
@@ -59,9 +65,12 @@ function Item({ task }: { task: TaskSummary }) {
   )
 }
 
-/** Lista só informativa das tarefas já executadas (mais recente primeiro). */
+/** Tarefas já executadas (mais recente primeiro). Clicar abre o resultado; a tarefa atual vai pro fluxo. */
 export function HistoryList() {
   const { data, isPending, isError, error } = useTaskHistory()
+  const currentId = useCrewStore((s) => s.view?.task_id)
+  const setScreen = useCrewStore((s) => s.setScreen)
+  const [opened, setOpened] = useState<TaskSummary | null>(null)
 
   if (isPending) return <p className={styles.hint}>carregando…</p>
   if (isError) {
@@ -72,11 +81,29 @@ export function HistoryList() {
     )
   }
   if (data.length === 0) return <p className={styles.hint}>Nenhuma tarefa executada ainda.</p>
+  if (opened) {
+    return (
+      <PastTask
+        task={opened}
+        status={STATUS_LABEL[opened.phase]}
+        onBack={() => {
+          setOpened(null)
+        }}
+      />
+    )
+  }
 
   return (
     <ul className={styles.list} aria-label="Histórico de tarefas">
       {data.map((task) => (
-        <Item key={task.task_id} task={task} />
+        <Item
+          key={task.task_id}
+          task={task}
+          onOpen={() => {
+            if (task.task_id === currentId) setScreen('task')
+            else setOpened(task)
+          }}
+        />
       ))}
     </ul>
   )
