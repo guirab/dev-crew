@@ -12,6 +12,16 @@ export interface EpicSelection {
   locked?: ReadonlySet<string>
 }
 
+/** "2 épicos · ~120 mil tokens · ~$1.80": soma das estimativas dos épicos marcados (sem o review final). */
+export function selectionTotal(ids: readonly string[], estimates: readonly EpicEstimate[]): string {
+  const picked = estimates.filter((e) => ids.includes(e.epic_id))
+  const count = `${String(ids.length)} épico${ids.length === 1 ? '' : 's'}`
+  if (picked.length === 0) return count
+  const tokens = picked.reduce((sum, e) => sum + e.tokens, 0)
+  const usd = picked.reduce((sum, e) => sum + e.usd, 0)
+  return `${count} · ~${formatTokens(tokens)} tokens · ~${formatUsd(usd)}`
+}
+
 /** Épicos do plano dividido (D53). Com `selection`, cada um ganha "rodar agora". */
 export function EpicList({
   epics,

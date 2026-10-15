@@ -71,7 +71,7 @@ describe('EpicsSection', () => {
     const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
     renderWithClient(<EpicsSection view={view} />)
     expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Grafo' })).toHaveAttribute('aria-pressed', 'false')
     for (const name of ['A fazer', 'Em andamento', 'Precisa de você', 'Concluído']) {
       expect(screen.getByRole('group', { name })).toBeInTheDocument()
     }
@@ -81,13 +81,14 @@ describe('EpicsSection', () => {
     expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
   })
 
-  it('alterna entre board e lista, mantendo o NextBatch', async () => {
+  it('alterna entre board e grafo, mantendo o NextBatch', async () => {
     const user = userEvent.setup()
     const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
     renderWithClient(<EpicsSection view={view} />)
-    await user.click(screen.getByRole('button', { name: 'Lista' }))
-    expect(screen.getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Grafo' }))
+    expect(screen.getByRole('button', { name: 'Grafo' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('group', { name: 'A fazer' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Nível 1' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Épico E1/ })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Board' }))
@@ -95,7 +96,7 @@ describe('EpicsSection', () => {
     expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
   })
 
-  it('uma faixa por épico, com status e o que está acontecendo', async () => {
+  it('no grafo cada épico mostra status e o que está acontecendo', async () => {
     const user = userEvent.setup()
     const running = lane('E1', 'running', {
       stages: {
@@ -110,7 +111,7 @@ describe('EpicsSection', () => {
       lane('E3', 'waiting'),
     ])
     renderWithClient(<EpicsSection view={view} />)
-    await user.click(screen.getByRole('button', { name: 'Lista' }))
+    await user.click(screen.getByRole('button', { name: 'Grafo' }))
     expect(screen.getByText('1/3 prontos · 1 em paralelo')).toBeInTheDocument()
     expect(screen.getByText('Editando core.py')).toBeInTheDocument()
     expect(screen.getByText('juntado · abcdef12')).toBeInTheDocument()
@@ -121,7 +122,7 @@ describe('EpicsSection', () => {
     const user = userEvent.setup()
     const view = splitView([lane('E1', 'running')])
     const { unmount } = renderWithClient(<EpicsSection view={view} />)
-    await user.click(screen.getByRole('button', { name: 'Lista' }))
+    await user.click(screen.getByRole('button', { name: 'Grafo' }))
     unmount()
     renderWithClient(<EpicsSection view={view} />)
     expect(screen.getByRole('group', { name: 'Em andamento' })).toBeInTheDocument()
@@ -189,7 +190,7 @@ describe('EpicsSection', () => {
     )
     renderWithClient(<EpicsSection view={view} />)
     expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Lista' }))
+    await user.click(screen.getByRole('button', { name: 'Grafo' }))
     expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'rodar E1 agora' })).toBeDisabled()
     await user.click(screen.getByRole('checkbox', { name: 'rodar E3 agora' }))

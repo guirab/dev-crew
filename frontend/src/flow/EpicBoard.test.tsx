@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import type { EpicView, StageView, TaskView } from '../contracts/generated'
 import { fixture } from '../test/fixtures'
-import { EpicBoard } from './EpicBoard'
+import { EpicBoard, laneLevels } from './EpicBoard'
+import { selectionTotal } from '../bodies/EpicList'
 
 const idle: StageView = { status: 'idle', now: null, logs: [] }
 
@@ -161,5 +162,75 @@ describe('EpicBoard', () => {
     await user.click(screen.getByRole('button', { name: /Review final/ }))
     const region = screen.getByRole('region', { name: 'Review final' })
     expect(within(region).getByText('Reviewer')).toBeInTheDocument()
+  })
+})
+
+describe('mini-pipeline do card', () => {
+  it('pinta Dev/Test/Merge pelo status de cada estágio e conta as voltas', () => {
+    const stages = {
+      developer: { ...idle, status: 'done' as const },
+      tester: active('x'),
+      reviewer: idle,
+    }
+    const counters = { ...lane('E1', 'running').counters, dev_round: 3 }
+    const { container } = render(
+      <EpicBoard view={view([lane('E1', 'running', { stages, counters })])} />,
+    )
+    const chips = [...container.querySelectorAll('[data-lane="E1"] i')]
+    expect(chips.map((i) => [i.textContent, i.getAttribute('data-status')])).toEqual([
+      ['Dev', 'done'],
+      ['Test', 'active'],
+      ['Merge', 'idle'],
+    ])
+    expect(container.querySelector('[data-lane="E1"] b')).toHaveTextContent('↺2')
+  })
+
+  it('não aparece em A fazer', () => {
+    const { container } = render(<EpicBoard view={view([lane('E1', 'waiting')])} />)
+    expect(container.querySelector('[data-lane="E1"] i')).toBeNull()
+  })
+})
+
+describe('laneLevels (vista Grafo)', () => {
+  it('agrupa por profundidade de dependência; review final por último', () => {
+    const levels = laneLevels([
+      lane('REV', 'pending', { kind: 'review' }),
+      lane('E3', 'pending', { depends_on: ['E2'] }),
+      lane('E1', 'pending'),
+      lane('E2', 'pending', { depends_on: ['E1'] }),
+      lane('E4', 'pending'),
+    ])
+    expect(levels.map((level) => level.map((l) => l.id))).toEqual([
+      ['E1', 'E4'],
+      ['E2'],
+      ['E3'],
+      ['REV'],
+    ])
+  })
+
+  it('dependência desconhecida ou ciclo não trava', () => {
+    const levels = laneLevels([
+      lane('A', 'pending', { depends_on: ['B', 'X'] }),
+      lane('B', 'pending', { depends_on: ['A'] }),
+    ])
+    expect(
+      levels
+        .flat()
+        .map((l) => l.id)
+        .sort(),
+    ).toEqual(['A', 'B'])
+  })
+})
+
+describe('selectionTotal', () => {
+  const estimates = [
+    { epic_id: 'E1', tokens: 40_000, usd: 1.2 },
+    { epic_id: 'E2', tokens: 60_000, usd: 0.6 },
+  ]
+  it('soma as estimativas dos marcados', () => {
+    expect(selectionTotal(['E1', 'E2'], estimates)).toBe('2 épicos · ~100,0 mil tokens · ~$1.80')
+  })
+  it('sem estimativa mostra só a contagem', () => {
+    expect(selectionTotal(['E3'], estimates)).toBe('1 épico')
   })
 })

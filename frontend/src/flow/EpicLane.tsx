@@ -1,16 +1,8 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import type { EpicView, TaskView } from '../contracts/generated'
 import { cx } from '../lib/cx'
-import { formatTokens } from '../lib/format'
 import { Connector } from './Connector'
-import {
-  EPIC_CARD_STATUS,
-  EPIC_STATUS_LABEL,
-  laneSummary,
-  laneView,
-  mergeDescription,
-  mergeMeta,
-} from './lanes'
+import { laneView, mergeDescription, mergeMeta } from './lanes'
 import { LoopRail } from './LoopRail'
 import { StageBody } from './StageBody'
 import { StageCard } from './StageCard'
@@ -19,52 +11,6 @@ import card from './StageCard.module.css'
 import styles from './EpicLane.module.css'
 
 type LaneStage = 'developer' | 'tester' | 'reviewer'
-
-/**
- * Uma faixa de um plano dividido: o épico (ticket), a integração de um merge que conflitou ou o review
- * final. Fechada mostra status e o que está acontecendo; aberta mostra Developer → Tester → Merge (no
- * review final, Developer → Tester → Reviewer).
- */
-export function EpicLane({ view, lane }: { view: TaskView; lane: EpicView }) {
-  const [open, setOpen] = useState(false)
-  const bodyId = useId()
-  const status = EPIC_CARD_STATUS[lane.status]
-
-  return (
-    <div
-      className={cx(card.card, card[status], open && card.open, styles.lane)}
-      id={`lane-${lane.id}`}
-      data-lane={lane.id}
-      data-status={lane.status}
-    >
-      <button
-        type="button"
-        className={card.hd}
-        aria-expanded={open}
-        aria-controls={open ? bodyId : undefined}
-        onClick={() => {
-          setOpen((v) => !v)
-        }}
-      >
-        <span className={card.ic} aria-hidden="true">
-          {lane.kind === 'integration' ? '⇄' : lane.id}
-        </span>
-        <span className={card.txt}>
-          <span className={card.tt}>{lane.title}</span>
-          <span className={card.ds}>{laneSummary(lane)}</span>
-        </span>
-        <span className={card.tag}>
-          {EPIC_STATUS_LABEL[lane.status]}
-          {lane.tokens > 0 && ` · ${formatTokens(lane.tokens)} tok`}
-        </span>
-        <span className={card.chev} aria-hidden="true">
-          ▾
-        </span>
-      </button>
-      {open && <LaneBody view={view} lane={lane} id={bodyId} className={styles.body} />}
-    </div>
-  )
-}
 
 /** O corpo aberto de uma faixa: dependências, branch e Developer → Tester → Merge/Reviewer. */
 export function LaneBody({

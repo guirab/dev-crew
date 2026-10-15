@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useSendCommand } from '../api/commands'
-import { cx } from '../lib/cx'
+import { formatTokens, formatUsd } from '../lib/format'
 import { Button } from '../ui/Button'
 import { Field } from '../ui/Field'
 import { ActivityLog } from './ActivityLog'
 import { CommandErrorMessage } from './CommandErrorMessage'
+import { selectionTotal } from './EpicList'
 import { Empty } from './Empty'
 import { PlanView } from './PlanView'
 import type { BodyProps } from './types'
@@ -34,6 +35,7 @@ export function ApprovalBody({ view, stage }: BodyProps) {
     if (!next.delete(epicId)) next.add(epicId)
     setPicked(next)
   }
+  const chosen = plan.epics.map((e) => e.id).filter((id) => selected.has(id))
   const text = adjustment.trim()
   return (
     <>
@@ -55,43 +57,42 @@ export function ApprovalBody({ view, stage }: BodyProps) {
             />
           )}
         </Field>
-        <div className={cx(b.row, b.end)}>
-          <Button
-            disabled={send.isPending || text === ''}
-            onClick={() => {
-              send.mutate(
-                { type: 'adjust_plan', text },
-                {
-                  onSuccess: () => {
-                    setAdjustment((current) => (current.trim() === text ? '' : current))
-                  },
-                },
-              )
-            }}
-          >
-            Pedir ajuste
-          </Button>
-          <Button
-            variant="primary"
-            disabled={send.isPending || (split && selected.size === 0)}
-            onClick={() => {
-              send.mutate(
-                split
-                  ? {
-                      type: 'approve_plan',
-                      epics: plan.epics.map((e) => e.id).filter((id) => selected.has(id)),
-                    }
-                  : { type: 'approve_plan' },
-              )
-            }}
-          >
-            {split
-              ? `Aprovar e rodar ${selected.size} épico${selected.size === 1 ? '' : 's'}`
-              : 'Aprovar plano'}
-          </Button>
-        </div>
-        <CommandErrorMessage error={send.error} />
       </div>
+      <div className={b.actionbar}>
+        <span className={b.total}>
+          {split
+            ? selectionTotal(chosen, view.estimate?.epics ?? [])
+            : view.estimate &&
+              `~${formatTokens(view.estimate.tokens)} tokens · ~${formatUsd(view.estimate.usd)}`}
+        </span>
+        <Button
+          disabled={send.isPending || text === ''}
+          onClick={() => {
+            send.mutate(
+              { type: 'adjust_plan', text },
+              {
+                onSuccess: () => {
+                  setAdjustment((current) => (current.trim() === text ? '' : current))
+                },
+              },
+            )
+          }}
+        >
+          Pedir ajuste
+        </Button>
+        <Button
+          variant="primary"
+          disabled={send.isPending || (split && selected.size === 0)}
+          onClick={() => {
+            send.mutate(split ? { type: 'approve_plan', epics: chosen } : { type: 'approve_plan' })
+          }}
+        >
+          {split
+            ? `Aprovar e rodar ${selected.size} épico${selected.size === 1 ? '' : 's'}`
+            : 'Aprovar plano'}
+        </Button>
+      </div>
+      <CommandErrorMessage error={send.error} />
     </>
   )
 }

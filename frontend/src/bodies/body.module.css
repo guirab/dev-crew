@@ -306,3 +306,27 @@
   border-radius: 8px;
   font: 12.5px var(--mono);
 }
+
+/* barra de ações que gruda no rodapé enquanto o plano rola (aprovação, próximos épicos) */
+.actionbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgb(244 181 68 / 45%);
+  border-radius: 18px;
+  background: rgb(14 16 18 / 85%);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.total {
+  flex: 1 1 200px;
+  font: 12.5px var(--mono);
+  color: var(--muted);
+}

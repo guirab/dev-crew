@@ -1,29 +1,28 @@
 import { useState } from 'react'
 import { useSendCommand } from '../api/commands'
 import { CommandErrorMessage } from '../bodies/CommandErrorMessage'
-import { EpicList } from '../bodies/EpicList'
+import b from '../bodies/body.module.css'
+import { EpicList, selectionTotal } from '../bodies/EpicList'
 import type { TaskView } from '../contracts/generated'
 import { Button } from '../ui/Button'
-import { EpicBoard } from './EpicBoard'
-import { EpicLane } from './EpicLane'
+import { EpicBoard, EpicGraph } from './EpicBoard'
 import styles from './EpicsSection.module.css'
 
-type EpicsMode = 'board' | 'list'
+type EpicsMode = 'board' | 'graph'
 
 const MODES: readonly { id: EpicsMode; label: string }[] = [
   { id: 'board', label: 'Board' },
-  { id: 'list', label: 'Lista' },
+  { id: 'graph', label: 'Grafo' },
 ]
 
-/** Épicos de um plano dividido (D53): board kanban por padrão ou uma faixa por épico, em ordem do plano. */
+/** Épicos de um plano dividido (D53): board kanban por padrão ou o grafo de dependências. */
 export function EpicsSection({ view }: { view: TaskView }) {
   const [mode, setMode] = useState<EpicsMode>('board')
   const lanes = view.epics
   const running = lanes.filter((l) => l.status === 'running' || l.status === 'preparing').length
   return (
     <section aria-label="Épicos">
-      <h3 className={styles.title}>
-        Épicos
+      <div className={styles.title}>
         <span className={styles.count}>
           {lanes.filter((l) => l.kind === 'epic' && l.status === 'merged').length}/
           {lanes.filter((l) => l.kind === 'epic').length} prontos
@@ -44,13 +43,9 @@ export function EpicsSection({ view }: { view: TaskView }) {
             </button>
           ))}
         </span>
-      </h3>
+      </div>
       {view.phase === 'awaiting_selection' && <NextBatch view={view} />}
-      {mode === 'board' ? (
-        <EpicBoard view={view} />
-      ) : (
-        lanes.map((lane) => <EpicLane key={lane.id} view={view} lane={lane} />)
-      )}
+      {mode === 'board' ? <EpicBoard view={view} /> : <EpicGraph view={view} />}
     </section>
   )
 }
@@ -80,7 +75,8 @@ function NextBatch({ view }: { view: TaskView }) {
         estimates={view.estimate?.epics ?? []}
         selection={{ selected: picked, onToggle: toggle, locked }}
       />
-      <div className={styles.row}>
+      <div className={b.actionbar}>
+        <span className={b.total}>{selectionTotal(chosen, view.estimate?.epics ?? [])}</span>
         <Button
           variant="primary"
           disabled={send.isPending || chosen.length === 0}
