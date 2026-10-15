@@ -24,11 +24,16 @@ describe('DoneBody', () => {
     expect(kpi('duração')).toHaveTextContent('6m 52s') // 412s
     expect(kpi('equivalente API')).toHaveTextContent('$1.84')
 
-    expect(screen.getByText('shop/report.py')).toBeInTheDocument()
-    expect(screen.getByText('tests/test_report_dates.py')).toBeInTheDocument()
+    // arquivos agrupados por pasta: o caminho inteiro fica no title da linha
+    expect(screen.getByTitle('shop/report.py')).toHaveTextContent('report.py')
+    expect(screen.getByTitle('tests/test_report_dates.py')).toBeInTheDocument()
+    expect(screen.getByText('shop/')).toBeInTheDocument()
     expect(screen.getByText(/Alterações · sample-repo · não commitado/)).toBeInTheDocument()
     expect(screen.getByText(/branch crew\/T-107/)).toBeInTheDocument()
 
+    expect(screen.getByRole('region', { name: 'Próximo passo' })).toHaveTextContent(
+      'Próximo passo: revisar e commitar',
+    )
     const message = screen.getByText(/^feat: filtro por intervalo/)
     expect(message.tagName).toBe('PRE')
     expect(message).not.toHaveTextContent('Refs:')
