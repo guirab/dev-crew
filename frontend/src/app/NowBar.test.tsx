@@ -45,22 +45,31 @@ describe('NowBar', () => {
     expect(screen.getByRole('button', { name: 'Ver resultado ↓' })).toBeInTheDocument()
   })
 
+  const estimate = {
+    tokens: 100_000,
+    usd: 4,
+    session_pct: null,
+    weekly_pct: null,
+    sessions_needed: null,
+    usage_now: null,
+    calibrated: false,
+    basis: '',
+    epics: [],
+  }
+
   it('com estimativa mostra custo / estimativa', () => {
     const view = fixture('developing')
-    const estimate = {
-      tokens: 100_000,
-      usd: 4,
-      session_pct: null,
-      weekly_pct: null,
-      sessions_needed: null,
-      usage_now: null,
-      calibrated: false,
-      basis: '',
-      epics: [],
-    }
     renderWithClient(<NowBar view={{ ...view, cost_usd: 1, estimate }} />)
     expect(within(bar()).getByText('custo / estimativa')).toBeInTheDocument()
     expect(within(bar()).getByText('/ ~$4.00')).toBeInTheDocument()
+  })
+
+  it('com estimativa, o custo mostra quanto dela já foi gasto num tooltip', async () => {
+    const user = userEvent.setup()
+    const view = fixture('developing')
+    renderWithClient(<NowBar view={{ ...view, cost_usd: 1, estimate }} />)
+    await user.hover(within(bar()).getByText('/ ~$4.00'))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('25% da estimativa')
   })
 
   it('cancelar confirma e envia cancel_task', async () => {

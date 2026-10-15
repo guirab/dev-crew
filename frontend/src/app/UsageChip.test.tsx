@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { renderWithClient } from '../test/render'
@@ -28,8 +29,11 @@ describe('UsageChip', () => {
   it('medição velha (login do CLI expirado): avisa há quanto tempo', async () => {
     usage(5 * 24 * 3_600_000)
     renderWithClient(<UsageChip />)
+    const user = userEvent.setup()
     const chip = await screen.findByText(/desatualizado há 5 d/)
-    expect(chip).toHaveAttribute('title', expect.stringContaining('claude auth login'))
+    expect(chip).not.toHaveAttribute('title')
+    await user.hover(chip)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('claude auth login')
   })
 
   it('sem data de medição: também é desatualizado', async () => {
