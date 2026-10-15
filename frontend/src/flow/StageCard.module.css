@@ -12,8 +12,6 @@
     box-shadow 0.25s,
     opacity 0.25s;
   position: relative;
-  /* ao rolar até o card, ele para abaixo do header e da faixa Agora (fixos) */
-  scroll-margin-top: 190px;
 }
 
 /* aro especular: brilha no canto superior esquerdo e no inferior direito */

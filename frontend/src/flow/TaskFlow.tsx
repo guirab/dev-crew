@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { TaskView } from '../contracts/generated'
 import { useCrewStore } from '../store/crew'
+import { ActivityFeed } from './ActivityFeed'
 import { FocusPanel } from './FocusPanel'
 import { LimitBanner } from './LimitBanner'
 import { autoFocus, railSteps } from './rail'
 import type { RailKey } from './rail'
 import { FOCUS_PANEL_ID, StageRail } from './StageRail'
+import styles from './TaskFlow.module.css'
 
 const NEEDS_YOU: readonly string[] = ['waiting', 'error']
 
@@ -65,7 +67,10 @@ export function TaskFlow({ view }: { view: TaskView }) {
     <div>
       {view.phase === 'limited' && view.limit && <LimitBanner limit={view.limit} />}
       <StageRail steps={steps} edges={view.edges} selected={shown.key} onSelect={setPinned} />
-      <FocusPanel view={view} step={shown} progress={progress} />
+      <div className={styles.grid}>
+        <FocusPanel view={view} step={shown} progress={progress} />
+        <ActivityFeed view={view} />
+      </div>
     </div>
   )
 }

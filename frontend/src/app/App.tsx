@@ -9,6 +9,7 @@ import { NowBar } from './NowBar'
 import { ReconnectBanner } from './ReconnectBanner'
 import { RunningTaskNotice } from './RunningTaskNotice'
 import { useTabStatus } from './tabStatus'
+import { cx } from '../lib/cx'
 import styles from './App.module.css'
 
 // Só existe no modo mock: `import.meta.env.MODE` é constante em build, então o bundle de
@@ -30,7 +31,10 @@ export function App() {
       <Backdrop animated={isRunning(view)} />
       <ReconnectBanner />
       <Header view={view} />
-      <main className={styles.wrap} aria-busy={!ready}>
+      <main
+        className={cx(styles.wrap, ready && screen === 'task' && view && styles.wide)}
+        aria-busy={!ready}
+      >
         {!ready ? (
           <p className={styles.status}>conectando…</p>
         ) : screen === 'history' ? (

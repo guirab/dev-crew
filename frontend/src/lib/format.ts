@@ -11,11 +11,14 @@ export function formatDateTime(iso: string): string {
   return `${date.toLocaleDateString('pt-BR')} ${date.toTimeString().slice(0, 5)}`
 }
 
-/** 45 → "45s", 125 → "2m 05s". */
+/** 45 → "45s", 125 → "2m 05s", 3725 → "1h 02m", 100_000 → "27h 46m". */
 export function formatDuration(totalSeconds: number): string {
   const total = Math.max(0, Math.round(totalSeconds))
   if (total < 60) return `${total}s`
   const minutes = Math.floor(total / 60)
+  if (minutes >= 60) {
+    return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
+  }
   const seconds = total % 60
   return `${minutes}m ${String(seconds).padStart(2, '0')}s`
 }
