@@ -171,6 +171,18 @@ class Store:
                 log.warning("task_state_incompatible", task_id=row.task_id, errors=e.error_count())
                 return None
 
+    def get_task(self, task_id: str) -> TaskState | None:
+        """One saved task; ``None`` when missing or saved by an older, incompatible contract."""
+        with Session(self.engine) as s:
+            row = s.get(TaskRow, task_id)
+            if row is None:
+                return None
+            try:
+                return TaskState.model_validate_json(row.state_json)
+            except ValidationError as e:
+                log.warning("task_state_incompatible", task_id=row.task_id, errors=e.error_count())
+                return None
+
     def list_tasks(self, limit: int = HISTORY_LIMIT) -> list[TaskSummary]:
         """Summaries of the most recent tasks (highest sequence first), terminal or not.
 

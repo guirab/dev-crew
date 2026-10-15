@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 
 from crew.config import RepoCfg
+from crew.contracts import FinalFile
 from crew.workspace import git
-from crew.workspace.manager import WorkspaceDirty, WorkspaceError, WorkspaceManager
+from crew.workspace import manager as manager_mod
+from crew.workspace.manager import WorkspaceDirty, WorkspaceError, WorkspaceManager, file_patch
 
 from .git_helpers import make_git_repo, sh_git
 
@@ -113,6 +115,42 @@ async def test_diff_report_covers_tracked_untracked_deleted_and_binary(
     assert (report["staged.py"].status, report["staged.py"].added) == ("A", 1)
     assert list(report) == sorted(report)
     assert "README.md" not in report
+
+
+async def test_file_patch_shows_one_reported_file_against_the_task_base(
+    manager: WorkspaceManager, repo_cfg: RepoCfg, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = await manager.create("T-1", repo_cfg)
+    p = ws.path
+    (p / "app.py").write_text("a\nB\nc\n", "utf-8")
+    (p / "gone.txt").unlink()
+    (p / "new.py").write_text("x\ny\n", "utf-8")  # untracked
+    (p / "blob.bin").write_bytes(b"\x00\x01\x02" * 10)
+    sh_git(p, "add", "blob.bin")
+    # main moves on: must not show up in our patch
+    (repo_cfg.path / "app.py").write_text("main\n", "utf-8")
+    sh_git(repo_cfg.path, "commit", "-qam", "later")
+    report = {f.path: f for f in await manager.diff_report(ws)}
+
+    async def lf_patch(path: str) -> str:  # write_text writes CRLF on Windows
+        return (await file_patch(p, "main", report[path])).patch.replace("\r\n", "\n")
+
+    mod = await file_patch(p, "main", report["app.py"])
+    assert (mod.status, mod.binary, mod.truncated) == ("M", False, False)
+    assert "-b\n+B\n" in await lf_patch("app.py") and "main" not in mod.patch
+    assert "+x\n+y\n" in await lf_patch("new.py")
+    assert "-1\n-2\n" in await lf_patch("gone.txt")
+    blob = await file_patch(p, "main", report["blob.bin"])
+    assert blob.binary and blob.patch == ""
+
+    monkeypatch.setattr(manager_mod, "MAX_PATCH_BYTES", 60)
+    cut = await file_patch(p, "main", report["app.py"])
+    assert cut.truncated and len(cut.patch.encode()) <= 60 and cut.patch.endswith("\n")
+
+
+async def test_file_patch_fails_outside_a_repo(tmp_path: Path) -> None:
+    with pytest.raises(WorkspaceError, match="git diff falhou"):
+        await file_patch(tmp_path, "main", FinalFile(path="x.py", status="M", added=1, removed=0))
 
 
 async def test_diff_report_is_empty_when_clean_and_ignores_base_drift(

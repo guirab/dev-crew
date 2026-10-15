@@ -534,6 +534,19 @@ export interface LaneStages {
   reviewer: StageView;
 }
 /**
+ * Patch of one file of the final report (GET /api/tasks/{id}/diff?path=), computed on demand.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "FileDiff".
+ */
+export interface FileDiff {
+  path: string;
+  status: "A" | "M" | "D";
+  patch: string;
+  binary: boolean;
+  truncated: boolean;
+}
+/**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
  * via the `definition` "FolderEntry".
  */

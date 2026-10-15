@@ -20,7 +20,7 @@ import structlog
 
 from .. import sandbox
 from ..config import RepoCfg
-from ..contracts import FileChange, FinalFile
+from ..contracts import FileChange, FileDiff, FinalFile
 from ..plan_doc import PLAN_DOC_DIR
 from . import git
 
@@ -31,6 +31,7 @@ TASK_ID_RE = re.compile(r"^T-\d+$")
 EPIC_ID_RE = re.compile(r"^E\d+$")
 CREW_AUTHOR = ("-c", "user.name=dev-crew", "-c", "user.email=dev-crew@localhost")
 MAX_COUNTED_BYTES = 5 * 1024 * 1024
+MAX_PATCH_BYTES = 256 * 1024
 FETCH_TIMEOUT_S = 30.0
 
 
@@ -289,7 +290,7 @@ class WorkspaceManager:
 
     async def diff_report(self, ws: Workspace) -> list[FinalFile]:
         """Files changed vs the base branch (committed or not, plus untracked), sorted by path."""
-        base = await self._diff_base(ws)
+        base = await _diff_base(ws.path, ws.base_branch)
         names = await git.run(ws.path, "diff", "--name-status", "-z", "--no-renames", base)
         numstat = await git.run(ws.path, "diff", "--numstat", "-z", "--no-renames", base)
         status = await git.run(ws.path, "status", "--porcelain=v1", "-z", "-uall", "--no-renames")
@@ -307,11 +308,6 @@ class WorkspaceManager:
             if xy == "??" or change == "A":  # untracked, or intent-to-add not in the diff yet
                 files[rel] = FinalFile(path=rel, status="A", added=_count_untracked(ws.path / rel), removed=0)
         return sorted(files.values(), key=lambda f: f.path)
-
-    async def _diff_base(self, ws: Workspace) -> str:
-        res = await git.run(ws.path, "merge-base", "HEAD", ws.base_branch, check=False)
-        sha = res.stdout.strip()
-        return sha if res.returncode == 0 and sha else ws.base_branch
 
     # ------------------------------------------------------------------ cleanup
 
@@ -401,6 +397,42 @@ def _parse_status(raw: str) -> list[tuple[str, str]]:
         if len(entry) > 3:
             out.append((entry[:2], entry[3:]))
     return out
+
+
+async def _diff_base(path: Path, base_branch: str) -> str:
+    res = await git.run(path, "merge-base", "HEAD", base_branch, check=False)
+    sha = res.stdout.strip()
+    return sha if res.returncode == 0 and sha else base_branch
+
+
+async def file_patch(path: Path, base_branch: str, file: FinalFile) -> FileDiff:
+    """Unified diff of one file of the final report, against the same base as ``diff_report``.
+
+    Read-only (the gateway calls it on demand). Raises ``WorkspaceError`` when git fails.
+    """
+    base = await _diff_base(path, base_branch)
+    res = await git.run(path, "diff", "--no-color", "--no-renames", base, "--", file.path, check=False)
+    ok = res.returncode == 0  # outside a repo git falls back to --no-index and exits 1
+    if ok and not res.stdout and file.status == "A":
+        # untracked: not in the index, so diff it against nothing (exit 1 = there are differences)
+        res = await git.run(
+            path, "diff", "--no-color", "--no-index", "--", "/dev/null", file.path, check=False
+        )
+        ok = res.returncode in (0, 1)
+    if not ok:
+        raise WorkspaceError(f"git diff falhou: {res.stderr.strip()[:300]}")
+    # content lines start with +, - or space: a line starting with "Binary files" is git's header
+    binary = any(line.startswith("Binary files ") for line in res.stdout.splitlines())
+    patch, truncated = ("", False) if binary else _truncate_patch(res.stdout)
+    return FileDiff(path=file.path, status=file.status, patch=patch, binary=binary, truncated=truncated)
+
+
+def _truncate_patch(patch: str) -> tuple[str, bool]:
+    data = patch.encode("utf-8")
+    if len(data) <= MAX_PATCH_BYTES:
+        return patch, False
+    cut = data[:MAX_PATCH_BYTES]
+    return cut[: cut.rfind(b"\n") + 1].decode("utf-8", errors="ignore"), True
 
 
 def _parse_name_status(raw: str) -> list[tuple[str, str]]:

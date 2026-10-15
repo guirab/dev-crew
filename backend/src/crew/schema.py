@@ -22,6 +22,7 @@ OUTBOUND: list[type[BaseModel]] = [
     c.FolderListing,
     c.FolderProbe,
     c.TaskSummary,
+    c.FileDiff,
 ]
 # Models the UI builds and sends (validation mode: fields with defaults are optional).
 INBOUND: list[type[BaseModel]] = [

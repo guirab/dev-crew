@@ -2,7 +2,7 @@
 
 from pydantic import AwareDatetime
 
-from .common import Contract, TaskPhase
+from .common import Contract, FileChange, TaskPhase
 
 
 class TaskSummary(Contract):
@@ -19,3 +19,13 @@ class TaskSummary(Contract):
     commit_message: str | None = None  # suggested commit message of the final report, when there is one
     files_changed: int | None = None  # files in the final report, when there is one
     summary: str  # first line of the commit message; without a final report, the task description
+
+
+class FileDiff(Contract):
+    """Patch of one file of the final report (GET /api/tasks/{id}/diff?path=), computed on demand."""
+
+    path: str
+    status: FileChange
+    patch: str  # unified diff vs. the task base; empty when binary
+    binary: bool = False
+    truncated: bool = False  # cut at MAX_PATCH_BYTES, on a line break

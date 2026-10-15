@@ -37,7 +37,7 @@ from .common import (
 from .estimate import AccountUsage, EpicEstimate, Estimate
 from .events import EVENT_PAYLOADS, AgentFailedEvt, AgentProgress, AgentResultEvt, Envelope, EventKind
 from .folders import FolderEntry, FolderListing, FolderProbe, GitState
-from .history import TaskSummary
+from .history import FileDiff, TaskSummary
 from .jobs import AgentJob, Feedback
 from .outputs import (
     AgentOutput,
@@ -115,6 +115,7 @@ __all__ = [
     "EventSource",
     "Feedback",
     "FileChange",
+    "FileDiff",
     "FinalFile",
     "FinalReport",
     "FinishTask",

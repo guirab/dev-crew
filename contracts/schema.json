@@ -977,6 +977,43 @@
       "title": "Estimate",
       "type": "object"
     },
+    "FileDiff": {
+      "additionalProperties": false,
+      "description": "Patch of one file of the final report (GET /api/tasks/{id}/diff?path=), computed on demand.",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "A",
+            "M",
+            "D"
+          ],
+          "type": "string"
+        },
+        "patch": {
+          "type": "string"
+        },
+        "binary": {
+          "default": false,
+          "type": "boolean"
+        },
+        "truncated": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "status",
+        "patch",
+        "binary",
+        "truncated"
+      ],
+      "title": "FileDiff",
+      "type": "object"
+    },
     "FinalFile": {
       "additionalProperties": false,
       "properties": {

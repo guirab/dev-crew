@@ -33,6 +33,7 @@ from ..contracts import (
     AccountUsage,
     Command,
     CommandReply,
+    FileDiff,
     FolderListing,
     FolderProbe,
     RepoInfo,
@@ -40,8 +41,10 @@ from ..contracts import (
     TaskView,
 )
 from ..orchestrator.machine import CONFLICT_ERRORS
+from ..orchestrator.state import TaskState
 from ..orchestrator.store import Store
 from ..usage import UsageReader
+from ..workspace.manager import WorkspaceError, file_patch
 from .hub import Hub
 
 log = structlog.get_logger(__name__)
@@ -163,6 +166,34 @@ class Gateway:
             if self.store is None:
                 return []
             return await asyncio.to_thread(self.store.list_tasks)
+
+        async def saved_task(task_id: str) -> TaskState:
+            state = None if self.store is None else await asyncio.to_thread(self.store.get_task, task_id)
+            if state is None:
+                raise HTTPException(status_code=404, detail="tarefa não encontrada")
+            return state
+
+        @app.get("/api/tasks/{task_id}")
+        async def task_by_id(task_id: str) -> TaskView:
+            """A task as saved in the database. Read-only: the current task does not change."""
+            return (await saved_task(task_id)).to_view()
+
+        @app.get("/api/tasks/{task_id}/diff")
+        async def task_diff(task_id: str, path: str) -> FileDiff:
+            """Patch of one file of the final report, read from the task worktree on demand."""
+            state = await saved_task(task_id)
+            final = state.final
+            # only files of the report: never an arbitrary path on disk
+            file = next((f for f in final.files if f.path == path), None) if final else None
+            if final is None or file is None:
+                raise HTTPException(status_code=404, detail="arquivo fora do resultado da tarefa")
+            worktree = Path(final.worktree_path)
+            if not await asyncio.to_thread(worktree.is_dir):
+                raise HTTPException(status_code=404, detail="worktree removido: diff indisponível")
+            try:
+                return await file_patch(worktree, state.repo.base_branch, file)
+            except WorkspaceError as e:
+                raise HTTPException(status_code=404, detail=str(e)) from None
 
         @app.post("/api/commands", dependencies=[Depends(same_origin)])
         async def commands(command: Command) -> JSONResponse:

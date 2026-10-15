@@ -15,6 +15,52 @@ Formato:
 
 ---
 
+## 2026-10-14 · UI v4 · Diff inline no resultado e reabrir tarefa do Histórico — ✅ aplicado (exceção ao congelamento, como D38/D39)
+
+Dois itens que a UI v4 (D73–D74, `mockup/v4-ux.html`) deixou de fora por pedirem dado novo do backend. Os dois são só leitura, sem comando novo, sem subject novo e sem mudar `TaskView`/`FinalReport`.
+
+### A. Patch de um arquivo do resultado
+
+- O quê: na tela de resultado (`DoneBody`) clicar num arquivo e ver o patch dele. Hoje `FinalFile` só tem `path`, `status`, `added`, `removed`.
+- Por quê: revisar o que o dev-crew mudou sem sair do app (é o passo antes de commitar).
+- Proposta (código):
+  - Modelo novo em `contracts/history.py`:
+    ```python
+    class FileDiff(Contract):
+        path: str
+        status: FileChange
+        patch: str  # unified diff vs. a base da tarefa; vazio quando binary
+        binary: bool = False
+        truncated: bool = False  # patch cortado em MAX_PATCH_BYTES, numa quebra de linha
+    ```
+  - Endpoint novo `GET /api/tasks/{task_id}/diff?path=<rel>` → `FileDiff`. O gateway lê o `TaskState` do SQLite (como `GET /api/tasks`), pega `final.worktree_path` e roda git de leitura no host (D41), com a mesma base do `diff_report` (`merge-base HEAD <base_branch>`, inclui commits dos épicos e alterações não commitadas). Arquivo não rastreado sai como adição (`git diff --no-index`). A lógica fica no `WorkspaceManager` (`file_patch`), ao lado do `diff_report`.
+  - Segurança: `path` só é aceito se estiver em `final.files` da tarefa (nada de ler arquivo arbitrário do disco); `--` antes do path no git.
+  - Erros: 404 com `detail` em pt-BR quando a tarefa não existe, não tem `final`, o arquivo não está no relatório ou o worktree já foi removido (`crew cleanup`). A UI mostra "worktree removido, diff indisponível".
+- Custo/limites: `MAX_PATCH_BYTES = 256 KiB` por arquivo (cortado na última linha inteira, `truncated=true`); binário não traz patch. Um `git diff` por clique, timeout padrão do `git.run`. Nada vai no WS nem no `state_json`.
+- Alternativas:
+  1. `FinalFile.patch: str | None` (truncado) dentro do `FinalReport`. A favor: sobrevive ao `cleanup` e funciona no Histórico sem worktree. Contra: engorda o `TaskView` publicado no WS e o `state_json` de toda tarefa (precisa de teto total, ex.: 1 MiB, e aí arquivos somem do diff); calcula patch que ninguém abre.
+  2. Híbrido: endpoint agora, e só se o worktree removido incomodar na prática, gravar os patches num arquivo ao lado do `crew.db` no `build_report`.
+  3. Sem contrato: botão "abrir no editor" com `worktree_path/path`. Não mostra o diff, só o arquivo.
+  - Recomendação: a proposta (endpoint sob demanda).
+- Workaround atual: nenhum; a UI lista os arquivos por pasta sem patch.
+
+### B. Reabrir uma tarefa do Histórico
+
+- O quê: clicar numa tarefa do Histórico (`HistoryList`) e ver o resultado dela. `GET /api/tasks` devolve só `TaskSummary`.
+- Por quê: o `crew.db` já guarda o estado completo de cada tarefa (`TaskRow.state_json`); a UI só não tem como pedir.
+- Proposta (código):
+  - Endpoint novo `GET /api/tasks/{task_id}` → `TaskView` (`TaskState.to_view()` do `state_json`, lido direto do store pelo gateway, como `GET /api/tasks`). Nenhum modelo novo.
+  - 404 quando a tarefa não existe ou o `state_json` é de um contrato antigo incompatível (mesma regra do `list_tasks`, que já pula essas linhas).
+  - Só leitura: não troca a tarefa atual do orquestrador nem do WS. A UI abre a tarefa antiga numa tela de leitura (resultado + diff do item A quando o worktree ainda existe), sem CTAs que mandam comando. Tarefa ainda em execução no Histórico leva para a tela atual.
+- Custo/limites: um `SELECT` por clique; o `TaskView` de uma tarefa terminada tem o mesmo tamanho do snapshot que o WS já manda.
+- Alternativas:
+  1. Request/reply ao orquestrador num subject novo (`crew.state.get`): mexe em `bus/subjects.py` e passa pelo NATS sem ganho, já que o gateway já lê o SQLite.
+  2. Devolver só o `FinalReport` (`GET /api/tasks/{id}/final`): menos dado, mas a tela de resultado também usa plano, épicos, testes e review do `TaskView`.
+  - Recomendação: a proposta (`TaskView` inteiro).
+- Workaround atual: nenhum; o Histórico só lista.
+
+---
+
 ## 2026-10-13 · D68 · Faixa de review final — ✅ aplicado (exceção ao congelamento, como D38/D39)
 
 - `EpicView.kind` ganha `"review"`: a faixa `REV` roda o Reviewer uma vez sobre a branch da tarefa depois do lote (ou do `finish_task`), com rodadas Developer → Tester de correção. Tickets e integração não passam mais pelo Reviewer: o terceiro estágio da faixa vira "Merge" na UI.
