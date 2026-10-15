@@ -6,6 +6,13 @@ const FAST = 'speed=8'
 
 const card = (page: Page, key: string) => page.locator(`[data-stage="${key}"]`)
 const header = (page: Page, key: string) => card(page, key).getByRole('button').first()
+const newTaskTab = (page: Page) => page.getByRole('tab', { name: 'Nova tarefa' })
+
+/** O app sempre abre em "Nova tarefa"; a tarefa da fixture fica atrás do aviso "ver tarefa". */
+async function openFixture(page: Page, name: string) {
+  await page.goto(`/?fixture=${name}`)
+  await page.getByRole('button', { name: 'ver tarefa' }).click()
+}
 
 async function startTask(page: Page) {
   await header(page, 'manual').click()
@@ -44,7 +51,9 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await expect(card(page, 'approval')).toHaveAttribute('data-status', 'waiting')
     await expect(header(page, 'approval')).toHaveAttribute('aria-expanded', 'false')
     await header(page, 'approval').click()
-    await expect(page.getByRole('heading', { name: 'Critérios de aceite' })).toBeVisible()
+    await expect(
+      card(page, 'approval').getByText('Critérios de aceite', { exact: true }),
+    ).toBeVisible()
     await page.getByRole('button', { name: 'Aprovar plano' }).click()
 
     // loop completo até concluir
@@ -52,7 +61,7 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await expect(card(page, 'tester')).toContainText('PASSOU · 48/48')
     await expect(card(page, 'reviewer')).toContainText('APROVADO')
     await expect(card(page, 'developer')).toContainText('rodada 3')
-    await expect(page.getByRole('button', { name: 'Nova tarefa' })).toBeVisible()
+    await expect(newTaskTab(page)).toBeVisible()
 
     // Tester guarda a 1ª execução que falhou; Reviewer, o comentário resolvido
     await header(page, 'tester').click()
@@ -69,7 +78,7 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     expect(clipboard).toMatch(/^feat: filtro por intervalo/)
 
     // Nova tarefa → volta ao estado inicial
-    await page.getByRole('button', { name: 'Nova tarefa' }).click()
+    await newTaskTab(page).click()
     await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
     await expect(card(page, 'done')).toHaveAttribute('data-status', 'idle')
   })
@@ -129,7 +138,7 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await startTask(page)
     await page.getByRole('button', { name: 'cancelar tarefa' }).click()
     await expect(page.getByText('cancelada')).toBeVisible()
-    await page.getByRole('button', { name: 'Nova tarefa' }).click()
+    await newTaskTab(page).click()
     await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
   })
 })
@@ -138,7 +147,7 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
   test('?fixture=escalated renderiza o estado e recusa comandos (somente leitura)', async ({
     page,
   }) => {
-    await page.goto('/?fixture=escalated')
+    await openFixture(page, 'escalated')
     await expect(card(page, 'tester')).toHaveAttribute('data-status', 'error')
     await header(page, 'tester').click()
     await page.getByRole('button', { name: '+2 tentativas' }).click()
@@ -169,7 +178,7 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
 
   test('reduced motion: sem animação nos conectores ativos', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.goto('/?fixture=developing')
+    await openFixture(page, 'developing')
     const active = page.locator('[data-connector][data-state="active"]').first()
     await expect(active).toBeVisible()
     const animation = await active.evaluate((el) => getComputedStyle(el).animationName)
