@@ -1,4 +1,5 @@
 import { useAccountUsage } from '../api/queries'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
 import { cx } from '../lib/cx'
 import styles from './Header.module.css'
 
@@ -33,9 +34,16 @@ export function UsageChip() {
     ? `Uso desatualizado: o Claude Code não mede desde ${when}. Confira o login (claude auth login).`
     : `Uso da assinatura${data.plan ? ` (plano ${data.plan})` : ''}, medido pelo Claude Code em ${when}`
   return (
-    <span className={cx(styles.usage, stale && styles.stale)} title={title}>
-      {parts.join(' · ')}
-      {stale && ` · desatualizado${elapsed == null ? '' : ` há ${age(elapsed)}`}`}
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* foco por teclado é o que abre o tooltip */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+        <span className={cx(styles.usage, stale && styles.stale)} tabIndex={0}>
+          {parts.join(' · ')}
+          {stale && ` · desatualizado${elapsed == null ? '' : ` há ${age(elapsed)}`}`}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
   )
 }
