@@ -230,4 +230,20 @@ describe('FlowColumn', () => {
       expect(screen.queryByRole('button', { name: 'Iniciar' })).not.toBeInTheDocument()
     })
   })
+
+  describe('CTA da faixa Agora (store.focus)', () => {
+    it('abre e rola até o card pedido; pedido feito antes de montar é ignorado', () => {
+      act(() => {
+        useCrewStore.getState().focusOn('tester')
+      })
+      renderWithClient(<FlowColumn view={fixture('awaiting_approval')} />)
+      expect(isOpen('tester')).toBe(false)
+
+      act(() => {
+        useCrewStore.getState().focusOn('approval')
+      })
+      expect(isOpen('approval')).toBe(true)
+      expect(scrollIntoView).toHaveBeenCalled()
+    })
+  })
 })

@@ -38,7 +38,8 @@ function working(key: StageKey): { state: string; favicon: FaviconKind } {
   return { state: `${STAGE_META[key].title} trabalhando`, favicon: 'working' }
 }
 
-function describe(view: TaskView): { state: string; favicon: FaviconKind } {
+/** Estado da tarefa em uma frase + o ícone que o representa (também usado pela faixa Agora). */
+export function describe(view: TaskView): { state: string; favicon: FaviconKind } {
   const phase: TaskPhase = view.phase
   switch (phase) {
     case 'interviewing':

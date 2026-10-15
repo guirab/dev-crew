@@ -22,7 +22,11 @@ export function EpicsSection({ view }: { view: TaskView }) {
   const lanes = view.epics
   const running = lanes.filter((l) => l.status === 'running' || l.status === 'preparing').length
   return (
-    <section className={cx(styles.section, mode === 'board' && styles.wide)} aria-label="Épicos">
+    <section
+      id="epics"
+      className={cx(styles.section, mode === 'board' && styles.wide)}
+      aria-label="Épicos"
+    >
       <h3 className={styles.title}>
         Épicos
         <span className={styles.count}>

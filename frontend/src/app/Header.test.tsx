@@ -57,22 +57,14 @@ describe('Header', () => {
     )
   })
 
-  it('título da tarefa e "cancelar tarefa" só aparecem na tela da tarefa', () => {
+  it('título da tarefa só aparece na tela da tarefa; "cancelar" mora na faixa Agora', () => {
     const view = fixture('developing')
     const { rerender } = renderWithClient(<Header view={view} />)
     expect(screen.queryByText(view.task_id)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'cancelar tarefa' })).not.toBeInTheDocument()
 
     useCrewStore.getState().setScreen('task')
     rerender(<Header view={view} />)
     expect(screen.getByText(view.task_id)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'cancelar tarefa' })).toBeInTheDocument()
-  })
-
-  it('tarefa terminal na tela da tarefa: sem "cancelar tarefa", com o estado', () => {
-    useCrewStore.getState().setScreen('task')
-    renderWithClient(<Header view={{ ...fixture('done'), phase: 'cancelled' }} />)
-    expect(screen.getByText('cancelada')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'cancelar tarefa' })).not.toBeInTheDocument()
   })
 })

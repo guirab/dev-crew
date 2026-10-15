@@ -4,6 +4,7 @@ import { HistoryList } from '../history/HistoryList'
 import { isRunning, useCrewStore } from '../store/crew'
 import { Backdrop } from './Backdrop'
 import { Header } from './Header'
+import { NowBar } from './NowBar'
 import { ReconnectBanner } from './ReconnectBanner'
 import { RunningTaskNotice } from './RunningTaskNotice'
 import { useTabStatus } from './tabStatus'
@@ -34,8 +35,11 @@ export function App() {
         ) : screen === 'history' ? (
           <HistoryList />
         ) : screen === 'task' && view ? (
-          // key: cada tarefa começa com todos os cards fechados.
-          <FlowColumn key={view.task_id} view={view} />
+          <>
+            <NowBar view={view} />
+            {/* key: cada tarefa começa com todos os cards fechados. */}
+            <FlowColumn key={view.task_id} view={view} />
+          </>
         ) : (
           <>
             <RunningTaskNotice />

@@ -2,6 +2,7 @@
   border: 1px dashed rgb(255 255 255 / 22%);
   border-radius: 28px;
   padding: 16px 16px 4px;
+  scroll-margin-top: 190px; /* CTA da faixa Agora: para abaixo do header e da faixa */
 }
 
 /* 4 colunas não cabem na coluna de 700 px do fluxo: o board ocupa a largura da tela, centralizado */

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 import type { LogLine, TaskView, WsProgress } from '../contracts/generated'
+import type { FocusTarget } from '../app/nowStatus'
 
 const TERMINAL_PHASES: readonly TaskPhase[] = ['done', 'cancelled', 'failed']
 
@@ -22,6 +23,8 @@ interface CrewState {
   progress: Partial<Record<StageKey, LogLine[]>>
   /** Tela aberta: menu de origem (`new`), histórico ou o fluxo da tarefa. Sempre abre em `new`. */
   screen: Screen
+  /** Pedido pra abrir e mostrar um card (CTA da faixa Agora). `seq` muda a cada clique, mesmo no mesmo alvo. */
+  focus: { target: FocusTarget; seq: number } | null
 
   applyView: (view: TaskView | null) => void
   /** Aplica um snapshot vindo do REST só se nenhum snapshot chegou desde `sinceVersion`. */
@@ -30,6 +33,7 @@ interface CrewState {
   applyProgress: (msg: WsProgress) => void
   setConnection: (connection: ConnectionState) => void
   setScreen: (screen: Screen) => void
+  focusOn: (target: FocusTarget) => void
 }
 
 const initialState = {
@@ -39,6 +43,7 @@ const initialState = {
   connection: 'connecting',
   progress: {},
   screen: 'new',
+  focus: null,
 } satisfies Partial<CrewState>
 
 export const useCrewStore = create<CrewState>()((set) => ({
@@ -75,6 +80,10 @@ export const useCrewStore = create<CrewState>()((set) => ({
 
   setScreen: (screen) => {
     set({ screen })
+  },
+
+  focusOn: (target) => {
+    set((s) => ({ focus: { target, seq: (s.focus?.seq ?? 0) + 1 } }))
   },
 }))
 

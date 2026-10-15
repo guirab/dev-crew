@@ -297,7 +297,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await user.click(await screen.findByRole('button', { name: 'cancelar tarefa' }))
 
     expect(confirm).toHaveBeenCalledTimes(1)
-    expect(await screen.findByText('cancelada')).toBeInTheDocument()
+    expect(await screen.findByText('⊘ Cancelada')).toBeInTheDocument() // faixa Agora
     expect(screen.queryByRole('button', { name: 'cancelar tarefa' })).not.toBeInTheDocument()
   })
 
