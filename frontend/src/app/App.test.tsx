@@ -228,7 +228,8 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(start).toBeDisabled() // título obrigatório
     await user.type(screen.getByLabelText('título'), 'Exportar pedidos em CSV')
     await user.type(screen.getByLabelText(/descrição · pode ser vaga/), 'Mandar pro financeiro')
-    await user.selectOptions(screen.getByLabelText('repositório'), 'api-pedidos')
+    await user.click(await screen.findByRole('combobox', { name: 'repositório' }))
+    await user.click(await screen.findByRole('option', { name: 'api-pedidos' }))
     await user.click(start)
 
     await waitFor(() => {
