@@ -7,7 +7,6 @@ import { fixture } from '../test/fixtures'
 import { renderWithClient } from '../test/render'
 import { DoneBody } from '../bodies/DoneBody'
 import { EpicsSection } from './EpicsSection'
-import { FlowColumn } from './FlowColumn'
 
 const idle: StageView = { status: 'idle', now: null, logs: [] }
 
@@ -202,12 +201,6 @@ describe('EpicsSection', () => {
         { type: 'finish_task' },
       ])
     })
-  })
-
-  it('o fluxo troca o trilho Developer/Tester/Reviewer pelas faixas', () => {
-    renderWithClient(<FlowColumn view={splitView([lane('E1', 'running')])} />)
-    expect(screen.getByRole('region', { name: 'Épicos' })).toBeInTheDocument()
-    expect(document.getElementById('stage-developer')).toBeNull()
   })
 })
 

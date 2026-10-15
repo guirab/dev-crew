@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
-import { FlowColumn } from '../flow/FlowColumn'
+import { SourcePicker } from '../flow/SourcePicker'
+import { TaskFlow } from '../flow/TaskFlow'
 import { HistoryList } from '../history/HistoryList'
 import { isRunning, useCrewStore } from '../store/crew'
 import { Backdrop } from './Backdrop'
@@ -14,7 +15,7 @@ import styles from './App.module.css'
 // produção nem inclui este chunk.
 const DemoBar = import.meta.env.MODE === 'mock' ? lazy(() => import('../mocks/DemoBar')) : null
 
-/** Layout: header + fluxo vertical. Render puro do store; a conexão WS é montada em `main.tsx`. */
+/** Layout: header + (nova tarefa | histórico | faixa Agora + trilho e painel de foco). Render puro do store; a conexão WS é montada em `main.tsx`. */
 export function App() {
   const view = useCrewStore((s) => s.view)
   const screen = useCrewStore((s) => s.screen)
@@ -37,13 +38,13 @@ export function App() {
         ) : screen === 'task' && view ? (
           <>
             <NowBar view={view} />
-            {/* key: cada tarefa começa com todos os cards fechados. */}
-            <FlowColumn key={view.task_id} view={view} />
+            {/* key: cada tarefa começa com o foco automático, sem etapa fixada. */}
+            <TaskFlow key={view.task_id} view={view} />
           </>
         ) : (
           <>
             <RunningTaskNotice />
-            <FlowColumn key="none" view={null} />
+            <SourcePicker />
           </>
         )}
       </main>

@@ -1,0 +1,76 @@
+.panel {
+  padding: 20px 22px 22px;
+  border-radius: 24px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  /* CTA da faixa Agora rola até aqui: para abaixo do header e da faixa (fixos) */
+  scroll-margin-top: 190px;
+}
+
+.active {
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px rgb(43 238 134 / 40%);
+}
+
+.waiting {
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px rgb(244 181 68 / 55%);
+}
+
+.error {
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px rgb(255 138 130 / 55%);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.2px;
+}
+
+.tag {
+  font: 11.5px var(--mono);
+  color: var(--muted);
+}
+
+.desc {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.active .desc {
+  font: 13px var(--mono);
+  color: var(--green-hi);
+}
+
+.waiting .desc,
+.waiting .tag {
+  color: var(--warn);
+}
+
+.error .desc,
+.error .tag {
+  color: var(--err);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 16px;
+  }
+}

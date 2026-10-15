@@ -7,7 +7,7 @@ import { HISTORY } from '../mocks/data'
 import { createRestHandlers } from '../mocks/handlers'
 import { ScenarioBackend } from '../mocks/scenario'
 import { useCrewStore } from '../store/crew'
-import { stageButton, stageCard } from '../test/dom'
+import { focusPanel, isStageOpen, stageButton, stageCard } from '../test/dom'
 import { fixture } from '../test/fixtures'
 import { server } from '../test/server'
 import { renderWithClient } from '../test/render'
@@ -127,7 +127,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
       await user.click(screen.getByRole('button', { name: 'ver tarefa' }))
 
       expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
-      expect(screen.getByText(view.title)).toBeInTheDocument() // header
+      expect(screen.getByRole('banner')).toHaveTextContent(view.title)
       expect(screen.queryByText(/Tarefa em andamento:/)).not.toBeInTheDocument()
     },
   )
@@ -186,37 +186,35 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
     expect(screen.getByRole('button', { name: 'cancelar tarefa' })).toBeInTheDocument()
 
-    // aprovação: waiting, fechada por padrão
+    // aprovação: waiting, o foco vai sozinho pra ela
     await waitFor(() => {
       expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
     }, SLOW)
-    expect(stageButton('approval')).toHaveAttribute('aria-expanded', 'false')
+    expect(isStageOpen('approval')).toBe(true)
 
-    await user.click(stageButton('approval'))
     await user.click(screen.getByRole('button', { name: 'Aprovar plano' }))
-    // ao aprovar, o card fecha sozinho (o usuário já agiu)
+    // ao aprovar, o foco segue a ação (o usuário já agiu)
     await waitFor(() => {
-      expect(stageButton('approval')).toHaveAttribute('aria-expanded', 'false')
+      expect(isStageOpen('approval')).toBe(false)
     })
 
     await waitFor(() => {
       expect(stageCard('done')).toHaveAttribute('data-status', 'done')
     }, SLOW)
-    expect(within(stageCard('tester')).getByText(/PASSOU · 48\/48/)).toBeInTheDocument()
-    expect(within(stageCard('reviewer')).getByText(/APROVADO/)).toBeInTheDocument()
-
+    expect(isStageOpen('done')).toBe(true)
     // concluída: relatório + commit
-    await user.click(stageButton('done'))
     expect(screen.getByText(/^feat: filtro por intervalo/)).not.toHaveTextContent('Refs:')
 
-    // tester mostra a 1ª execução que falhou
+    // tester: resultado e a 1ª execução que falhou
     await user.click(stageButton('tester'))
-    expect(within(stageCard('tester')).getByText('FALHOU')).toBeInTheDocument()
+    expect(within(focusPanel()).getAllByText(/PASSOU · 48\/48/).length).toBeGreaterThan(0)
+    expect(within(focusPanel()).getByText('FALHOU')).toBeInTheDocument()
+    await user.click(stageButton('reviewer'))
+    expect(within(focusPanel()).getAllByText(/APROVADO/).length).toBeGreaterThan(0)
 
-    // "Nova tarefa" volta ao estado inicial (só origem em pick)
+    // "Nova tarefa" volta ao menu de origem
     await user.click(screen.getByRole('tab', { name: 'Nova tarefa' }))
     expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
-    expect(stageCard('done')).toHaveAttribute('data-status', 'idle')
     expect(screen.queryByText('T-107')).not.toBeInTheDocument()
   })
 
@@ -250,7 +248,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await waitFor(() => {
       expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
     }, SLOW)
-    expect(stageButton('interviewer')).toHaveAttribute('aria-expanded', 'false') // fechou sozinho
+    expect(isStageOpen('interviewer')).toBe(false) // o foco saiu sozinho
     expect(useCrewStore.getState().view?.interview?.decisions).toHaveLength(3)
   })
 
@@ -271,10 +269,9 @@ describe('App (UI + cenário mock, sem WS)', () => {
       expect(useCrewStore.getState().view?.phase).toBe('escalated') // 3 falhas seguidas
     }, SLOW)
     expect(stageCard('tester')).toHaveAttribute('data-status', 'error')
-    expect(within(stageCard('tester')).getByText(/Limite 3\/3 atingido/)).toBeInTheDocument()
-    expect(stageButton('tester')).toHaveAttribute('aria-expanded', 'false')
+    expect(isStageOpen('tester')).toBe(true) // o foco vai pro que precisa de você
+    expect(within(focusPanel()).getAllByText(/Limite 3\/3 atingido/).length).toBeGreaterThan(0)
 
-    await user.click(stageButton('tester'))
     await user.type(
       screen.getByLabelText('Instrução pro Developer'),
       'usar fake timers no teste de concorrência',
@@ -284,7 +281,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await waitFor(() => {
       expect(stageCard('done')).toHaveAttribute('data-status', 'done')
     }, SLOW)
-    expect(stageButton('tester')).toHaveAttribute('aria-expanded', 'false')
+    expect(isStageOpen('tester')).toBe(false)
   })
 
   it('cancelar tarefa (com confirmação) mostra "cancelada" e tira o botão de cancelar', async () => {

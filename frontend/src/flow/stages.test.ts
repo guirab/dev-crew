@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { EdgeKey } from '../contracts/aliases'
-import type { StageView, TaskView } from '../contracts/generated'
+import type { StageView } from '../contracts/generated'
 import { fixture } from '../test/fixtures'
 import {
   CONNECTOR_EDGES,
-  EDGE_TARGET,
   FLOW_STAGES,
   STAGE_META,
   connectorState,
@@ -14,7 +13,6 @@ import {
   stageIcon,
   stageProgress,
   stageTag,
-  stagesToCollapse,
   withProgress,
 } from './stages'
 
@@ -78,16 +76,6 @@ describe('connectorState (mapa conector → arestas, igual ao mockup)', () => {
     expect(connectorState(edges, CONNECTOR_EDGES.finish)).toBe('idle')
     expect(connectorState(edges, CONNECTOR_EDGES.loopFail)).toBe('on')
     expect(connectorState(edges, CONNECTOR_EDGES.loopAdjust)).toBe('idle')
-  })
-})
-
-describe('EDGE_TARGET', () => {
-  it('aponta cada aresta pro card que ela alimenta', () => {
-    expect(EDGE_TARGET['ma-iv']).toBe('interviewer')
-    expect(EDGE_TARGET['pl-ap']).toBe('approval')
-    expect(EDGE_TARGET['ts-dv']).toBe('developer')
-    expect(EDGE_TARGET['rv-dv']).toBe('developer')
-    expect(EDGE_TARGET['rv-dn']).toBe('done')
   })
 })
 
@@ -226,44 +214,6 @@ describe('withProgress', () => {
     expect(withProgress(done, lines)).toBe(done)
     expect(withProgress(active, [])).toBe(active)
     expect(withProgress(active, undefined)).toBe(active)
-  })
-})
-
-describe('stagesToCollapse', () => {
-  const withStatus = (
-    view: TaskView,
-    patch: Partial<Record<keyof TaskView['stages'], StageView>>,
-  ) => ({
-    ...view,
-    stages: { ...view.stages, ...patch },
-  })
-
-  it('fecha o card que saiu de waiting pra done/idle', () => {
-    const prev = fixture('awaiting_approval')
-    const next = withStatus(prev, { approval: stage({ status: 'done' }) })
-    expect(stagesToCollapse(prev, next)).toEqual(['approval'])
-    const adjusted = withStatus(prev, { approval: stage({ status: 'idle' }) })
-    expect(stagesToCollapse(prev, adjusted)).toEqual(['approval'])
-  })
-
-  it('não fecha waiting → active (entrevistador calculando a próxima pergunta)', () => {
-    const prev = fixture('interviewing')
-    const next = withStatus(prev, { interviewer: stage({ status: 'active' }) })
-    expect(stagesToCollapse(prev, next)).toEqual([])
-  })
-
-  it('fecha o card da escalada quando ela é resolvida', () => {
-    const prev = fixture('escalated')
-    const next = { ...prev, escalation: null }
-    expect(stagesToCollapse(prev, next)).toEqual(['tester'])
-  })
-
-  it('não mexe em nada entre tarefas diferentes ou sem snapshot', () => {
-    const a = fixture('awaiting_approval')
-    const b = { ...fixture('done'), task_id: 'T-999' }
-    expect(stagesToCollapse(a, b)).toEqual([])
-    expect(stagesToCollapse(null, a)).toEqual([])
-    expect(stagesToCollapse(a, null)).toEqual([])
   })
 })
 

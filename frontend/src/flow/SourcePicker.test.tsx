@@ -2,15 +2,14 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { captureCommands } from '../test/commands'
-import { fixture } from '../test/fixtures'
 import { renderWithClient } from '../test/render'
-import { FlowColumn } from './FlowColumn'
+import { SourcePicker } from './SourcePicker'
 
 describe('origem Novo projeto (D58)', () => {
   it('cria o projeto com nome, pasta e o que construir', async () => {
     const commands = captureCommands()
     const user = userEvent.setup()
-    renderWithClient(<FlowColumn view={null} />)
+    renderWithClient(<SourcePicker />)
     await user.click(screen.getByRole('button', { name: /Novo projeto/ }))
     expect(screen.getByRole('region', { name: 'Origem: novo projeto' })).toBeInTheDocument()
 
@@ -36,18 +35,12 @@ describe('origem Novo projeto (D58)', () => {
       ])
     })
   })
-
-  it('com tarefa ativa só o card Manual aparece', () => {
-    renderWithClient(<FlowColumn view={fixture('developing')} />)
-    expect(screen.queryByRole('button', { name: /Novo projeto/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Adicionar repositório/ })).not.toBeInTheDocument()
-  })
 })
 
 describe('origem Adicionar repositório', () => {
   it('sem tarefa ativa abre o formulário com o navegador de pastas e fecha ao clicar de novo', async () => {
     const user = userEvent.setup()
-    renderWithClient(<FlowColumn view={null} />)
+    renderWithClient(<SourcePicker />)
 
     await user.click(screen.getByRole('button', { name: /Adicionar repositório/ }))
     expect(

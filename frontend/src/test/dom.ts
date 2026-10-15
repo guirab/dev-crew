@@ -16,18 +16,31 @@ export const ALL_STAGES: readonly StageKey[] = [
 /** Mock de `scrollIntoView` (jsdom não implementa). Instalado no setup global. */
 export const scrollIntoViewMock = vi.fn()
 
-export function stageCard(key: StageKey): HTMLElement {
+/** O card de origem (tela "Nova tarefa") ou a etapa do trilho (tela da tarefa); `epics` só no trilho. */
+export function stageCard(key: StageKey | 'epics'): HTMLElement {
   const el = document.querySelector<HTMLElement>(`[data-stage="${key}"]`)
   if (!el) throw new Error(`card ${key} não encontrado`)
   return el
 }
 
-/** O `<button aria-expanded>` do header do card. */
-export function stageButton(key: StageKey): HTMLElement {
-  const [button] = within(stageCard(key)).getAllByRole('button')
+/** O que se clica: o header `<button aria-expanded>` do card, ou a própria aba do trilho. */
+export function stageButton(key: StageKey | 'epics'): HTMLElement {
+  const el = stageCard(key)
+  if (el.getAttribute('role') === 'tab') return el
+  const [button] = within(el).getAllByRole('button')
   if (!button) throw new Error(`header do card ${key} não encontrado`)
   return button
 }
 
-export const isStageOpen = (key: StageKey): boolean =>
-  stageButton(key).getAttribute('aria-expanded') === 'true'
+/** Card expandido ou etapa em foco no trilho. */
+export const isStageOpen = (key: StageKey | 'epics'): boolean => {
+  const el = stageButton(key)
+  return el.getAttribute('aria-expanded') === 'true' || el.getAttribute('aria-selected') === 'true'
+}
+
+/** O painel de foco da tela da tarefa (detalhes da etapa escolhida no trilho). */
+export function focusPanel(): HTMLElement {
+  const el = document.getElementById('focus-panel')
+  if (!el) throw new Error('painel de foco não encontrado')
+  return el
+}

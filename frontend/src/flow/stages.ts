@@ -94,19 +94,6 @@ export const CONNECTOR_EDGES = {
 
 export type ConnectorId = keyof typeof CONNECTOR_EDGES
 
-/** Estágio de destino de cada aresta: pra onde rolar quando a aresta fica ativa. */
-export const EDGE_TARGET: Record<EdgeKey, StageKey> = {
-  'ma-iv': 'interviewer',
-  'iv-pl': 'planner',
-  'pl-ap': 'approval',
-  'ap-dv': 'developer',
-  'dv-ts': 'tester',
-  'ts-rv': 'reviewer',
-  'rv-dn': 'done',
-  'ts-dv': 'developer',
-  'rv-dv': 'developer',
-}
-
 export function connectorState(
   edges: TaskView['edges'] | null | undefined,
   ids: readonly EdgeKey[],
@@ -200,21 +187,6 @@ export function stageTag(
 /** Estágio sem tarefa: só o card de origem fica em `pick`; o resto `idle`. */
 export function emptyStage(key: StageKey): StageView {
   return { status: key === 'manual' ? 'pick' : 'idle', now: null, logs: [] }
-}
-
-/**
- * Cards que devem fechar sozinhos entre dois snapshots da mesma tarefa: o usuário já agiu
- * (saiu de `waiting` pra concluído/ocioso) ou a escalada foi resolvida. Nunca abre nada.
- */
-export function stagesToCollapse(prev: TaskView | null, next: TaskView | null): StageKey[] {
-  if (prev?.task_id !== next?.task_id || !prev || !next) return []
-  const keys: StageKey[] = FLOW_STAGES.filter((key) => {
-    const before = prev.stages[key].status
-    const after = next.stages[key].status
-    return before === 'waiting' && (after === 'done' || after === 'idle' || after === 'skipped')
-  })
-  if (prev.escalation && !next.escalation) keys.push(prev.escalation.stage)
-  return keys
 }
 
 /**

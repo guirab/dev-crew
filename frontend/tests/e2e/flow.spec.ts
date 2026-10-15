@@ -5,8 +5,10 @@ import type { Page } from '@playwright/test'
 const FAST = 'speed=8'
 
 const card = (page: Page, key: string) => page.locator(`[data-stage="${key}"]`)
-const header = (page: Page, key: string) => card(page, key).getByRole('button').first()
-const newTaskTab = (page: Page) => page.getByRole('tab', { name: 'Nova tarefa' })
+/** O que se clica: a aba do trilho (tela da tarefa) ou o header do card de origem (nova tarefa). */
+const header = (page: Page, key: string) =>
+  page.locator(`[data-stage="${key}"][role="tab"], [data-stage="${key}"] > button`).first()
+const panel = (page: Page) => page.locator('#focus-panel')
 
 /** O app sempre abre em "Nova tarefa"; a tarefa da fixture fica atrás do aviso "ver tarefa". */
 async function openFixture(page: Page, name: string) {
@@ -38,36 +40,31 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
   }) => {
     await page.goto(`/?${FAST}`)
 
-    // estado inicial: só o card de origem em pick, tudo fechado
+    // estado inicial: só os cards de origem
     await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
-    await expect(card(page, 'tester')).toHaveAttribute('data-status', 'idle')
     await expect(page.getByText('escolha a origem da tarefa ↑')).toBeVisible()
 
     await startTaskToPlan(page)
     await expect(card(page, 'manual')).toHaveAttribute('data-status', 'done')
     await expect(page.getByRole('button', { name: 'cancelar tarefa' })).toBeVisible()
 
-    // aprovação: espera o plano, abre (por clique), aprova
+    // aprovação: espera o plano; o foco vai sozinho pra ela
     await expect(card(page, 'approval')).toHaveAttribute('data-status', 'waiting')
-    await expect(header(page, 'approval')).toHaveAttribute('aria-expanded', 'false')
-    await header(page, 'approval').click()
-    await expect(
-      card(page, 'approval').getByText('Critérios de aceite', { exact: true }),
-    ).toBeVisible()
+    await expect(header(page, 'approval')).toHaveAttribute('aria-selected', 'true')
+    await expect(panel(page).getByText('Critérios de aceite', { exact: true })).toBeVisible() // <summary> do plano
     await page.getByRole('button', { name: 'Aprovar plano' }).click()
 
     // loop completo até concluir
     await expect(card(page, 'done')).toHaveAttribute('data-status', 'done', { timeout: 30_000 })
-    await expect(card(page, 'tester')).toContainText('PASSOU · 48/48')
-    await expect(card(page, 'reviewer')).toContainText('APROVADO')
     await expect(card(page, 'developer')).toContainText('rodada 3')
-    await expect(newTaskTab(page)).toBeVisible()
 
     // Tester guarda a 1ª execução que falhou; Reviewer, o comentário resolvido
     await header(page, 'tester').click()
-    await expect(card(page, 'tester').getByText('FALHOU', { exact: true })).toBeVisible()
+    await expect(panel(page)).toContainText('PASSOU · 48/48')
+    await expect(panel(page).getByText('FALHOU', { exact: true })).toBeVisible()
     await header(page, 'reviewer').click()
-    await expect(card(page, 'reviewer').getByText('RESOLVIDO').first()).toBeVisible()
+    await expect(panel(page)).toContainText('APROVADO')
+    await expect(panel(page).getByText('RESOLVIDO').first()).toBeVisible()
 
     // relatório final + copiar mensagem de commit
     await header(page, 'done').click()
@@ -77,10 +74,9 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     const clipboard = await page.evaluate(() => navigator.clipboard.readText())
     expect(clipboard).toMatch(/^feat: filtro por intervalo/)
 
-    // Nova tarefa → volta ao estado inicial
-    await newTaskTab(page).click()
+    // Nova tarefa → volta ao menu de origem
+    await page.getByRole('tab', { name: 'Nova tarefa' }).click()
     await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
-    await expect(card(page, 'done')).toHaveAttribute('data-status', 'idle')
   })
 
   test('Manual: entrevista em 2 rodadas até o plano', async ({ page }) => {
@@ -105,7 +101,7 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
       timeout: 15_000,
     })
     await expect(card(page, 'interviewer')).toHaveAttribute('data-status', 'done')
-    await expect(header(page, 'interviewer')).toHaveAttribute('aria-expanded', 'false')
+    await expect(header(page, 'interviewer')).toHaveAttribute('aria-selected', 'false')
   })
 
   test('escalada (?escalate=1): instruir o Developer retoma e conclui', async ({ page }) => {
@@ -115,11 +111,9 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await header(page, 'approval').click()
     await page.getByRole('button', { name: 'Aprovar plano' }).click()
 
-    await expect(card(page, 'tester')).toContainText('Limite 3/3 atingido', { timeout: 30_000 })
+    await expect(panel(page)).toContainText('Limite 3/3 atingido', { timeout: 30_000 })
     await expect(card(page, 'tester')).toHaveAttribute('data-status', 'error')
-    await expect(header(page, 'tester')).toHaveAttribute('aria-expanded', 'false') // não auto-expande
-
-    await header(page, 'tester').click()
+    await expect(header(page, 'tester')).toHaveAttribute('aria-selected', 'true') // foco no que precisa de você
     await expect(page.getByText('Loop estourou — o que fazer?')).toBeVisible()
     for (const name of ['+2 tentativas', 'Voltar pro Planner', 'Cancelar tarefa']) {
       await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
@@ -137,8 +131,8 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await page.goto(`/?${FAST}`)
     await startTask(page)
     await page.getByRole('button', { name: 'cancelar tarefa' }).click()
-    await expect(page.getByText('cancelada')).toBeVisible()
-    await newTaskTab(page).click()
+    await expect(page.getByRole('region', { name: 'Agora' })).toContainText('Cancelada')
+    await page.getByRole('tab', { name: 'Nova tarefa' }).click()
     await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
   })
 })
