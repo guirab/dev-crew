@@ -1,7 +1,10 @@
 import { act, render, screen } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fixture } from '../test/fixtures'
+import { renderWithClient } from '../test/render'
+import { server } from '../test/server'
 import { DoneBody } from './DoneBody'
 
 const view = fixture('done')
@@ -77,5 +80,67 @@ describe('DoneBody', () => {
     render(<DoneBody view={running} stage={running.stages.done} />)
     expect(screen.getByText(/nada é commitado/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Copiar/ })).not.toBeInTheDocument()
+  })
+
+  it('clicar num arquivo abre o patch dele; clicar de novo fecha', async () => {
+    const user = userEvent.setup()
+    let asked = ''
+    server.use(
+      http.get('*/api/tasks/:id/diff', ({ params, request }) => {
+        asked = `${String(params.id)} ${new URL(request.url).searchParams.get('path') ?? ''}`
+        return HttpResponse.json({
+          path: 'shop/report.py',
+          status: 'M',
+          patch: 'diff --git a/x b/x\r\n--- a/x\n+++ b/x\n@@ -1,2 +1,2 @@\n ctx\n-old\n+new\n',
+          binary: false,
+          truncated: true,
+        })
+      }),
+    )
+    renderWithClient(<DoneBody view={view} stage={stage} />)
+
+    const row = screen.getByTitle('shop/report.py')
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    await user.click(row)
+
+    const patch = await screen.findByLabelText('Diff de shop/report.py')
+    expect(asked).toBe('T-107 shop/report.py')
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+    // o cabeçalho do git fica de fora: começa no hunk
+    expect(patch.textContent).toBe('@@ -1,2 +1,2 @@ ctx-old+new')
+    expect(screen.getByText(/Diff cortado/)).toBeInTheDocument()
+
+    await user.click(row)
+    expect(screen.queryByLabelText('Diff de shop/report.py')).not.toBeInTheDocument()
+  })
+
+  it('worktree removido: mostra o motivo no lugar do patch', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/tasks/:id/diff', () =>
+        HttpResponse.json({ detail: 'worktree removido: diff indisponível' }, { status: 404 }),
+      ),
+    )
+    renderWithClient(<DoneBody view={view} stage={stage} />)
+    await user.click(screen.getByTitle('shop/api.py'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('worktree removido')
+  })
+
+  it('arquivo binário não mostra patch', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/tasks/:id/diff', () =>
+        HttpResponse.json({
+          path: 'shop/api.py',
+          status: 'M',
+          patch: '',
+          binary: true,
+          truncated: false,
+        }),
+      ),
+    )
+    renderWithClient(<DoneBody view={view} stage={stage} />)
+    await user.click(screen.getByTitle('shop/api.py'))
+    expect(await screen.findByText(/Arquivo binário/)).toBeInTheDocument()
   })
 })

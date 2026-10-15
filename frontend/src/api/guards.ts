@@ -1,6 +1,7 @@
 import type {
   AccountUsage,
   CommandReply,
+  FileDiff,
   FolderListing,
   FolderProbe,
   RepoInfo,
@@ -186,4 +187,17 @@ function isTaskSummary(v: unknown): v is TaskSummary {
 
 export function isTaskSummaryList(v: unknown): v is TaskSummary[] {
   return Array.isArray(v) && v.every(isTaskSummary)
+}
+
+const FILE_CHANGES: readonly unknown[] = ['A', 'M', 'D']
+
+export function isFileDiff(v: unknown): v is FileDiff {
+  return (
+    isRecord(v) &&
+    typeof v.path === 'string' &&
+    FILE_CHANGES.includes(v.status) &&
+    typeof v.patch === 'string' &&
+    typeof v.binary === 'boolean' &&
+    typeof v.truncated === 'boolean'
+  )
 }

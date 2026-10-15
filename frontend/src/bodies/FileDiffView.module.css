@@ -1,0 +1,48 @@
+.wrap {
+  margin: 4px 0 8px;
+}
+
+.patch {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 8px 0;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 28%);
+  box-shadow: 0 0 0 1px var(--line-2);
+  font: 12px/1.5 var(--mono);
+  color: var(--muted);
+}
+
+.patch span {
+  display: block;
+  min-width: max-content;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.add {
+  color: var(--fg);
+  background: rgb(43 238 134 / 12%);
+}
+
+.del {
+  color: var(--fg);
+  background: rgb(255 138 130 / 12%);
+}
+
+.hunk {
+  color: var(--dim);
+}
+
+.note {
+  margin: 4px 0 8px;
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+
+.error {
+  margin: 4px 0 8px;
+  font-size: 12.5px;
+  color: var(--err);
+}

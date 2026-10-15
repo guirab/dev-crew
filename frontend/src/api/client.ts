@@ -2,6 +2,7 @@ import type {
   AccountUsage,
   Command,
   CommandReply,
+  FileDiff,
   FolderListing,
   FolderProbe,
   RepoInfo,
@@ -11,10 +12,12 @@ import type {
 import {
   isAccountUsage,
   isCommandReply,
+  isFileDiff,
   isFolderListing,
   isFolderProbe,
   isNullableTaskView,
   isRepoList,
+  isTaskView,
   isTaskSummaryList,
 } from './guards'
 
@@ -77,6 +80,17 @@ export function fetchCurrentTask(): Promise<TaskView | null> {
 
 export function fetchTasks(): Promise<TaskSummary[]> {
   return getJson('/api/tasks', isTaskSummaryList)
+}
+
+/** Tarefa salva no banco (`GET /api/tasks/<id>`), só leitura. */
+export function fetchTask(taskId: string): Promise<TaskView> {
+  return getJson(`/api/tasks/${encodeURIComponent(taskId)}`, isTaskView)
+}
+
+/** Patch de um arquivo do resultado, lido do worktree na hora. 404 = worktree removido. */
+export function fetchFileDiff(taskId: string, path: string): Promise<FileDiff> {
+  const query = new URLSearchParams({ path }).toString()
+  return getJson(`/api/tasks/${encodeURIComponent(taskId)}/diff?${query}`, isFileDiff)
 }
 
 export function fetchUsage(): Promise<AccountUsage> {

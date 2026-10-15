@@ -1,8 +1,10 @@
+import { useId, useState } from 'react'
 import type { FinalFile } from '../contracts/generated'
 import { cx } from '../lib/cx'
 import { formatDuration, formatTokens, formatUsd } from '../lib/format'
 import { CopyButton } from './CopyButton'
 import { Empty } from './Empty'
+import { FileDiffView } from './FileDiffView'
 import type { BodyProps } from './types'
 import b from './body.module.css'
 import styles from './DoneBody.module.css'
@@ -19,6 +21,9 @@ function byFolder(files: readonly FinalFile[]): [string, FinalFile[]][] {
 }
 
 export function DoneBody({ view }: BodyProps) {
+  // um diff aberto por vez: o id do painel não precisa variar por arquivo
+  const [openPath, setOpenPath] = useState<string | null>(null)
+  const diffId = useId()
   const final = view?.final ?? null
   if (!view || !final) {
     return (
@@ -131,23 +136,37 @@ export function DoneBody({ view }: BodyProps) {
           <div key={dir} className={styles.folder}>
             {dir && <div className={styles.dir}>{dir}</div>}
             {files.map((file) => (
-              <div key={file.path} className={styles.file} title={file.path}>
-                <span className={cx(styles.status, styles[file.status])}>{file.status}</span>
-                <span className={styles.name}>{file.path.slice(dir.length)}</span>
-                <span className={styles.count}>
-                  <span className={styles.add}>+{file.added}</span>{' '}
-                  <span className={styles.del}>−{file.removed}</span>
-                </span>
-                <span className={styles.bar} aria-hidden="true">
-                  <i
-                    className={styles.barAdd}
-                    style={{ width: `${String((file.added / biggest) * 100)}%` }}
-                  />
-                  <i
-                    className={styles.barDel}
-                    style={{ width: `${String((file.removed / biggest) * 100)}%` }}
-                  />
-                </span>
+              <div key={file.path}>
+                <button
+                  type="button"
+                  className={styles.file}
+                  title={file.path}
+                  aria-expanded={openPath === file.path}
+                  aria-controls={openPath === file.path ? diffId : undefined}
+                  onClick={() => {
+                    setOpenPath(openPath === file.path ? null : file.path)
+                  }}
+                >
+                  <span className={cx(styles.status, styles[file.status])}>{file.status}</span>
+                  <span className={styles.name}>{file.path.slice(dir.length)}</span>
+                  <span className={styles.count}>
+                    <span className={styles.add}>+{file.added}</span>{' '}
+                    <span className={styles.del}>−{file.removed}</span>
+                  </span>
+                  <span className={styles.bar} aria-hidden="true">
+                    <i
+                      className={styles.barAdd}
+                      style={{ width: `${String((file.added / biggest) * 100)}%` }}
+                    />
+                    <i
+                      className={styles.barDel}
+                      style={{ width: `${String((file.removed / biggest) * 100)}%` }}
+                    />
+                  </span>
+                </button>
+                {openPath === file.path && (
+                  <FileDiffView taskId={view.task_id} path={file.path} id={diffId} />
+                )}
               </div>
             ))}
           </div>

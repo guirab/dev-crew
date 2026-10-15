@@ -1,6 +1,7 @@
 import { delay, http, HttpResponse, ws } from 'msw'
 import type { Command } from '../contracts/generated'
 import type { MockBackend } from './backend'
+import { fakeDiff, taskOf } from './data'
 
 const COMMAND_TYPES: readonly string[] = [
   'start_task',
@@ -72,6 +73,20 @@ export function createRestHandlers(backend: MockBackend, { latencyMs = 0 }: Rest
     http.get('*/api/tasks', async () => {
       await lag()
       return HttpResponse.json(backend.getTasks())
+    }),
+    http.get('*/api/tasks/:id', ({ params }) => {
+      const view = taskOf(backend.getView(), String(params.id))
+      return view
+        ? HttpResponse.json(view)
+        : HttpResponse.json({ detail: 'tarefa não encontrada' }, { status: 404 })
+    }),
+    http.get('*/api/tasks/:id/diff', ({ params, request }) => {
+      const path = new URL(request.url).searchParams.get('path')
+      const view = taskOf(backend.getView(), String(params.id))
+      const file = view?.final?.files.find((f) => f.path === path)
+      return file
+        ? HttpResponse.json(fakeDiff(file))
+        : HttpResponse.json({ detail: 'arquivo fora do resultado da tarefa' }, { status: 404 })
     }),
     http.get('*/api/usage', () =>
       HttpResponse.json({

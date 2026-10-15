@@ -1,4 +1,12 @@
-import type { InterviewQuestion, RepoInfo, TaskSummary, TaskView } from '../contracts/generated'
+import type {
+  FileDiff,
+  FinalFile,
+  InterviewQuestion,
+  RepoInfo,
+  StageView,
+  TaskSummary,
+  TaskView,
+} from '../contracts/generated'
 
 export const REPOS: readonly RepoInfo[] = [
   { name: 'portal-vendas', base_branch: 'main' },
@@ -99,6 +107,108 @@ export function summaryOf(view: TaskView, now: Date = new Date()): TaskSummary {
 /** A tarefa atual (se houver) à frente das antigas. */
 export function historyOf(view: TaskView | null): TaskSummary[] {
   return view ? [summaryOf(view), ...HISTORY] : [...HISTORY]
+}
+
+const PAST_FILES: readonly FinalFile[] = [
+  { path: 'src/routes/pedidos.ts', status: 'M', added: 18, removed: 4 },
+  { path: 'src/export/csv.ts', status: 'A', added: 42, removed: 0 },
+  { path: 'tests/csv.test.ts', status: 'A', added: 35, removed: 0 },
+  { path: 'docs/legado.md', status: 'D', added: 0, removed: 12 },
+]
+
+/** Tarefa antiga do mock montada a partir do resumo (o banco real guarda o `TaskView` inteiro). */
+function pastView(task: TaskSummary): TaskView {
+  const stage = (status: StageView['status']): StageView => ({ status, now: null, logs: [] })
+  const ok = task.phase === 'done'
+  const files = PAST_FILES.slice(0, task.files_changed ?? 0)
+  return {
+    task_id: task.task_id,
+    title: task.title,
+    description: task.summary,
+    repo: task.repo,
+    phase: task.phase,
+    stages: {
+      manual: stage('done'),
+      interviewer: stage('skipped'),
+      planner: stage('done'),
+      approval: stage('done'),
+      developer: stage(ok ? 'done' : 'error'),
+      tester: stage(ok ? 'done' : 'idle'),
+      reviewer: stage(ok ? 'done' : 'idle'),
+      done: stage(ok ? 'done' : 'idle'),
+    },
+    edges: {},
+    active_edge: null,
+    counters: {
+      dev_round: 1,
+      test_attempt: 0,
+      max_test_attempts: 3,
+      review_round: ok ? 1 : 0,
+      max_review_rounds: 2,
+    },
+    interview: null,
+    plan: null,
+    dev_rounds: [],
+    test_runs: [],
+    review: null,
+    escalation: null,
+    final:
+      task.commit_message === null
+        ? null
+        : {
+            branch: `crew/${task.task_id}`,
+            worktree_path: `C:/Users/voce/.dev-crew/worktrees/${task.repo}/${task.task_id}`,
+            files,
+            commit_message: task.commit_message,
+            duration_s: task.duration_s,
+            cost_usd: task.cost_usd,
+            tokens: task.tokens,
+            commits: [],
+            pending_epics: [],
+            plan_doc: null,
+          },
+    started_at: task.started_at,
+    ended_at: task.ended_at,
+    cost_usd: task.cost_usd,
+    tokens: task.tokens,
+    limit: null,
+    estimate: null,
+    epics: [],
+  }
+}
+
+/** `GET /api/tasks/<id>` do mock: a tarefa atual ou uma antiga do histórico; `null` = 404. */
+export function taskOf(current: TaskView | null, taskId: string): TaskView | null {
+  if (current?.task_id === taskId) return current
+  const past = HISTORY.find((task) => task.task_id === taskId)
+  return past ? pastView(past) : null
+}
+
+/** `GET /api/tasks/<id>/diff` do mock: patch fictício coerente com o status do arquivo. */
+export function fakeDiff(file: FinalFile): FileDiff {
+  const name = file.path.split('/').pop() ?? file.path
+  const removed =
+    file.status === 'A' ? [] : [`-// versão antiga de ${name}`, '-export const total = 0']
+  const added =
+    file.status === 'D'
+      ? []
+      : [`+// ${name} ajustado pelo dev-crew`, '+export const total = soma(itens)']
+  const lines = [
+    `diff --git a/${file.path} b/${file.path}`,
+    `--- a/${file.path}`,
+    `+++ b/${file.path}`,
+    '@@ -1,3 +1,3 @@',
+    " import { soma } from './soma'",
+    ...removed,
+    ...added,
+  ]
+  return {
+    path: file.path,
+    status: file.status,
+    patch: `${lines.join('\n')}\n`,
+    binary: false,
+    truncated: false,
+  }
 }
 
 /** Pasta do disco fictício. `git` ausente = pasta comum; `dirs` = subpastas por nome. */

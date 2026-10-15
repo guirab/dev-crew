@@ -1,9 +1,11 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import {
   fetchCurrentTask,
+  fetchFileDiff,
   fetchFolderProbe,
   fetchFolders,
   fetchRepos,
+  fetchTask,
   fetchTasks,
   fetchUsage,
 } from './client'
@@ -35,6 +37,26 @@ export const tasksQuery = queryOptions({
 
 export function useTaskHistory() {
   return useQuery({ ...tasksQuery, refetchOnMount: 'always' })
+}
+
+/** Tarefa antiga aberta do Histórico. */
+export function taskQuery(taskId: string) {
+  return queryOptions({
+    queryKey: ['tasks', taskId],
+    queryFn: () => fetchTask(taskId),
+    staleTime: 0,
+    retry: false,
+  })
+}
+
+/** Patch de um arquivo do resultado (`GET /api/tasks/<id>/diff`). */
+export function fileDiffQuery(taskId: string, path: string) {
+  return queryOptions({
+    queryKey: ['diff', taskId, path],
+    queryFn: () => fetchFileDiff(taskId, path),
+    staleTime: 0,
+    retry: false,
+  })
 }
 
 /** Uso da assinatura (cache do Claude Code). Atualiza a cada minuto, mesmo com a janela atrás de outra. */
