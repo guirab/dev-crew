@@ -43,6 +43,11 @@ vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 
 Element.prototype.scrollIntoView = scrollIntoViewMock
 
+// O Select do Radix usa pointer capture, que o jsdom não implementa.
+Element.prototype.hasPointerCapture = () => false
+Element.prototype.setPointerCapture = () => undefined
+Element.prototype.releasePointerCapture = () => undefined
+
 if (typeof window.matchMedia !== 'function') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
