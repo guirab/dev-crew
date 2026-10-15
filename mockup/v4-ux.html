@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dev-crew · mockup v4 (UX)</title>
+<!--
+  Mockup v4: remodelagem da experiência (2026-10-14), sobre a skin Liquid Glass.
+  Novo em relação ao index.html (v3):
+    1. Faixa "Agora": etapa atual, tempo, tokens, custo x estimativa e o CTA único quando precisa de você.
+    2. Trilho horizontal do pipeline no lugar dos 7 cards empilhados; clicar numa etapa abre os detalhes no painel de foco.
+    3. Feed de atividade unificado (todos os agentes e épicos), filtrável, no painel da direita.
+    4. Resultado como tela de revisão: faixa de números, próximo passo, commits por épico, arquivos por pasta.
+  Também: mini-pipeline e vista em grafo nos épicos, total ao vivo na seleção, barra de ações fixa na aprovação,
+  notificação do sistema quando a tarefa espera você.
+  Cenários na barra de demo embaixo (ou teclas 1, 2, 3).
+-->
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #070809;
+  --line: rgb(255 255 255 / 8%);
+  --line-2: rgb(255 255 255 / 16%);
+  --fg: #eef3f0;
+  --muted: rgb(238 243 240 / 70%);
+  --dim: rgb(238 243 240 / 50%);
+  --green: #2bee86;
+  --green-2: #17b862;
+  --green-hi: #8dffc0;
+  --green-soft: #2bee8614;
+  --warn: #f4b544;
+  --warn-soft: #f4b5441c;
+  --err: #ff8a82;
+  --glass-bg: linear-gradient(135deg, rgb(255 255 255 / 16%), rgb(255 255 255 / 3%) 60%), rgb(10 12 14 / 32%);
+  --glass-active-bg: linear-gradient(135deg, rgb(43 238 134 / 22%), rgb(255 255 255 / 4%) 70%), rgb(10 12 14 / 32%);
+  --glass-wait-bg: linear-gradient(135deg, rgb(244 181 68 / 24%), rgb(255 255 255 / 4%) 70%), rgb(10 12 14 / 32%);
+  --glass-blur: blur(26px) saturate(180%);
+  --glass-border: rgb(255 255 255 / 8%);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), inset 0 -1px 0 rgb(255 255 255 / 6%),
+    inset 1px 0 0 rgb(255 255 255 / 14%), inset 0 0 22px rgb(255 255 255 / 4%), 0 24px 60px rgb(0 0 0 / 38%);
+  --well: rgb(0 0 0 / 28%);
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14.5px/1.5 var(--sans); padding-bottom: 40px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* fundo: manchas desfocadas (igual ao Backdrop) */
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.backdrop span { position: absolute; border-radius: 50%; filter: blur(90px); }
+.backdrop .a { left: -140px; top: -120px; width: 640px; height: 640px; background: #5a6270; opacity: .5; }
+.backdrop .b { right: -160px; top: 140px; width: 660px; height: 660px; background: #8aa0b8; opacity: .26; }
+.backdrop .c { left: 28%; bottom: -260px; width: 720px; height: 720px; background: #2f3640; opacity: .95; }
+
+.glass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+
+/* header */
+header { display: flex; align-items: center; gap: 18px; padding: 18px 0 14px; flex-wrap: wrap; }
+.brand { font: 700 17px var(--mono); margin: 0; }
+.brand b { color: var(--green); }
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: var(--well); }
+.tab { border: 0; background: none; padding: 6px 14px; border-radius: 99px; cursor: pointer; color: var(--muted); font-size: 13.5px; }
+.tab[aria-selected="true"] { background: rgb(255 255 255 / 10%); color: var(--fg); }
+.sp { flex: 1; }
+.chip { font: 12px var(--mono); color: var(--muted); padding: 5px 11px; border-radius: 99px; border: 1px solid var(--line-2); }
+.kbd { font: 11px var(--mono); color: var(--dim); border: 1px solid var(--line-2); border-radius: 6px; padding: 1px 6px; }
+
+/* botões */
+.btn { border: 1px solid var(--line-2); background: rgb(255 255 255 / 6%); padding: 8px 16px; border-radius: 99px; cursor: pointer; font-size: 13.5px; white-space: nowrap; }
+.btn:hover { background: rgb(255 255 255 / 12%); }
+.btn.primary { background: var(--green); border-color: var(--green); color: #04130a; font-weight: 700; }
+.btn.primary:hover { background: var(--green-hi); }
+.btn.primary[disabled] { opacity: .4; cursor: default; }
+.btn.warn { background: var(--warn); border-color: var(--warn); color: #1d1300; font-weight: 700; }
+.btn.link { border: 0; background: none; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; padding: 8px 6px; }
+.btn.sm { padding: 5px 12px; font-size: 12.5px; }
+
+/* 1. faixa Agora */
+.now { position: sticky; top: 10px; z-index: 5; display: flex; align-items: center; gap: 18px; padding: 12px 14px 12px 18px; margin-bottom: 14px; flex-wrap: wrap; }
+.now.run { background: var(--glass-active-bg); box-shadow: var(--glass-shadow), 0 0 0 1px rgb(43 238 134 / 40%); }
+.now.wait { background: var(--glass-wait-bg); box-shadow: var(--glass-shadow), 0 0 0 1px rgb(244 181 68 / 55%), 0 0 50px rgb(244 181 68 / 18%); }
+.now .pulse { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--green); animation: ring 1.6s ease-out infinite; }
+.now.wait .pulse { background: var(--warn); animation-name: ringw; }
+.now.done .pulse { animation: none; box-shadow: 0 0 0 4px rgb(43 238 134 / 20%); }
+.now .what { min-width: 0; flex: 1 1 320px; }
+.now .what b { display: block; font-size: 15.5px; }
+.now .what span { display: block; font: 13px var(--mono); color: var(--green-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now.wait .what span { color: var(--warn); }
+.now.done .what span { color: var(--muted); }
+.metrics { display: flex; gap: 18px; flex-wrap: wrap; }
+.metric { font-size: 12px; color: var(--muted); line-height: 1.25; }
+.metric b { display: block; font: 600 14px var(--mono); color: var(--fg); }
+.budget { width: 110px; height: 5px; border-radius: 99px; background: rgb(255 255 255 / 14%); margin-top: 4px; overflow: hidden; }
+.budget i { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--green-hi)); border-radius: 99px; }
+.now .actions { display: flex; gap: 6px; align-items: center; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgb(43 238 134 / 60%); } 100% { box-shadow: 0 0 0 12px rgb(43 238 134 / 0%); } }
+@keyframes ringw { 0% { box-shadow: 0 0 0 0 rgb(244 181 68 / 60%); } 100% { box-shadow: 0 0 0 12px rgb(244 181 68 / 0%); } }
+
+/* 2. trilho do pipeline */
+.rail { display: flex; align-items: flex-start; padding: 16px 18px 12px; margin-bottom: 14px; overflow-x: auto; }
+.step { flex: none; width: 118px; border: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 4px 2px 8px; border-radius: 16px; text-align: center; }
+.step:hover { background: rgb(255 255 255 / 5%); }
+.step[aria-current="true"] { background: rgb(255 255 255 / 9%); box-shadow: inset 0 0 0 1px var(--line-2); }
+.step .dot { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid rgb(255 255 255 / 30%); display: grid; place-items: center; font: 700 13px var(--mono); color: var(--muted); position: relative; }
+.step .lbl { font-weight: 650; font-size: 13px; }
+.step .sub { font: 11px var(--mono); color: var(--dim); line-height: 1.3; }
+.step.idle { opacity: .55; }
+.step.done .dot { background: rgb(43 238 134 / 18%); border-color: var(--green); color: var(--green); }
+.step.active .dot { border-color: var(--green); color: var(--green); animation: ring 1.6s ease-out infinite; }
+.step.active .sub { color: var(--green-hi); }
+.step.waiting .dot { border-color: var(--warn); color: var(--warn); animation: ringw 1.6s ease-out infinite; }
+.step.waiting .sub { color: var(--warn); }
+.step .loop { position: absolute; top: -7px; right: -14px; font: 700 10px var(--mono); color: var(--warn); background: #1d1608; border: 1px solid rgb(244 181 68 / 50%); border-radius: 99px; padding: 0 5px; }
+.seg { flex: 1 0 18px; height: 2px; margin-top: 21px; background: rgb(255 255 255 / 14%); border-radius: 2px; }
+.seg.on { background: var(--green-2); }
+.seg.active { background: linear-gradient(90deg, var(--green-2), var(--green-hi), var(--green-2)); background-size: 200% 100%; animation: flow 1.4s linear infinite; }
+@keyframes flow { to { background-position: -200% 0; } }
+.lanes { display: flex; gap: 3px; width: 74px; }
+.lanes i { flex: 1; height: 5px; border-radius: 2px; background: rgb(255 255 255 / 16%); }
+.lanes i.merged { background: var(--green); }
+.lanes i.running { background: var(--green-hi); animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .35; } }
+
+/* layout de 2 painéis */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 16px; align-items: start; }
+.focus { padding: 22px 24px 24px; min-height: 420px; position: relative; }
+.focus h2 { margin: 0; font-size: 19px; letter-spacing: -.2px; }
+.focus .hd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.focus .hd .muted { font-size: 13px; }
+.seg-ctl { display: flex; gap: 3px; padding: 3px; border-radius: 99px; background: var(--well); }
+.seg-ctl button { border: 0; background: none; padding: 4px 12px; border-radius: 99px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.seg-ctl button[aria-pressed="true"] { background: rgb(255 255 255 / 11%); color: var(--fg); }
+.well { background: var(--well); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); margin: 22px 0 8px; }
+
+/* épicos: board */
+.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.col h4 { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); font-weight: 600; display: flex; gap: 8px; }
+.col h4 span { color: var(--dim); font-family: var(--mono); }
+.ecard { width: 100%; text-align: left; cursor: pointer; display: block; border: 1px solid var(--glass-border); border-radius: 16px; padding: 12px 13px; margin-bottom: 8px; background: rgb(255 255 255 / 5%); }
+.ecard:hover { border-color: var(--line-2); }
+.ecard.sel { border-color: rgb(43 238 134 / 60%); box-shadow: 0 0 0 1px rgb(43 238 134 / 35%); }
+.ecard .t { display: flex; gap: 8px; align-items: center; font-weight: 650; font-size: 13.5px; }
+.eid { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 11px var(--mono); border: 1.5px solid rgb(255 255 255 / 30%); color: var(--muted); }
+.ecard.running .eid { border-color: var(--green); color: var(--green); }
+.ecard.merged .eid { background: rgb(43 238 134 / 18%); border-color: var(--green); color: var(--green); }
+.ecard .nowtxt { font: 12px var(--mono); color: var(--green-hi); margin: 6px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecard .meta { font: 11px var(--mono); color: var(--dim); margin-top: 6px; }
+.mp { display: flex; align-items: center; gap: 4px; margin-top: 8px; font: 10.5px var(--mono); color: var(--dim); }
+.mp i { font-style: normal; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line-2); }
+.mp i.done { color: var(--green); border-color: rgb(43 238 134 / 45%); }
+.mp i.active { color: #04130a; background: var(--green); border-color: var(--green); }
+.mp i.fail { color: var(--err); border-color: rgb(255 138 130 / 50%); }
+.mp b { width: 10px; height: 1px; background: var(--line-2); }
+.mp .rt { color: var(--warn); margin-left: 4px; }
+
+/* épicos: grafo */
+.graph { display: flex; gap: 10px; align-items: center; overflow-x: auto; padding-bottom: 6px; }
+.gcol { display: flex; flex-direction: column; gap: 8px; min-width: 190px; }
+.garrow { color: var(--dim); font: 18px var(--mono); }
+.gcol .ecard { margin: 0; }
+
+/* plano / aprovação */
+.plan p { margin: 0 0 10px; }
+.epick { display: grid; grid-template-columns: 22px 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); margin-bottom: 6px; cursor: pointer; }
+.epick:hover { border-color: var(--line-2); }
+.epick input { accent-color: var(--green); width: 16px; height: 16px; }
+.epick .nm { font-weight: 600; font-size: 13.5px; }
+.epick .dp { display: block; font: 11px var(--mono); color: var(--dim); font-weight: 400; }
+.epick .est { font: 12px var(--mono); color: var(--muted); text-align: right; }
+.size { font: 700 10.5px var(--mono); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line-2); color: var(--muted); }
+.actionbar { position: sticky; bottom: 12px; margin-top: 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-radius: 18px;
+  background: rgb(14 16 18 / 82%); border: 1px solid rgb(244 181 68 / 45%); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.actionbar .tot { flex: 1 1 200px; font-size: 13px; color: var(--muted); }
+.actionbar .tot b { color: var(--fg); font-family: var(--mono); }
+textarea { width: 100%; min-height: 70px; resize: vertical; background: var(--well); color: var(--fg); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; font: 13.5px var(--sans); margin-top: 10px; }
+
+/* entrevista */
+.qa { margin: 0 0 12px; }
+.qa .q { font-weight: 600; }
+.qa .a { color: var(--green-hi); font-family: var(--mono); font-size: 13px; margin-top: 3px; }
+
+/* 4. resultado */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.stat { background: var(--well); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.stat b { display: block; font: 700 18px var(--mono); }
+.stat span { font-size: 12px; color: var(--muted); }
+.stat .add { color: var(--green); } .stat .del { color: var(--err); }
+.next { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 14px; align-items: start; margin-top: 16px; padding: 16px; border-radius: 18px;
+  background: var(--glass-active-bg); box-shadow: 0 0 0 1px rgb(43 238 134 / 35%); }
+.next pre { grid-column: 1 / -1; margin: 0; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; background: var(--well); border-radius: 12px; padding: 12px 14px; border: 1px solid var(--line); }
+.next .where { font: 12px var(--mono); color: var(--muted); }
+.commits { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid rgb(43 238 134 / 35%); }
+.commits li { position: relative; padding: 4px 0 10px 12px; font-size: 13.5px; }
+.commits li::before { content: ''; position: absolute; left: -20px; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--bg); border: 2px solid var(--green); }
+.commits .sha { font: 12px var(--mono); color: var(--green-hi); margin-right: 6px; }
+.commits .ep { font: 11px var(--mono); color: var(--dim); margin-right: 6px; }
+.dir { font: 12px var(--mono); color: var(--dim); margin: 12px 0 4px; }
+.file { width: 100%; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto 90px; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 10px; border: 0; background: none; cursor: pointer; text-align: left; font: 13px var(--mono); }
+.file:hover { background: rgb(255 255 255 / 5%); }
+.file .st { font-weight: 700; }
+.file .st.A { color: var(--green); } .file .st.M { color: var(--warn); }
+.file .n { font-size: 11.5px; color: var(--dim); }
+.diffbar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: rgb(255 255 255 / 8%); }
+.diffbar i { display: block; height: 100%; }
+.diffbar .p { background: var(--green); } .diffbar .m { background: var(--err); }
+.diff { margin: 2px 0 8px 28px; font: 12px/1.6 var(--mono); background: var(--well); border-radius: 10px; border: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
+.diff div { padding: 0 12px; white-space: pre; }
+.diff .p { background: rgb(43 238 134 / 10%); color: var(--green-hi); }
+.diff .m { background: rgb(255 107 107 / 10%); color: var(--err); }
+.diff .note { color: var(--warn); font-family: var(--sans); white-space: normal; padding: 6px 12px 0; }
+
+/* 3. feed de atividade */
+.feed { position: sticky; top: 92px; max-height: calc(100vh - 110px); display: flex; flex-direction: column; overflow: hidden; }
+.feed .fh { padding: 16px 18px 10px; border-bottom: 1px solid var(--line); }
+.feed .fh h2 { margin: 0 0 10px; font-size: 15px; display: flex; gap: 8px; align-items: center; }
+.feed .fh h2 .live { font: 11px var(--mono); color: var(--green); }
+.filters { display: flex; gap: 5px; flex-wrap: wrap; }
+.filters button { border: 1px solid var(--line-2); background: none; border-radius: 99px; padding: 2px 10px; font: 11.5px var(--mono); color: var(--muted); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--green-soft); color: var(--green); border-color: rgb(43 238 134 / 50%); }
+.events { list-style: none; margin: 0; padding: 8px 10px 14px; overflow-y: auto; }
+.ev { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 2px 10px; padding: 7px 8px; border-radius: 12px; }
+.ev time { font: 11px var(--mono); color: var(--dim); padding-top: 2px; }
+.ev .who { font-size: 12px; font-weight: 650; }
+.ev .who .tagep { font: 10.5px var(--mono); color: var(--dim); font-weight: 400; margin-left: 6px; }
+.ev p { grid-column: 2; margin: 1px 0 0; font-size: 13px; color: var(--muted); }
+.ev.ok .who { color: var(--green); }
+.ev.fail .who { color: var(--err); }
+.ev.you { background: var(--warn-soft); }
+.ev.you .who { color: var(--warn); }
+.ev.new { animation: fadein .6s ease-out; }
+@keyframes fadein { from { background: rgb(43 238 134 / 18%); } }
+
+/* notificação do sistema (simulada) */
+.toast { position: fixed; right: 22px; bottom: 22px; width: 340px; z-index: 20; padding: 14px 16px; border-radius: 14px; background: #202326; border: 1px solid rgb(255 255 255 / 12%); box-shadow: 0 20px 50px rgb(0 0 0 / 55%); font-size: 13px; }
+.toast .app { font-size: 11.5px; color: var(--dim); display: flex; justify-content: space-between; }
+.toast b { display: block; margin: 4px 0 2px; font-size: 14px; }
+.toast .x { border: 0; background: none; cursor: pointer; color: var(--dim); }
+
+/* barra de demo do mockup */
+.demo { display: flex; width: fit-content; max-width: 100%; overflow-x: auto; margin: 12px auto 0; gap: 4px; align-items: center; padding: 6px 6px 6px 14px; border-radius: 99px;
+  background: rgb(20 22 24 / 90%); border: 1px dashed rgb(255 255 255 / 25%); font-size: 12px; color: var(--dim); white-space: nowrap; }
+.demo button { border: 0; background: none; padding: 6px 12px; border-radius: 99px; cursor: pointer; color: var(--muted); font-size: 12.5px; }
+.demo button[aria-pressed="true"] { background: var(--green); color: #04130a; font-weight: 700; }
+
+@media (max-width: 960px) {
+  .grid { grid-template-columns: 1fr; }
+  .feed { position: static; max-height: 460px; }
+  .board { grid-template-columns: 1fr; }
+  .step { width: 96px; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .now { top: 6px; gap: 10px; }
+  .metrics { gap: 12px; }
+  .step { width: 84px; }
+  .step .lbl { font-size: 12px; }
+  .focus { padding: 18px 16px; }
+  .file { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .file .diffbar { display: none; }
+  .toast { left: 16px; right: 16px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+
+<div class="wrap">
+  <div class="demo" role="group" aria-label="Cenário do mockup">
+    mockup v4 ·
+    <button data-sc="run" onclick="setScenario('run')">1 Executando</button>
+    <button data-sc="wait" onclick="setScenario('wait')">2 Precisa de você</button>
+    <button data-sc="done" onclick="setScenario('done')">3 Concluída</button>
+  </div>
+  <header>
+    <h1 class="brand"><b>&gt;</b> dev-crew</h1>
+    <div class="tabs" role="tablist" aria-label="Seções">
+      <button class="tab" role="tab" aria-selected="true">Tarefa</button>
+      <button class="tab" role="tab" aria-selected="false">Histórico</button>
+    </div>
+    <span class="muted" style="font-size:13.5px"><b class="mono" style="color:var(--fg)">T-11</b> · Exportar histórico em CSV · <span class="dim">dev-crew-full</span></span>
+    <span class="sp"></span>
+    <span class="chip">sessão 31% · semana 12%</span>
+    <span class="kbd" title="Paleta de comandos">Ctrl K</span>
+  </header>
+
+  <section id="now" class="now glass" aria-live="polite"></section>
+  <nav id="rail" class="rail glass" aria-label="Etapas da tarefa"></nav>
+
+  <div class="grid">
+    <main id="focus" class="focus glass" tabindex="-1"></main>
+    <aside class="feed glass" aria-label="Atividade">
+      <div class="fh">
+        <h2>Atividade <span class="live" id="live"></span></h2>
+        <div class="filters" id="filters" role="group" aria-label="Filtrar atividade"></div>
+      </div>
+      <ol class="events" id="events"></ol>
+    </aside>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+
+<script>
+const EPICS = [
+  { id: 'E1', title: 'Endpoint GET /api/tasks.csv', size: 'S', deps: [], usd: 1.2, tok: '48k' },
+  { id: 'E2', title: 'Botão "Exportar" no Histórico', size: 'S', deps: ['E1'], usd: 1.4, tok: '55k' },
+  { id: 'E3', title: 'Filtro por período na lista', size: 'M', deps: [], usd: 2.1, tok: '81k' },
+  { id: 'E4', title: 'Teste e2e do export', size: 'S', deps: ['E2', 'E3'], usd: 1.1, tok: '40k' },
+];
+const EP = Object.fromEntries(EPICS.map(e => [e.id, e]));
+const REVIEW_USD = 1.0;
+
+// estado de cada faixa durante a execução (cenário 1)
+const RUN_LANES = {
+  E1: { status: 'merged', dev: 'done', test: 'done', tok: '44k' },
+  E2: { status: 'running', dev: 'active', test: 'fail', retry: 1, tok: '61k', now: 'Developer: ajustando HistoryList.tsx (teste quebrou)' },
+  E3: { status: 'running', dev: 'done', test: 'active', tok: '72k', now: 'Tester: npm test -- PeriodFilter' },
+  E4: { status: 'pending', dev: '', test: '', tok: '' },
+};
+
+const QA = [
+  ['Quais colunas o CSV precisa ter?', 'id, título, repo, status, início, duração, custo'],
+  ['O filtro por período entra no export?', 'sim, exporta o que está filtrado'],
+  ['Separador?', 'vírgula, com aspas quando precisar'],
+];
+
+const BASE = [
+  ['13:58:02', 'Você', '', 'Tarefa criada: "Exportar histórico em CSV"', 'you'],
+  ['13:58:40', 'Entrevistador', '', 'Rodada 1: 3 perguntas', ''],
+  ['14:00:15', 'Você', '', 'Respondeu 3 perguntas', 'you'],
+  ['14:00:31', 'Entrevistador', '', 'Tarefa clara: segue pro Planner', 'ok'],
+  ['14:00:49', 'Planner', '', 'Lendo gateway/app.py e history/', ''],
+  ['14:02:58', 'Planner', '', 'Plano pronto: 4 épicos, ~US$ 6,80', 'ok'],
+];
+const RUN = [
+  ['14:04:10', 'Você', '', 'Aprovou o plano: E1, E2, E3, E4', 'you'],
+  ['14:04:12', 'dev-crew', 'E1', 'Worktree crew/T-11-E1 criado', ''],
+  ['14:04:12', 'dev-crew', 'E3', 'Worktree crew/T-11-E3 criado (paralelo)', ''],
+  ['14:06:44', 'Developer', 'E1', 'Criou csv_export.py e a rota GET /api/tasks.csv', ''],
+  ['14:07:31', 'Tester', 'E1', 'pytest: 6 passed · ruff ok', 'ok'],
+  ['14:07:35', 'dev-crew', 'E1', 'Commit a1c9f02 + merge em crew/T-11', 'ok'],
+  ['14:07:36', 'dev-crew', 'E2', 'E2 liberado (dependia de E1)', ''],
+  ['14:09:02', 'Developer', 'E3', 'PeriodFilter.tsx + query com período', ''],
+  ['14:10:20', 'Tester', 'E2', 'vitest: 1 falhou (HistoryList.test.tsx)', 'fail'],
+  ['14:10:21', 'Developer', 'E2', 'Rodada 2: corrigindo o teste quebrado', ''],
+  ['14:10:40', 'Tester', 'E3', 'Rodando npm test -- PeriodFilter', ''],
+];
+const DONE = [
+  ['14:11:58', 'Tester', 'E3', 'vitest: 14 passed · eslint ok', 'ok'],
+  ['14:12:01', 'dev-crew', 'E3', 'Commit 5be771d + merge', 'ok'],
+  ['14:12:47', 'Tester', 'E2', 'vitest: 9 passed · eslint ok', 'ok'],
+  ['14:12:50', 'dev-crew', 'E2', 'Commit c03e9aa + merge', 'ok'],
+  ['14:14:30', 'Tester', 'E4', 'playwright: 2 passed', 'ok'],
+  ['14:14:33', 'dev-crew', 'E4', 'Commit 9d1f4b7 + merge', 'ok'],
+  ['14:15:02', 'Reviewer', 'REV', 'Review final: 1 ajuste (vírgula no título quebra o CSV)', 'fail'],
+  ['14:15:50', 'Developer', 'REV', 'Escapa campos com aspas', ''],
+  ['14:16:31', 'Tester', 'REV', 'pytest + vitest verdes', 'ok'],
+  ['14:16:44', 'Reviewer', 'REV', 'Aprovado', 'ok'],
+  ['14:16:44', 'dev-crew', 'REV', 'Commit e77a210 · tarefa concluída', 'ok'],
+];
+
+const COMMITS = [
+  ['a1c9f02', 'E1', 'feat(gateway): add CSV export endpoint for task history'],
+  ['5be771d', 'E3', 'feat(history): filter tasks by period'],
+  ['c03e9aa', 'E2', 'feat(history): add export button'],
+  ['9d1f4b7', 'E4', 'test(e2e): cover history CSV export'],
+  ['e77a210', 'REV', 'fix(gateway): quote CSV fields with commas'],
+];
+const FILES = [
+  ['backend/src/crew/gateway', [['app.py', 'M', 14, 3], ['csv_export.py', 'A', 88, 0]]],
+  ['backend/tests/gateway', [['test_csv_export.py', 'A', 120, 0]]],
+  ['frontend/src/history', [['HistoryList.tsx', 'M', 46, 12], ['HistoryList.module.css', 'M', 22, 4], ['PeriodFilter.tsx', 'A', 58, 0], ['HistoryList.test.tsx', 'M', 40, 9]]],
+  ['frontend/src/api', [['queries.ts', 'M', 12, 2]]],
+  ['frontend/e2e', [['export.spec.ts', 'A', 34, 0]]],
+];
+const SQUASH = `feat(history): export task history as CSV
+
+- GET /api/tasks.csv with optional period filter
+- "Exportar" button and period filter in the Histórico tab
+- quote fields that contain commas
+- e2e coverage for the export flow`;
+
+const SC = {
+  run: {
+    sel: 'epics',
+    rail: { interviewer: ['done', '3 respostas'], planner: ['done', '4 épicos'], approval: ['done', 'aprovado'],
+      epics: ['active', '1/4 prontos'], review: ['idle', 'depois dos épicos'], done: ['idle', ''] },
+    events: () => [...BASE, ...RUN],
+  },
+  wait: {
+    sel: 'approval',
+    rail: { interviewer: ['done', '3 respostas'], planner: ['done', '4 épicos'], approval: ['waiting', 'aguardando você'],
+      epics: ['idle', '4 épicos'], review: ['idle', ''], done: ['idle', ''] },
+    events: () => [...BASE, ['14:02:59', 'dev-crew', '', 'Aguardando sua aprovação do plano', 'you']],
+  },
+  done: {
+    sel: 'done',
+    rail: { interviewer: ['done', '3 respostas'], planner: ['done', '4 épicos'], approval: ['done', 'aprovado'],
+      epics: ['done', '4/4 prontos'], review: ['done', '1 ajuste'], done: ['done', '18m 42s'] },
+    events: () => [...BASE, ...RUN, ...DONE],
+  },
+};
+
+const STEPS = [
+  ['interviewer', 'Entrevistador', 'E'],
+  ['planner', 'Planner', 'P'],
+  ['approval', 'Aprovação', '◆'],
+  ['epics', 'Épicos', '≡'],
+  ['review', 'Review final', 'R'],
+  ['done', 'Resultado', '✓'],
+];
+
+const S = { sc: 'run', sel: 'epics', mode: 'board', filter: 'all', picked: new Set(EPICS.map(e => e.id)), adjust: false, openFile: null, toast: true };
+const $ = id => document.getElementById(id);
+const usd = n => 'US$ ' + n.toFixed(2).replace('.', ',');
+
+function setScenario(sc) {
+  Object.assign(S, { sc, sel: SC[sc].sel, filter: 'all', adjust: false, openFile: null, toast: sc === 'wait' });
+  try { history.replaceState(null, '', '#' + sc); } catch {}
+  render();
+}
+function select(k) { S.sel = k; render(); $('focus').focus({ preventScroll: true }); }
+
+/* 1. faixa Agora */
+function renderNow() {
+  const el = $('now');
+  el.className = 'now glass ' + S.sc;
+  const metrics = (t, tok, spent) => `
+    <div class="metrics">
+      <div class="metric"><b>${t}</b>tempo</div>
+      <div class="metric"><b>${tok}</b>tokens</div>
+      <div class="metric"><b>${usd(spent)} <span class="dim" style="font-weight:400">/ ~${usd(6.8)}</span></b>
+        <div class="budget" title="gasto x estimativa do plano"><i style="width:${Math.min(spent / 6.8, 1) * 100}%"></i></div></div>
+    </div>`;
+  if (S.sc === 'run') {
+    el.innerHTML = `<span class="pulse" aria-hidden="true"></span>
+      <div class="what"><b>Executando épicos · 2 em paralelo</b><span>E2 · Developer: ajustando HistoryList.tsx ▍</span></div>
+      ${metrics('12m 40s', '184k', 3.12)}
+      <div class="actions"><button class="btn link" onclick="alert('Cancelar a tarefa atual? As alterações locais ficam no repo.')">cancelar</button></div>`;
+  } else if (S.sc === 'wait') {
+    el.innerHTML = `<span class="pulse" aria-hidden="true"></span>
+      <div class="what"><b>Precisa de você: aprovar o plano</b><span>Planner terminou · 4 épicos · ~${usd(6.8)} · ~9% da sessão</span></div>
+      ${metrics('4m 57s', '38k', 0.71)}
+      <div class="actions"><button class="btn warn" onclick="select('approval')">Revisar plano ↓</button></div>`;
+  } else {
+    el.innerHTML = `<span class="pulse" aria-hidden="true"></span>
+      <div class="what"><b>Concluída · testes verdes</b><span>5 commits em crew/T-11, sem push. Falta você juntar na main.</span></div>
+      ${metrics('18m 42s', '312k', 5.94)}
+      <div class="actions"><button class="btn primary" onclick="copy(this, SQUASH)">Copiar mensagem</button>
+        <button class="btn" onclick="select('done')">Ver resultado</button></div>`;
+  }
+}
+
+/* 2. trilho */
+function renderRail() {
+  const rail = SC[S.sc].rail;
+  const parts = [];
+  STEPS.forEach(([k, label, icon], i) => {
+    const [st, sub] = rail[k];
+    if (i > 0) {
+      const prev = rail[STEPS[i - 1][0]][0];
+      const segSt = st === 'active' || st === 'waiting' ? 'active' : prev === 'done' && st === 'done' ? 'on' : '';
+      parts.push(`<span class="seg ${segSt}" aria-hidden="true"></span>`);
+    }
+    const dot = st === 'done' ? '✓' : icon;
+    const loop = k === 'epics' && S.sc === 'run' ? '<span class="loop" title="1 volta Tester → Developer">↺1</span>' : '';
+    const lanes = k === 'epics' && S.sc !== 'wait'
+      ? `<span class="lanes" aria-hidden="true">${EPICS.map(e => `<i class="${S.sc === 'done' ? 'merged' : RUN_LANES[e.id].status}"></i>`).join('')}</span>` : '';
+    parts.push(`<button class="step ${st}" aria-current="${S.sel === k}" onclick="select('${k}')">
+      <span class="dot">${dot}${loop}</span><span class="lbl">${label}</span>${lanes}<span class="sub">${sub}</span></button>`);
+  });
+  $('rail').innerHTML = parts.join('');
+}
+
+/* painel de foco */
+function renderFocus() {
+  const f = $('focus');
+  const r = { interviewer: focusInterview, planner: () => focusPlan(false), approval: () => focusPlan(S.sc === 'wait'),
+    epics: focusEpics, review: focusReview, done: focusResult }[S.sel];
+  f.innerHTML = r();
+}
+
+function focusInterview() {
+  return `<div class="hd"><h2>Entrevistador</h2><span class="muted">1 rodada · 3 respostas</span></div>
+    ${QA.map(([q, a]) => `<div class="qa"><div class="q">${q}</div><div class="a">→ ${a}</div></div>`).join('')}`;
+}
+
+function focusPlan(editable) {
+  const total = EPICS.filter(e => S.picked.has(e.id)).reduce((s, e) => s + e.usd, 0) + REVIEW_USD;
+  const n = S.picked.size;
+  const rows = EPICS.map(e => `
+    <label class="epick">
+      <input type="checkbox" ${S.picked.has(e.id) ? 'checked' : ''} ${editable ? '' : 'disabled'} onchange="togglePick('${e.id}')">
+      <span class="eid">${e.id}</span>
+      <span class="nm">${e.title}<span class="dp">${e.deps.length ? 'depende de ' + e.deps.join(', ') : 'sem dependência · roda em paralelo'}</span></span>
+      <span class="est"><span class="size">${e.size}</span> ${e.tok} · ${usd(e.usd)}</span>
+    </label>`).join('');
+  const head = editable
+    ? `<div class="hd"><h2>Aprovação do plano</h2><span class="muted">Escolha os épicos deste lote</span></div>`
+    : `<div class="hd"><h2>${S.sel === 'planner' ? 'Planner' : 'Aprovação do plano'}</h2><span class="muted">${S.sc === 'wait' ? 'plano pronto' : 'aprovado às 14:04 · 4 épicos'}</span></div>`;
+  return `${head}
+    <div class="plan">
+      <p>Exporta o histórico de tarefas em CSV a partir da aba Histórico, respeitando o filtro por período.
+      Backend ganha <span class="mono">GET /api/tasks.csv</span>; front ganha botão e filtro. Sem dependência nova.</p>
+      <div class="well mono" style="font-size:12.5px">test_cmd: uv run pytest &amp;&amp; npm test · lint_cmd: ruff check . &amp;&amp; npm run lint</div>
+      <h3>Épicos</h3>${rows}
+      <div class="epick" style="cursor:default"><span></span><span class="eid">R</span>
+        <span class="nm">Review final<span class="dp">uma vez, sobre crew/T-11, com rodadas de correção</span></span>
+        <span class="est">${usd(REVIEW_USD)}</span></div>
+      ${editable ? `
+        ${S.adjust ? `<textarea id="adj" placeholder="O que o Planner deve mudar no plano?" autofocus></textarea>` : ''}
+        <div class="actionbar">
+          <span class="tot"><b>${n}</b> épico${n === 1 ? '' : 's'} · <b>~${usd(total)}</b> · ≈ <b>${Math.round(total * 1.35)}%</b> da sessão</span>
+          <button class="btn link" onclick="alert('Cancelar a tarefa?')">cancelar</button>
+          <button class="btn" onclick="toggleAdjust()">${S.adjust ? 'Enviar ajuste' : 'Pedir ajuste'}</button>
+          <button class="btn primary" ${n ? '' : 'disabled'} onclick="setScenario('run')">Aprovar e rodar ${n}</button>
+        </div>` : ''}
+    </div>`;
+}
+
+function laneCard(e, lane) {
+  const mp = lane.status === 'pending' ? '' : `<span class="mp"><i class="${lane.dev}">Dev</i><b></b><i class="${lane.test}">Test</i>${lane.retry ? `<span class="rt">↺${lane.retry}</span>` : ''}</span>`;
+  return `<button class="ecard ${lane.status} ${S.filter === e.id ? 'sel' : ''}" onclick="setFilter('${e.id}')" title="Filtrar a atividade por ${e.id}">
+    <span class="t"><span class="eid">${lane.status === 'merged' ? '✓' : e.id}</span>${e.title}</span>
+    ${lane.now ? `<p class="nowtxt">${lane.now}</p>` : ''}${mp}
+    <div class="meta">${e.deps.length ? 'depende de ' + e.deps.join(', ') + ' · ' : ''}${lane.tok ? lane.tok + ' tok' : 'na fila'}</div></button>`;
+}
+
+function focusEpics() {
+  if (S.sc === 'wait') return `<div class="hd"><h2>Épicos</h2></div><p class="muted">Começam depois que você aprovar o plano.</p>`;
+  const lanes = S.sc === 'done'
+    ? Object.fromEntries(EPICS.map(e => [e.id, { status: 'merged', dev: 'done', test: 'done', tok: RUN_LANES[e.id].tok || '38k' }]))
+    : RUN_LANES;
+  const merged = EPICS.filter(e => lanes[e.id].status === 'merged').length;
+  const running = EPICS.filter(e => lanes[e.id].status === 'running').length;
+  let body;
+  if (S.mode === 'board') {
+    const cols = [['Na fila', 'pending'], ['Rodando', 'running'], ['Prontos', 'merged']];
+    body = `<div class="board">${cols.map(([label, st]) => {
+      const list = EPICS.filter(e => lanes[e.id].status === st);
+      return `<div class="col"><h4>${label} <span>${list.length}</span></h4>${list.map(e => laneCard(e, lanes[e.id])).join('') || '<p class="dim" style="font-size:12.5px">nada aqui</p>'}</div>`;
+    }).join('')}</div>`;
+  } else {
+    const depth = id => EP[id].deps.length ? 1 + Math.max(...EP[id].deps.map(depth)) : 0;
+    const levels = [];
+    EPICS.forEach(e => (levels[depth(e.id)] ??= []).push(e));
+    body = `<div class="graph">${levels.map(l => `<div class="gcol">${l.map(e => laneCard(e, lanes[e.id])).join('')}</div>`).join('<span class="garrow">→</span>')}
+      <span class="garrow">→</span><div class="gcol"><div class="ecard"><span class="t"><span class="eid">R</span>Review final</span><div class="meta">depois de todos</div></div></div></div>`;
+  }
+  return `<div class="hd"><h2>Épicos</h2><span class="muted">${merged}/4 prontos${running ? ` · ${running} em paralelo` : ''}</span><span class="sp"></span>
+    <div class="seg-ctl" role="group" aria-label="Vista">
+      <button aria-pressed="${S.mode === 'board'}" onclick="S.mode='board';render()">Board</button>
+      <button aria-pressed="${S.mode === 'graph'}" onclick="S.mode='graph';render()">Grafo</button>
+    </div></div>
+    ${body}
+    <p class="dim" style="font-size:12.5px;margin:14px 0 0">Clique num épico pra filtrar a atividade por ele.</p>`;
+}
+
+function focusReview() {
+  if (S.sc !== 'done') return `<div class="hd"><h2>Review final</h2></div><p class="muted">Roda uma vez sobre crew/T-11 quando todos os épicos estiverem prontos.</p>`;
+  return `<div class="hd"><h2>Review final</h2><span class="muted">2 rodadas · aprovado</span></div>
+    <div class="well"><b style="color:var(--warn)">Rodada 1 · 1 ajuste</b>
+      <p class="muted" style="margin:4px 0 0">csv_export.py: título com vírgula quebra a coluna. Usar <span class="mono">csv.writer</span> com aspas.</p></div>
+    <div class="well" style="margin-top:8px"><b style="color:var(--green)">Rodada 2 · aprovado</b>
+      <p class="muted" style="margin:4px 0 0">Correção em e77a210; testes verdes.</p></div>`;
+}
+
+function focusResult() {
+  if (S.sc !== 'done') return `<div class="hd"><h2>Resultado</h2></div><p class="muted">Aparece quando a tarefa termina: o que mudou, commits e a mensagem pronta.</p>`;
+  const all = FILES.flatMap(([, fs]) => fs);
+  const add = all.reduce((s, f) => s + f[2], 0), del = all.reduce((s, f) => s + f[3], 0);
+  const max = Math.max(...all.map(f => f[2] + f[3]));
+  const files = FILES.map(([dir, fs]) => `<div class="dir">${dir}/</div>` + fs.map(([name, st, a, d]) => {
+    const key = dir + '/' + name;
+    const open = S.openFile === key;
+    return `<button class="file" aria-expanded="${open}" onclick="toggleFile('${key}')">
+      <span class="st ${st}">${st}</span><span>${name}</span><span class="n"><span style="color:var(--green)">+${a}</span> <span style="color:var(--err)">−${d}</span></span>
+      <span class="diffbar"><i class="p" style="width:${a / max * 100}%"></i><i class="m" style="width:${d / max * 100}%"></i></span></button>
+      ${open ? diffPreview() : ''}`;
+  }).join('')).join('');
+  return `<div class="hd"><h2>Resultado</h2><span class="muted">T-11 · concluída às 14:16</span></div>
+    <div class="stats">
+      <div class="stat"><b>4/4</b><span>épicos</span></div>
+      <div class="stat"><b>${all.length}</b><span>arquivos</span></div>
+      <div class="stat"><b><span class="add">+${add}</span> <span class="del">−${del}</span></b><span>linhas</span></div>
+      <div class="stat"><b style="color:var(--green)">verde</b><span>testes e lint</span></div>
+      <div class="stat"><b>18m 42s</b><span>duração</span></div>
+      <div class="stat"><b>${usd(5.94)}</b><span>de ~${usd(6.8)} estimado</span></div>
+    </div>
+    <div class="next">
+      <div><b>Próximo passo: juntar na main</b><div class="where">branch crew/T-11 · 5 commits · sem push</div></div>
+      <div style="display:flex;gap:6px"><button class="btn sm" onclick="copy(this, 'C:/Users/guilh/.dev-crew/worktrees/T-11')">Copiar caminho</button>
+        <button class="btn primary sm" onclick="copy(this, SQUASH)">Copiar mensagem</button></div>
+      <pre>${SQUASH.replace(/</g, '&lt;')}</pre>
+    </div>
+    <h3>Commits por épico</h3>
+    <ol class="commits">${COMMITS.map(([sha, ep, msg]) => `<li><span class="sha">${sha}</span><span class="ep">${ep}</span>${msg}</li>`).join('')}</ol>
+    <h3>Arquivos</h3>${files}
+    <p class="dim" style="font-size:12.5px;margin:14px 0 0">Plano salvo em docs/plano/T-11.md</p>`;
+}
+
+function diffPreview() {
+  return `<div class="diff">
+    <div class="note">prévia: o diff inline precisa de dado novo do backend (pedido de contrato)</div>
+    <div>@@ -0,0 +1,12 @@</div>
+    <div class="p">+def tasks_csv(rows: list[TaskSummary]) -> str:</div>
+    <div class="p">+    out = io.StringIO()</div>
+    <div class="p">+    writer = csv.writer(out, quoting=csv.QUOTE_MINIMAL)</div>
+    <div class="p">+    writer.writerow(HEADER)</div>
+    <div class="m">-    out.write(",".join(row) + "\\n")</div></div>`;
+}
+
+/* 3. feed */
+function renderFeed() {
+  const evs = SC[S.sc].events();
+  const keys = ['all', 'you', ...EPICS.map(e => e.id), 'REV'];
+  const labels = { all: 'Tudo', you: 'Você' };
+  $('filters').innerHTML = keys
+    .filter(k => k === 'all' || k === 'you' || evs.some(e => e[2] === k))
+    .map(k => `<button aria-pressed="${S.filter === k}" onclick="setFilter('${k}')">${labels[k] || k}</button>`).join('');
+  const shown = evs.filter(e => S.filter === 'all' || (S.filter === 'you' ? e[4] === 'you' : e[2] === S.filter));
+  $('events').innerHTML = shown.slice().reverse().map(([t, who, ep, text, kind], i) =>
+    `<li class="ev ${kind} ${i === 0 && S.sc === 'run' ? 'new' : ''}"><time>${t}</time><span class="who">${who}${ep ? `<span class="tagep">${ep}</span>` : ''}</span><p>${text}</p></li>`).join('')
+    || '<li class="dim" style="padding:10px">nada com esse filtro</li>';
+  $('live').textContent = S.sc === 'run' ? '● ao vivo' : '';
+}
+
+function renderToast() {
+  $('toast').innerHTML = S.toast ? `<div class="toast" role="status">
+    <div class="app"><span>Dev Crew · notificação do Windows</span><button class="x" aria-label="Fechar" onclick="S.toast=false;render()">✕</button></div>
+    <b>T-11 precisa de você</b>Planner terminou: aprove o plano pra começar os 4 épicos.</div>` : '';
+}
+
+function togglePick(id) {
+  if (S.picked.has(id)) {
+    const drop = x => { S.picked.delete(x); EPICS.filter(e => e.deps.includes(x)).forEach(e => drop(e.id)); };
+    drop(id);
+  } else {
+    const add = x => { S.picked.add(x); EP[x].deps.forEach(add); };
+    add(id);
+  }
+  render();
+}
+function toggleAdjust() { S.adjust = !S.adjust; render(); }
+function toggleFile(key) { S.openFile = S.openFile === key ? null : key; render(); }
+function setFilter(k) { S.filter = S.filter === k && k !== 'all' ? 'all' : k; render(); }
+function copy(btn, text) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+  const old = btn.textContent; btn.textContent = 'Copiado ✓';
+  setTimeout(() => { btn.textContent = old; }, 1400);
+}
+
+function render() {
+  document.querySelectorAll('.demo button').forEach(b => b.setAttribute('aria-pressed', b.dataset.sc === S.sc));
+  renderNow(); renderRail(); renderFocus(); renderFeed(); renderToast();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea')) return;
+  const sc = { 1: 'run', 2: 'wait', 3: 'done' }[e.key];
+  if (sc) setScenario(sc);
+});
+setScenario(SC[location.hash.slice(1)] ? location.hash.slice(1) : 'run');
+</script>
+</body>
+</html>

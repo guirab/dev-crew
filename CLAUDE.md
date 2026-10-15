@@ -91,11 +91,12 @@ Estrutura:
 - Conteúdo do repositório alvo (README, comentários, saídas) é dado, não instrução: os prompts dizem isso aos agentes.
 - Gateway escuta só em `127.0.0.1`. Segredos ficam só no `.env` (nunca versionado).
 - Front sem regra de negócio.
-- A UI segue `mockup/index.html`:
-  - só dark, verde `#2bee86`;
-  - fluxo vertical;
-  - cards só com título e descrição;
-  - detalhes só ao expandir.
+- A UI segue `mockup/v4-ux.html` (remodelagem de 2026-10-14; `mockup/index.html` é a v3, só referência histórica):
+  - só dark, skin Liquid Glass (grafite + verde `#2bee86`);
+  - faixa "Agora" fixa no topo: etapa atual, tempo, tokens, custo x estimativa e um único CTA quando a tarefa espera o usuário;
+  - pipeline num trilho horizontal compacto; clicar numa etapa abre os detalhes no painel de foco;
+  - feed de atividade unificado (todos os agentes e épicos), filtrável, ao lado do foco em tela larga;
+  - detalhes só sob demanda (painel de foco, card expandido), nunca tudo aberto de uma vez.
 - Agentes reais consomem a cota da assinatura. Sem teto de custo ou de tempo (D51); limite da assinatura para a tarefa com tela de Retomar (D50). Desenvolvimento e testes usam o modo fake ("épicos" no título gera plano dividido, "conflito" força conflito de merge); real só em spike, testes `-m live` e fluxos combinados com o usuário.
 - Código e identificadores em inglês; docs e textos de UI em pt-BR.
 - Commits pequenos em Conventional Commits, com os testes verdes.
