@@ -50,13 +50,19 @@ export function describe(view: TaskView): { state: string; favicon: FaviconKind 
         : working('interviewer')
     case 'awaiting_approval':
       return { state: `${NEEDS_YOU}: aprove o plano`, favicon: 'attention' }
-    case 'escalated':
+    case 'escalated': {
+      const esc = view.escalation
+      // com épicos, diz qual (como em `executing`)
+      const where =
+        lanesNeedingYou(view.epics)
+          .map((lane) => lane.id)
+          .join(', ') || esc?.epic_id
+      const stage = esc ? `: ${STAGE_META[esc.stage].title}` : ''
       return {
-        state: view.escalation
-          ? `${NEEDS_YOU}: escalada: ${STAGE_META[view.escalation.stage].title}`
-          : `${NEEDS_YOU}: escalada`,
+        state: `${NEEDS_YOU}: escalada${stage}${where ? ` em ${where}` : ''}`,
         favicon: 'attention',
       }
+    }
     case 'awaiting_selection':
       return { state: `${NEEDS_YOU}: escolha os próximos épicos`, favicon: 'attention' }
     case 'executing': {

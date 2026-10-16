@@ -58,6 +58,17 @@ describe('tabStatus', () => {
     })
   })
 
+  it('escalated num épico diz qual', () => {
+    const escalation = { stage: 'tester' as const, reason: 'sem progresso', epic_id: 'E2' }
+    expect(tabStatus(view({ phase: 'escalated', escalation })).title).toBe(
+      '● Precisa de você: escalada: Tester em E2 · Exportar CSV · Dev Crew',
+    )
+    const epics = [epicLane('E1', 'merged'), epicLane('E2', 'escalated'), epicLane('E3', 'failed')]
+    expect(tabStatus(view({ phase: 'escalated', escalation, epics })).title).toBe(
+      '● Precisa de você: escalada: Tester em E2, E3 · Exportar CSV · Dev Crew',
+    )
+  })
+
   it('escalated sem detalhe da escalada ainda pede você', () => {
     expect(tabStatus(view({ phase: 'escalated' })).title).toBe(
       '● Precisa de você: escalada · Exportar CSV · Dev Crew',
