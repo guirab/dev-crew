@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSendCommand } from '../api/commands'
+import { cx } from '../lib/cx'
 import { Button } from '../ui/Button'
 import { CommandErrorMessage } from './CommandErrorMessage'
 import b from './body.module.css'
@@ -11,10 +12,13 @@ import b from './body.module.css'
 export function EscalationPanel({
   reason,
   epicId = null,
+  actionsClassName,
 }: {
   reason: string
   /** Faixa de um plano dividido: o comando leva o épico e não há "Voltar pro Planner". */
   epicId?: string | null
+  /** Classe extra da linha de botões (no painel lateral ela gruda no rodapé). */
+  actionsClassName?: string
 }) {
   const [instruction, setInstruction] = useState('')
   const send = useSendCommand()
@@ -37,7 +41,7 @@ export function EscalationPanel({
           }}
         />
       </div>
-      <div className={b.row}>
+      <div className={cx(b.row, actionsClassName)}>
         <Button
           variant="primary"
           disabled={send.isPending || text === ''}

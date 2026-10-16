@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useSendCommand } from '../api/commands'
+import { Progress } from '../components/ui/progress'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
 import type { TaskView } from '../contracts/generated'
+import { epicProgress } from '../flow/lanes'
 import { cx } from '../lib/cx'
 import { formatDuration, formatTokens, formatUsd } from '../lib/format'
 import { isRunning, useCrewStore } from '../store/crew'
@@ -28,6 +30,7 @@ function useNow(ticking: boolean): number {
 export function NowBar({ view }: { view: TaskView }) {
   const progress = useCrewStore((s) => s.progress)
   const focusOn = useCrewStore((s) => s.focusOn)
+  const setOpenEpic = useCrewStore((s) => s.setOpenEpic)
   const cancel = useSendCommand()
   const now = useNow(view.ended_at === null)
   const status = nowStatus(view, progress)
@@ -36,6 +39,7 @@ export function NowBar({ view }: { view: TaskView }) {
   const end = view.ended_at ? Date.parse(view.ended_at) : now
   const elapsed = (end - Date.parse(view.started_at)) / 1000
   const estimate = view.estimate?.usd ?? 0
+  const epics = epicProgress(view.epics)
 
   return (
     <section className={cx(styles.bar, styles[status.tone])} aria-label="Agora">
@@ -44,6 +48,18 @@ export function NowBar({ view }: { view: TaskView }) {
         <b>{status.headline}</b>
         {status.detail && <span className={styles.detail}>{status.detail}</span>}
       </div>
+      {epics.total > 0 && (
+        <div className={styles.progress}>
+          <span className={styles.progressLabel}>
+            épicos <b>{`${String(epics.done)}/${String(epics.total)} prontos`}</b>
+          </span>
+          <Progress
+            value={(epics.done / epics.total) * 100}
+            aria-label="Épicos prontos"
+            className={styles.progressBar}
+          />
+        </div>
+      )}
       <dl className={styles.metrics}>
         <div>
           <dt>tempo</dt>
@@ -106,9 +122,10 @@ export function NowBar({ view }: { view: TaskView }) {
             className={cx(status.tone === 'attention' && styles.ctaWait)}
             onClick={() => {
               focusOn(cta.target)
+              if (cta.epic) setOpenEpic(cta.epic)
             }}
           >
-            {cta.label} ↓
+            {cta.epic ? cta.label : `${cta.label} ↓`}
           </Button>
         )}
       </div>

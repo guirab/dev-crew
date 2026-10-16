@@ -1,25 +1,23 @@
-import { Fragment, useId, useState } from 'react'
-import type { EpicView, TaskView } from '../contracts/generated'
-import { cx } from '../lib/cx'
+import { Fragment } from 'react'
+import type { EpicView } from '../contracts/generated'
 import { formatTokens } from '../lib/format'
-import { LaneBody } from './EpicLane'
-import {
-  BOARD_COLUMNS,
-  EPIC_BOARD_COLUMN,
-  EPIC_CARD_STATUS,
-  EPIC_STATUS_LABEL,
-  laneStage,
-  laneSummary,
-} from './lanes'
-import card from './StageCard.module.css'
+import { EpicId, MiniPipeline } from './EpicParts'
+import { BOARD_COLUMNS, EPIC_TONE, TONE_COLUMN } from './lanes'
 import styles from './EpicBoard.module.css'
 
-/** Board kanban das faixas de um plano dividido: cada card muda de coluna sozinho com o status. */
-export function EpicBoard({ view }: { view: TaskView }) {
+interface LanesProps {
+  lanes: readonly EpicView[]
+  /** Abre o épico no painel lateral. */
+  onOpen: (id: string) => void
+}
+
+/** Board das faixas (vista alternativa): só as colunas que têm épico, cards compactos. */
+export function EpicBoard({ lanes, onOpen }: LanesProps) {
   return (
     <div className={styles.board}>
       {BOARD_COLUMNS.map((column) => {
-        const lanes = view.epics.filter((lane) => EPIC_BOARD_COLUMN[lane.status] === column.id)
+        const inColumn = lanes.filter((lane) => TONE_COLUMN[EPIC_TONE[lane.status]] === column.id)
+        if (inColumn.length === 0) return null
         return (
           <div
             key={column.id}
@@ -30,11 +28,10 @@ export function EpicBoard({ view }: { view: TaskView }) {
           >
             <h4 className={styles.heading}>
               {column.label}
-              <span className={styles.count}>{lanes.length}</span>
+              <span>{inColumn.length}</span>
             </h4>
-            {lanes.length === 0 && <p className={styles.empty}>nada aqui</p>}
-            {lanes.map((lane) => (
-              <BoardCard key={lane.id} view={view} lane={lane} />
+            {inColumn.map((lane) => (
+              <BoardCard key={lane.id} lane={lane} onOpen={onOpen} />
             ))}
           </div>
         )
@@ -70,10 +67,10 @@ export function laneLevels(lanes: readonly EpicView[]): EpicView[][] {
 }
 
 /** As faixas em níveis de dependência, da esquerda pra direita. */
-export function EpicGraph({ view }: { view: TaskView }) {
+export function EpicGraph({ lanes, onOpen }: LanesProps) {
   return (
     <div className={styles.graph}>
-      {laneLevels(view.epics).map((level, i) => (
+      {laneLevels(lanes).map((level, i) => (
         <Fragment key={level.map((lane) => lane.id).join()}>
           {i > 0 && (
             <span className={styles.arrow} aria-hidden="true">
@@ -82,7 +79,7 @@ export function EpicGraph({ view }: { view: TaskView }) {
           )}
           <div className={styles.level} role="group" aria-label={`Nível ${String(i + 1)}`}>
             {level.map((lane) => (
-              <BoardCard key={lane.id} view={view} lane={lane} />
+              <BoardCard key={lane.id} lane={lane} onOpen={onOpen} />
             ))}
           </div>
         </Fragment>
@@ -91,69 +88,27 @@ export function EpicGraph({ view }: { view: TaskView }) {
   )
 }
 
-const PIPE = ['developer', 'tester', 'reviewer'] as const
-
-/** Dev · Test · Merge (Reviewer no review final), pintados pelo status de cada estágio. */
-function MiniPipeline({ lane }: { lane: EpicView }) {
-  const retries = lane.counters.dev_round - 1
+/** Card compacto: id, título em até 2 linhas, mini-pipeline e tokens. Clicar abre o painel lateral. */
+function BoardCard({ lane, onOpen }: { lane: EpicView; onOpen: (id: string) => void }) {
+  const started = EPIC_TONE[lane.status] !== 'queued'
   return (
-    <span className={styles.pipe} aria-hidden="true">
-      {PIPE.map((key) => (
-        <i key={key} data-status={lane.stages[key].status}>
-          {key === 'developer'
-            ? 'Dev'
-            : key === 'tester'
-              ? 'Test'
-              : lane.kind === 'review'
-                ? 'Rev'
-                : 'Merge'}
-        </i>
-      ))}
-      {retries > 0 && <b title="voltas do Tester/Reviewer pro Developer">↺{retries}</b>}
-    </span>
-  )
-}
-
-function BoardCard({ view, lane }: { view: TaskView; lane: EpicView }) {
-  const [open, setOpen] = useState(false)
-  const bodyId = useId()
-  const stage = laneStage(lane)
-  const started = EPIC_BOARD_COLUMN[lane.status] !== 'todo'
-
-  return (
-    <div
-      className={cx(card.card, card[EPIC_CARD_STATUS[lane.status]], open && card.open, styles.card)}
+    <button
+      type="button"
+      className={styles.card}
       data-lane={lane.id}
-      data-status={lane.status}
+      data-tone={EPIC_TONE[lane.status]}
+      onClick={() => {
+        onOpen(lane.id)
+      }}
     >
-      <button
-        type="button"
-        className={cx(card.hd, styles.hd)}
-        aria-expanded={open}
-        aria-controls={open ? bodyId : undefined}
-        onClick={() => {
-          setOpen((v) => !v)
-        }}
-      >
-        <span className={styles.top}>
-          <span className={cx(card.ic, styles.ic)} aria-hidden="true">
-            {lane.kind === 'integration' ? '⇄' : lane.id}
-          </span>
-          <span className={cx(card.txt, card.tt, styles.title)}>{lane.title}</span>
-          <span className={card.chev} aria-hidden="true">
-            ▾
-          </span>
-        </span>
-        <span className={card.ds}>{laneSummary(lane)}</span>
-        {stage && <span className={styles.stage}>etapa: {stage}</span>}
-        {started && <MiniPipeline lane={lane} />}
-        <span className={cx(card.tag, styles.meta)}>
-          {EPIC_STATUS_LABEL[lane.status]}
-          {lane.depends_on.length > 0 && ` · depende de ${lane.depends_on.join(', ')}`}
-          {lane.tokens > 0 && ` · ${formatTokens(lane.tokens)} tok`}
-        </span>
-      </button>
-      {open && <LaneBody view={view} lane={lane} id={bodyId} className={styles.body} />}
-    </div>
+      <span className={styles.top}>
+        <EpicId lane={lane} />
+        <b className={styles.title}>{lane.title}</b>
+      </span>
+      <span className={styles.foot}>
+        {started ? <MiniPipeline lane={lane} /> : <span className={styles.dim}>na fila</span>}
+        {lane.tokens > 0 && <span className={styles.num}>{formatTokens(lane.tokens)} tok</span>}
+      </span>
+    </button>
   )
 }

@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { formatDuration } from '../lib/format'
 import { useCrewStore } from '../store/crew'
-import { fixture } from '../test/fixtures'
+import { epicLane, fixture } from '../test/fixtures'
 import { renderWithClient } from '../test/render'
 import { server } from '../test/server'
 import { NowBar } from './NowBar'
@@ -33,6 +33,28 @@ describe('NowBar', () => {
     expect(useCrewStore.getState().focus).toEqual({ target: 'approval', seq: 1 })
     await user.click(screen.getByRole('button', { name: 'Revisar plano ↓' }))
     expect(useCrewStore.getState().focus?.seq).toBe(2) // mesmo alvo, pedido novo
+  })
+
+  it('com épicos: progresso "x/y prontos" e o CTA abre o épico que precisa de você', async () => {
+    const user = userEvent.setup()
+    const view = {
+      ...fixture('developing'),
+      phase: 'executing' as const,
+      epics: [
+        epicLane('E1', 'merged'),
+        epicLane('E2', 'escalated', {
+          escalation: { stage: 'tester' as const, reason: 'travou', epic_id: 'E2' },
+        }),
+        epicLane('E3', 'running'),
+        epicLane('REV', 'pending', { kind: 'review' as const }),
+      ],
+    }
+    renderWithClient(<NowBar view={view} />)
+    expect(within(bar()).getByText('1/3 prontos')).toBeInTheDocument()
+    expect(within(bar()).getByRole('progressbar', { name: 'Épicos prontos' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Resolver E2' }))
+    expect(useCrewStore.getState().openEpic).toBe('E2')
+    expect(useCrewStore.getState().focus?.target).toBe('epics')
   })
 
   it('concluída: duração fixa, custo, sem cancelar', () => {

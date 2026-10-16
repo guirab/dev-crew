@@ -1,12 +1,13 @@
-/* painel de foco + feed de atividade; abaixo de 960 px o feed desce pra baixo do painel */
+/* painel de foco + feed de atividade (a largura do feed é dele: aberto ou recolhido);
+   abaixo de 1100 px o feed desce pra baixo do painel */
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 370px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: start;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }

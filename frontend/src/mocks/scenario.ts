@@ -6,10 +6,13 @@
  * Fluxo: manual → (entrevista, 3 perguntas) → plano → aprovação (ou ajuste) → developer →
  * tester (1º run falha) → developer → tester ok → reviewer (1º review pede mudanças) → developer →
  * tester ok → reviewer aprova → concluída. `forceEscalate` faz o Tester falhar sempre (escalada).
+ * Com "épicos" no título (como no fake do backend) o plano sai dividido e a aprovação abre a tela
+ * de épicos já rodando em paralelo, com um escalado (`mocks/epics.ts`).
  */
 import type {
   Estimate,
   Command,
+  EpicView,
   DevResult,
   Escalation,
   FinalReport,
@@ -29,6 +32,7 @@ import type {
 import type { EdgeKey, EdgeStatus, StageKey, StageStatus, TaskPhase } from '../contracts/aliases'
 import type { CommandOutcome, MockBackend } from './backend'
 import { historyOf, INTERVIEW_ROUNDS } from './data'
+import { demoEpicPlan, demoLanes, resumeLane } from './epics'
 import { MockFolders } from './folders'
 
 export interface ScenarioOptions {
@@ -117,6 +121,8 @@ interface TaskState {
   interview: InterviewState | null
   escalation: Escalation | null
   final: FinalReport | null
+  /** Faixas do plano dividido; vazio na execução única. */
+  lanes: EpicView[]
   startedAt: Date
   endedAt: Date | null
 }
@@ -241,10 +247,10 @@ export class ScenarioBackend implements MockBackend {
       started_at: s.startedAt.toISOString(),
       ended_at: s.endedAt?.toISOString() ?? null,
       cost_usd: this.cost(s),
-      tokens: 40_000 * (s.rounds.length + s.runs.length + s.reviewIter),
+      tokens: this.tokens(s),
       limit: null,
       estimate: s.plan ? MOCK_ESTIMATE : null,
-      epics: [],
+      epics: s.lanes,
     }
   }
 
@@ -252,9 +258,15 @@ export class ScenarioBackend implements MockBackend {
     return historyOf(this.getView())
   }
 
-  /** Custo fictício: US$ 0,35 por job (developer + tester + reviewer). */
+  /** Custo fictício: US$ 0,35 por job (developer + tester + reviewer) + o das faixas. */
   private cost(s: TaskState): number {
-    return Number((0.35 * (s.rounds.length + s.runs.length + s.reviewIter)).toFixed(2))
+    const lanes = s.lanes.reduce((sum, lane) => sum + lane.cost_usd, 0)
+    return Number((0.35 * (s.rounds.length + s.runs.length + s.reviewIter) + lanes).toFixed(2))
+  }
+
+  private tokens(s: TaskState): number {
+    const lanes = s.lanes.reduce((sum, lane) => sum + lane.tokens, 0)
+    return 40_000 * (s.rounds.length + s.runs.length + s.reviewIter) + lanes
   }
 
   handle(command: Command): CommandOutcome {
@@ -268,7 +280,9 @@ export class ScenarioBackend implements MockBackend {
       case 'adjust_plan':
         return this.adjust(command.text)
       case 'escalation':
-        return this.escalate(command.action, command.text ?? null)
+        return command.epic_id
+          ? this.escalateLane(command.epic_id, command.action, command.text ?? null)
+          : this.escalate(command.action, command.text ?? null)
       case 'cancel_task':
         return this.cancel()
       case 'add_repo':
@@ -332,6 +346,7 @@ export class ScenarioBackend implements MockBackend {
       interview: null,
       escalation: null,
       final: null,
+      lanes: [],
       startedAt: this.clock(),
       endedAt: null,
     }
@@ -392,9 +407,43 @@ export class ScenarioBackend implements MockBackend {
     if (s?.st.approval !== 'waiting') return this.refuse(409, 'Nenhum plano aguardando aprovação.')
     this.run(async () => {
       this.finish('approval', 'Plano aprovado')
+      if (s.plan?.execution === 'epics') {
+        this.startEpics(s)
+        return
+      }
       this.go('ap-dv', 'developer')
       await this.devRound()
     })
+    return this.accepted()
+  }
+
+  /** Plano dividido: as faixas entram já em paralelo (snapshot fixo de `mocks/epics.ts`). */
+  private startEpics(s: TaskState): void {
+    if (s.activeEdge) s.edges[s.activeEdge] = 'on'
+    s.edges['ap-dv'] = 'on'
+    s.activeEdge = null
+    s.lanes = demoLanes(s.taskId, s.repo, this.clock())
+    s.phase = 'executing'
+    this.emit()
+  }
+
+  private escalateLane(
+    epicId: string,
+    action: 'instruct' | 'more_attempts' | 'replan',
+    text: string | null,
+  ): CommandOutcome {
+    const s = this.s
+    const lane = s?.lanes.find((l) => l.id === epicId)
+    if (!s || lane?.status !== 'escalated') return this.refuse(409, 'Esse épico não está escalado.')
+    if (action === 'replan') return this.refuse(422, 'Épico não volta pro Planner.')
+    const instruction = text?.trim() ?? ''
+    if (action === 'instruct' && instruction === '') return this.refuse(422, 'Escreva a instrução.')
+    const now =
+      action === 'more_attempts'
+        ? 'Nova tentativa com +2 iterações'
+        : `Seguindo sua instrução: "${instruction}"`
+    s.lanes = s.lanes.map((l) => (l.id === epicId ? resumeLane(l, now, this.clock()) : l))
+    this.emit()
     return this.accepted()
   }
 
@@ -587,9 +636,17 @@ export class ScenarioBackend implements MockBackend {
       risks: ['Timezone: datas locais vs UTC no banco'],
       test_strategy:
         'Unit no serviço + integração no endpoint, cobrindo bordas e entrada inválida.',
-      execution: 'single',
-      split_rationale: 'Mudança coesa em 4 arquivos: uma execução só, sem épicos.',
-      epics: [],
+      ...(/épicos/i.test(s.title)
+        ? {
+            execution: 'epics' as const,
+            split_rationale: 'Seis trocas independentes de componente: um épico por troca.',
+            epics: demoEpicPlan(),
+          }
+        : {
+            execution: 'single' as const,
+            split_rationale: 'Mudança coesa em 4 arquivos: uma execução só, sem épicos.',
+            epics: [],
+          }),
       project_setup: null,
       essential_code: null,
     }

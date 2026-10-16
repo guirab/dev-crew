@@ -1,6 +1,6 @@
 import type { StageStatus } from '../contracts/aliases'
-import type { EpicView, TaskView } from '../contracts/generated'
-import { EPIC_CARD_STATUS } from './lanes'
+import type { TaskView } from '../contracts/generated'
+import { EPIC_CARD_STATUS, EPIC_TONE, lanesNeedingYou } from './lanes'
 import { STAGE_META, stageIcon, stageTag } from './stages'
 import type { ConnectorId, FlowStageKey } from './stages'
 
@@ -12,12 +12,10 @@ export interface RailStep {
   title: string
   icon: string
   status: StageStatus
-  /** Texto curto embaixo do rótulo: "trabalhando · 2/3", "1/4 prontos"... */
+  /** Texto curto ao lado do rótulo: "trabalhando · 2/3", "1 precisa de você"... */
   tag: string
   /** Conector antes da etapa (`null` na primeira). */
   connector: ConnectorId | null
-  /** Status de cada faixa, só na etapa de épicos. */
-  lanes: EpicView['status'][] | null
 }
 
 const SINGLE: readonly [FlowStageKey, ConnectorId][] = [
@@ -28,12 +26,20 @@ const SINGLE: readonly [FlowStageKey, ConnectorId][] = [
 
 /** Como a etapa "Épicos" se pinta: quem precisa de você > quem trabalha > tudo pronto. */
 export function epicsStatus(view: TaskView): StageStatus {
-  const statuses = view.epics.map((lane) => EPIC_CARD_STATUS[lane.status])
+  const statuses = view.epics.map((lane) => EPIC_CARD_STATUS[EPIC_TONE[lane.status]])
   if (view.phase === 'awaiting_selection') return 'waiting'
   if (statuses.includes('error')) return 'error'
   if (statuses.includes('active')) return 'active'
   if (statuses.length > 0 && statuses.every((s) => s === 'done')) return 'done'
   return view.phase === 'executing' ? 'active' : 'idle'
+}
+
+/** O x/y prontos fica só na faixa Agora: o trilho diz o que pede atenção, senão quantos rodam. */
+function epicsTag(view: TaskView): string {
+  const needing = lanesNeedingYou(view.epics).length
+  if (needing > 0) return `${String(needing)} precisa de você`
+  const running = view.epics.filter((lane) => EPIC_CARD_STATUS[EPIC_TONE[lane.status]] === 'active')
+  return running.length > 0 ? `${String(running.length)} rodando` : ''
 }
 
 function stageStep(view: TaskView, key: FlowStageKey, connector: ConnectorId): RailStep {
@@ -45,7 +51,6 @@ function stageStep(view: TaskView, key: FlowStageKey, connector: ConnectorId): R
     status,
     tag: stageTag(key, status, view.counters),
     connector,
-    lanes: null,
   }
 }
 
@@ -62,7 +67,6 @@ export function railSteps(view: TaskView): RailSteps {
       status: manual,
       tag: '',
       connector: null,
-      lanes: null,
     },
     stageStep(view, 'interviewer', 'source'),
     stageStep(view, 'planner', 'interview'),
@@ -70,16 +74,13 @@ export function railSteps(view: TaskView): RailSteps {
   ]
   if (view.epics.length > 0) {
     const status = epicsStatus(view)
-    const epics = view.epics.filter((lane) => lane.kind === 'epic')
-    const merged = epics.filter((lane) => lane.status === 'merged').length
     steps.push({
       key: 'epics',
       title: 'Épicos',
       icon: status === 'done' ? '✓' : status === 'error' ? '!' : '≡',
       status,
-      tag: `${String(merged)}/${String(epics.length)} prontos`,
+      tag: epicsTag(view),
       connector: 'approval',
-      lanes: view.epics.map((lane) => lane.status),
     })
   } else {
     for (const [key, connector] of SINGLE) steps.push(stageStep(view, key, connector))

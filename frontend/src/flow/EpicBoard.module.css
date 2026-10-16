@@ -1,168 +1,112 @@
+/* board: só as colunas que têm épico, cada uma com pelo menos 260 px */
 .board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
-  align-items: stretch;
-  padding: 4px 4px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
 .column {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   min-width: 0;
-  min-height: 220px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: 16px;
   background: rgb(255 255 255 / 3%);
 }
 
 .heading {
   display: flex;
   justify-content: space-between;
-  margin: 0 2px 4px;
-  font: 650 13px var(--mono);
-  letter-spacing: 0.4px;
+  margin: 2px 4px 2px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.count {
-  color: var(--muted);
-}
-
-.empty {
-  margin: 0;
-  padding: 14px;
-  border: 1px dashed var(--line-2);
-  border-radius: 16px;
-  font-size: 13px;
-  color: var(--muted);
-  text-align: center;
-}
-
 .card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
   min-width: 0;
-  border-radius: 18px;
-  /* cards de lista, vários rodando ao mesmo tempo: sem desfoque (este CSS carrega depois do StageCard) */
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 4%);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.hd {
-  border-radius: 18px;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  padding: 14px;
-  min-height: 0;
+.card:hover {
+  background: rgb(255 255 255 / 8%);
+}
+
+.card[data-tone='attention'] {
+  border-color: rgb(255 138 130 / 50%);
+}
+
+.card[data-tone='done'] {
+  opacity: 0.75;
 }
 
 .top {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.ic {
-  width: 30px;
-  height: 30px;
-  font-size: 12px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .title {
-  font-size: 15px;
-  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 650;
 }
 
-.meta {
-  white-space: normal;
-}
-
-.stage {
-  font: 12px var(--mono);
-  color: var(--green-hi);
-}
-
-.body {
-  padding: 12px 14px 14px;
-  overflow-x: auto;
-}
-
-/* mini-pipeline do card: Dev · Test · Merge */
-.pipe {
+.foot {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 4px;
-  font: 10.5px var(--mono);
+  gap: 8px;
+}
+
+.num {
+  font: 12px var(--mono);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.dim {
+  font: 11px var(--mono);
   color: var(--dim);
-}
-
-.pipe i {
-  font-style: normal;
-  padding: 1px 7px;
-  border: 1px solid var(--line-2);
-  border-radius: 999px;
-}
-
-.pipe i[data-status='done'] {
-  color: var(--green);
-  border-color: rgb(43 238 134 / 45%);
-}
-
-.pipe i[data-status='active'] {
-  color: #04130a;
-  background: var(--green);
-  border-color: var(--green);
-}
-
-.pipe i[data-status='waiting'],
-.pipe i[data-status='error'] {
-  color: var(--err);
-  border-color: rgb(255 138 130 / 50%);
-}
-
-.pipe b {
-  margin-left: 2px;
-  color: var(--warn);
 }
 
 /* vista Grafo: níveis de dependência da esquerda pra direita */
 .graph {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   overflow-x: auto;
-  padding: 4px 4px 14px;
+  padding-bottom: 6px;
 }
 
 .level {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex: none;
-  width: 230px;
+  width: 250px;
 }
 
 .arrow {
   flex: none;
   font: 18px var(--mono);
   color: var(--dim);
-}
-
-@media (max-width: 1200px) {
-  .board {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .board {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .column {
-    min-height: 0;
-  }
 }

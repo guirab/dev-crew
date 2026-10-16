@@ -87,6 +87,29 @@ describe('nowStatus', () => {
     expect(status.detail).toBe('E2 · Editando HistoryList.tsx (+1 em paralelo)')
   })
 
+  it('épico esperando você: resume o paralelo e o CTA abre o épico', () => {
+    const escalated: EpicView = {
+      ...lane('E2', 'escalated', null),
+      escalation: { stage: 'tester', reason: 'Tester falhou 3 vezes seguidas', epic_id: 'E2' },
+    }
+    const view: TaskView = {
+      ...fixture('developing'),
+      phase: 'executing',
+      epics: [
+        lane('E1', 'running', 'x'),
+        escalated,
+        lane('E3', 'preparing', null),
+        lane('E4', 'merged', null),
+      ],
+    }
+    expect(nowStatus(view)).toEqual({
+      tone: 'attention',
+      headline: 'Épicos em execução · 1 precisa de você',
+      detail: 'E2 · Tester falhou 3 vezes seguidas — 2 épicos seguem rodando',
+      cta: { label: 'Resolver E2', target: 'epics', epic: 'E2' },
+    })
+  })
+
   it('limite de uso: tom de erro com a mensagem do limite, sem CTA (o banner tem Retomar)', () => {
     const limit = { kind: 'session' as const, resets_at: null, message: 'Limite da sessão' }
     const status = nowStatus({ ...fixture('developing'), phase: 'limited', limit })

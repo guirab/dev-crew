@@ -1,45 +1,121 @@
-.title {
+.tabs {
+  gap: 0;
+}
+
+.head {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 0 4px 12px;
-  font: 600 11px var(--mono);
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 14px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.2px;
+}
+
+.sum {
+  font: 12px var(--mono);
   color: var(--muted);
 }
 
-.count {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-}
-
-.toggle {
-  display: inline-flex;
-  gap: 2px;
+/* Tabs do shadcn como controle segmentado da skin */
+.views {
   margin-left: auto;
+  height: auto;
+  gap: 2px;
   padding: 3px;
-  border: 1px solid rgb(255 255 255 / 16%);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgb(255 255 255 / 6%);
+  background: var(--well);
 }
 
-.mode {
-  padding: 3px 12px;
+.views button {
+  padding: 4px 13px;
   border: 0;
+  background: none;
   border-radius: 999px;
-  background: transparent;
+  font: 600 12px var(--mono);
   color: var(--muted);
-  font: 600 11px var(--mono);
-  letter-spacing: 0.4px;
-  cursor: pointer;
 }
 
-.mode[aria-pressed='true'] {
-  background: rgb(255 255 255 / 14%);
-  color: #fff;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 24%);
+.views button[data-state='active'] {
+  background: rgb(255 255 255 / 12%);
+  color: var(--fg);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%);
+}
+
+/* o que precisa de você: um Alert no topo, com CTA; a linha da tabela fica neutra */
+.alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'icon title actions'
+    'icon text actions'
+    'icon error error';
+  gap: 4px 14px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgb(255 138 130 / 40%);
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--err-soft), transparent 70%);
+  color: var(--fg);
+}
+
+.icon {
+  grid-area: icon;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--err);
+  color: var(--err);
+  font: 700 14px var(--mono);
+}
+
+.alertTitle {
+  grid-area: title;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.alertText {
+  grid-area: text;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.alertActions {
+  grid-area: actions;
+  display: flex;
+  gap: 6px;
+}
+
+.alertError {
+  grid-area: error;
+}
+
+.alertError:empty {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .alert {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icon title'
+      'icon text'
+      'actions actions'
+      'error error';
+  }
+
+  .views {
+    margin-left: 0;
+  }
 }
 
 .next {

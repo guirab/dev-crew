@@ -3,50 +3,121 @@ import { useSendCommand } from '../api/commands'
 import { CommandErrorMessage } from '../bodies/CommandErrorMessage'
 import b from '../bodies/body.module.css'
 import { EpicList, selectionTotal } from '../bodies/EpicList'
-import type { TaskView } from '../contracts/generated'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import type { EpicView, TaskView } from '../contracts/generated'
+import { useCrewStore } from '../store/crew'
 import { Button } from '../ui/Button'
 import { EpicBoard, EpicGraph } from './EpicBoard'
+import { EpicSheet } from './EpicSheet'
+import { EpicTable } from './EpicTable'
+import { dependentsOf, epicsSummary, lanesNeedingYou, sortLanes } from './lanes'
 import styles from './EpicsSection.module.css'
 
-type EpicsMode = 'board' | 'graph'
-
-const MODES: readonly { id: EpicsMode; label: string }[] = [
-  { id: 'board', label: 'Board' },
-  { id: 'graph', label: 'Grafo' },
-]
-
-/** Épicos de um plano dividido (D53): board kanban por padrão ou o grafo de dependências. */
+/**
+ * Épicos de um plano dividido (D53): tabela densa por padrão, board e grafo como vistas alternativas.
+ * O que precisa de você vira um Alert no topo; o detalhe do épico abre no painel lateral.
+ */
 export function EpicsSection({ view }: { view: TaskView }) {
-  const [mode, setMode] = useState<EpicsMode>('board')
+  const openEpic = useCrewStore((s) => s.openEpic)
+  const setOpenEpic = useCrewStore((s) => s.setOpenEpic)
   const lanes = view.epics
-  const running = lanes.filter((l) => l.status === 'running' || l.status === 'preparing').length
+  const open = lanes.find((lane) => lane.id === openEpic) ?? null
+
   return (
     <section aria-label="Épicos">
-      <div className={styles.title}>
-        <span className={styles.count}>
-          {lanes.filter((l) => l.kind === 'epic' && l.status === 'merged').length}/
-          {lanes.filter((l) => l.kind === 'epic').length} prontos
-          {running > 0 && ` · ${running} em paralelo`}
-        </span>
-        <span className={styles.toggle} role="group" aria-label="Vista dos épicos">
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className={styles.mode}
-              aria-pressed={mode === m.id}
-              onClick={() => {
-                setMode(m.id)
-              }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </span>
-      </div>
-      {view.phase === 'awaiting_selection' && <NextBatch view={view} />}
-      {mode === 'board' ? <EpicBoard view={view} /> : <EpicGraph view={view} />}
+      <Tabs defaultValue="table" className={styles.tabs}>
+        <div className={styles.head}>
+          <h2 className={styles.title}>Épicos</h2>
+          <span className={styles.sum}>{epicsSummary(lanes)}</span>
+          <TabsList aria-label="Vista dos épicos" className={styles.views}>
+            <TabsTrigger value="table">Tabela</TabsTrigger>
+            <TabsTrigger value="board">Board</TabsTrigger>
+            <TabsTrigger value="graph">Grafo</TabsTrigger>
+          </TabsList>
+        </div>
+        {view.phase === 'awaiting_selection' && <NextBatch view={view} />}
+        {lanesNeedingYou(lanes).map((lane) => (
+          <NeedsYouAlert key={lane.id} lane={lane} lanes={lanes} onOpen={setOpenEpic} />
+        ))}
+        <TabsContent value="table">
+          <EpicTable lanes={sortLanes(lanes)} selected={openEpic} onOpen={setOpenEpic} />
+        </TabsContent>
+        <TabsContent value="board">
+          <EpicBoard lanes={sortLanes(lanes)} onOpen={setOpenEpic} />
+        </TabsContent>
+        <TabsContent value="graph">
+          <EpicGraph lanes={lanes} onOpen={setOpenEpic} />
+        </TabsContent>
+      </Tabs>
+      <EpicSheet
+        view={view}
+        lane={open}
+        onClose={() => {
+          setOpenEpic(null)
+        }}
+      />
     </section>
+  )
+}
+
+/** Um épico parado esperando você: título, motivo, quem espera por ele e as ações rápidas. */
+function NeedsYouAlert({
+  lane,
+  lanes,
+  onOpen,
+}: {
+  lane: EpicView
+  lanes: readonly EpicView[]
+  onOpen: (id: string) => void
+}) {
+  const send = useSendCommand()
+  const waiting = dependentsOf(lanes, lane.id).map((dep) => dep.id)
+  const reason = lane.escalation?.reason ?? 'O épico falhou'
+  const sentence = /[.!?]$/.test(reason) ? reason : `${reason}.`
+  const blocked =
+    waiting.length > 0
+      ? ` ${waiting.join(', ')} ${waiting.length === 1 ? 'está' : 'estão'} esperando o ${lane.id}.`
+      : ''
+
+  return (
+    <Alert className={styles.alert} data-lane={lane.id}>
+      <span className={styles.icon} aria-hidden="true">
+        !
+      </span>
+      <AlertTitle className={styles.alertTitle}>
+        {lane.id} · {lane.title} precisa de você
+      </AlertTitle>
+      <AlertDescription className={styles.alertText}>
+        {sentence}
+        {blocked}
+      </AlertDescription>
+      <div className={styles.alertActions}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => {
+            onOpen(lane.id)
+          }}
+        >
+          Abrir {lane.id}
+        </Button>
+        {lane.escalation && (
+          <Button
+            size="sm"
+            disabled={send.isPending}
+            onClick={() => {
+              send.mutate({ type: 'escalation', action: 'more_attempts', epic_id: lane.id })
+            }}
+          >
+            +2 tentativas
+          </Button>
+        )}
+      </div>
+      <div className={styles.alertError}>
+        <CommandErrorMessage error={send.error} />
+      </div>
+    </Alert>
   )
 }
 
