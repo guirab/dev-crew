@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dev-crew · mockup v5 (épicos)</title>
+<!--
+  Mockup v5: tela de épicos repaginada (2026-10-15), sobre a skin Liquid Glass do v4 e os componentes shadcn.
+  Em relação ao v4:
+    1. Largura cheia (até 1680 px); feed de atividade recolhível em vez de coluna fixa de 370 px.
+    2. Épicos em tabela densa (Table) por padrão (custo por épico; o EpicView não tem tempo), ordenada por "precisa de você" primeiro. Board e Grafo viram vistas alternativas.
+    3. Detalhe do épico num painel lateral (Sheet) com abas (Tabs): Resolver · Developer · Tester · Merge · Log.
+       Nada abre dentro de coluna estreita.
+    4. O que precisa de você vira um Alert no topo da seção com CTA; a linha fica neutra, só o Badge sinaliza.
+    5. Um contador só (Progress na faixa Agora); a faixa resume o paralelo em vez de mostrar o objetivo de um épico.
+    6. Trilho compacto (uma linha); feed agrupa eventos repetidos, corta mensagens longas e filtra por "precisa de você".
+  Barra de demo embaixo: abrir/fechar o painel, recolher o feed, trocar a vista.
+-->
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #070809;
+  --surface: rgb(255 255 255 / 5%);
+  --surface-2: rgb(255 255 255 / 8%);
+  --line: rgb(255 255 255 / 8%);
+  --line-2: rgb(255 255 255 / 16%);
+  --fg: #eef3f0;
+  --muted: rgb(238 243 240 / 70%);
+  --dim: rgb(238 243 240 / 50%);
+  --green: #2bee86;
+  --green-hi: #8dffc0;
+  --green-soft: #2bee8614;
+  --warn: #f4b544;
+  --warn-soft: #f4b5441c;
+  --err: #ff8a82;
+  --err-soft: #ff6b6b1f;
+  --glass-bg: linear-gradient(135deg, rgb(255 255 255 / 16%), rgb(255 255 255 / 3%) 60%), rgb(10 12 14 / 32%);
+  --glass-active-bg: linear-gradient(135deg, rgb(43 238 134 / 22%), rgb(255 255 255 / 4%) 70%), rgb(10 12 14 / 32%);
+  --glass-wait-bg: linear-gradient(135deg, rgb(244 181 68 / 24%), rgb(255 255 255 / 4%) 70%), rgb(10 12 14 / 32%);
+  --glass-blur: blur(26px) saturate(180%);
+  --glass-border: rgb(255 255 255 / 8%);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), inset 0 -1px 0 rgb(255 255 255 / 6%),
+    inset 1px 0 0 rgb(255 255 255 / 14%), inset 0 0 22px rgb(255 255 255 / 4%), 0 24px 60px rgb(0 0 0 / 38%);
+  --well: rgb(0 0 0 / 28%);
+  --popover: #101416;
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); padding-bottom: 64px; }
+button, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.backdrop span { position: absolute; border-radius: 50%; filter: blur(90px); }
+.backdrop .a { left: -140px; top: -120px; width: 640px; height: 640px; background: #5a6270; opacity: .5; }
+.backdrop .b { right: -160px; top: 140px; width: 660px; height: 660px; background: #8aa0b8; opacity: .26; }
+.backdrop .c { left: 28%; bottom: -260px; width: 720px; height: 720px; background: #2f3640; opacity: .95; }
+.glass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.wrap { max-width: 1680px; margin: 0 auto; padding: 0 24px; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+
+/* header (igual ao v4) */
+header { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 14px 0 12px; flex-wrap: wrap; }
+.brand { font: 700 16px var(--mono); margin: 0; }
+.brand b { color: var(--green); }
+.tabs-nav { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: var(--well); }
+.tabs-nav button { border: 0; background: none; padding: 5px 14px; border-radius: 99px; color: var(--muted); font-size: 13px; cursor: pointer; }
+.tabs-nav button[aria-selected="true"] { background: rgb(255 255 255 / 10%); color: var(--fg); }
+.crumb { font-size: 13px; color: var(--muted); }
+.crumb b { font-family: var(--mono); color: var(--fg); }
+.sp { flex: 1; }
+.chip { font: 12px var(--mono); color: var(--muted); padding: 4px 11px; border-radius: 99px; border: 1px solid var(--line-2); }
+
+/* botões (Button do shadcn com a skin) */
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-2); background: rgb(255 255 255 / 6%); padding: 7px 14px;
+  border-radius: 99px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.btn:hover { background: rgb(255 255 255 / 12%); }
+.btn.primary { background: var(--green); border-color: var(--green); color: #04130a; font-weight: 700; }
+.btn.warn { background: var(--warn); border-color: var(--warn); color: #1d1300; font-weight: 700; }
+.btn.ghost { border-color: transparent; background: none; color: var(--muted); }
+.btn.ghost:hover { background: rgb(255 255 255 / 8%); color: var(--fg); }
+.btn.sm { padding: 4px 11px; font-size: 12px; }
+.btn.icon { width: 30px; height: 30px; padding: 0; justify-content: center; }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; gap: 5px; font: 600 11px var(--mono); padding: 2px 8px; border-radius: 99px;
+  border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.run { color: var(--green); border-color: rgb(43 238 134 / 40%); background: var(--green-soft); }
+.badge.wait { color: var(--err); border-color: rgb(255 138 130 / 45%); background: var(--err-soft); }
+.badge.done { color: var(--green-hi); border-color: rgb(141 255 192 / 30%); }
+.badge.todo { color: var(--dim); }
+.badge.prep { color: var(--muted); }
+.badge.plain::before { display: none; }
+
+/* Progress */
+.progress { height: 6px; border-radius: 99px; background: rgb(255 255 255 / 12%); overflow: hidden; }
+.progress i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green), var(--green-hi)); }
+.progress i.over { background: var(--warn); }
+
+/* 1. faixa Agora: resume o paralelo, um contador só */
+.now { position: sticky; top: 10px; z-index: 5; display: flex; align-items: center; gap: 22px; padding: 12px 14px 12px 18px; margin-bottom: 12px; flex-wrap: wrap;
+  background: var(--glass-wait-bg); box-shadow: var(--glass-shadow), 0 0 0 1px rgb(244 181 68 / 55%), 0 0 50px rgb(244 181 68 / 14%); }
+.pulse { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--warn); animation: ringw 1.6s ease-out infinite; }
+.now .what { min-width: 0; flex: 1 1 300px; }
+.now .what b { display: block; font-size: 15px; }
+.now .what span { display: block; font-size: 13px; color: var(--warn); }
+.now .prog { width: 220px; }
+.now .prog .lbl { display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--muted); margin-bottom: 5px; }
+.now .prog .lbl b { color: var(--fg); }
+.metrics { display: flex; gap: 18px; }
+.metric { font-size: 11.5px; color: var(--muted); line-height: 1.25; }
+.metric b { display: block; font: 600 14px var(--mono); color: var(--fg); }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgb(43 238 134 / 60%); } 100% { box-shadow: 0 0 0 10px rgb(43 238 134 / 0%); } }
+@keyframes ringw { 0% { box-shadow: 0 0 0 0 rgb(244 181 68 / 60%); } 100% { box-shadow: 0 0 0 12px rgb(244 181 68 / 0%); } }
+
+/* 2. trilho compacto: uma linha */
+.rail { display: flex; align-items: center; gap: 4px; padding: 8px 10px; margin-bottom: 12px; overflow-x: auto; }
+.step { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 6px 12px 6px 6px; border-radius: 99px; cursor: pointer; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.step:hover { background: rgb(255 255 255 / 6%); }
+.step[aria-current="true"] { background: rgb(255 255 255 / 10%); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line-2); }
+.step .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 11px var(--mono); border: 1.5px solid rgb(255 255 255 / 28%); }
+.step.done .dot { background: rgb(43 238 134 / 18%); border-color: var(--green); color: var(--green); }
+.step.active .dot { border-color: var(--warn); color: var(--warn); animation: ringw 1.6s ease-out infinite; }
+.step .sub { font: 11px var(--mono); color: var(--dim); }
+.step.active .sub { color: var(--warn); }
+.step.idle { opacity: .5; }
+.rail .line { flex: 1 1 18px; min-width: 18px; height: 1.5px; background: rgb(43 238 134 / 45%); }
+.rail .line.idle { background: var(--line-2); }
+
+/* layout: conteúdo + feed recolhível */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+body.feed-closed .grid { grid-template-columns: minmax(0, 1fr) 52px; }
+
+/* seção Épicos */
+.panel { padding: 18px 20px 20px; }
+.sec-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.sec-head h2 { margin: 0; font-size: 18px; }
+.sec-head .sum { font: 12px var(--mono); color: var(--muted); }
+/* Tabs (segmentado) */
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: var(--well); border: 1px solid var(--line); margin-left: auto; }
+.seg button { border: 0; background: none; padding: 4px 13px; border-radius: 99px; font: 600 12px var(--mono); color: var(--muted); cursor: pointer; }
+.seg button[aria-selected="true"] { background: rgb(255 255 255 / 12%); color: var(--fg); box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%); }
+
+/* Alert: o que precisa de você, no topo, com CTA */
+.alert { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'ico title acts' 'ico text acts'; gap: 4px 14px; align-items: center; padding: 12px 14px; margin-bottom: 14px;
+  border-radius: 16px; border: 1px solid rgb(255 138 130 / 40%); background: linear-gradient(90deg, var(--err-soft), transparent 70%); }
+.alert .ico { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--err); color: var(--err); font: 700 14px var(--mono); grid-area: ico; }
+.alert b { grid-area: title; font-size: 14px; }
+.alert p { grid-area: text; margin: 0; font-size: 13px; color: var(--muted); }
+.alert .acts { grid-area: acts; display: flex; gap: 6px; }
+
+/* Table densa */
+.tw { overflow-x: auto; }
+.table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.table th { text-align: left; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .5px; color: var(--dim); padding: 0 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.table td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table tbody tr { cursor: pointer; transition: background .12s; }
+.table tbody tr:hover { background: rgb(255 255 255 / 4%); }
+.table tbody tr[aria-selected="true"] { background: rgb(255 255 255 / 7%); }
+.table tbody tr td:first-child { border-left: 3px solid transparent; border-radius: 0; }
+.table tr.wait td:first-child { border-left-color: var(--err); }
+.table tr.run td:first-child { border-left-color: var(--green); }
+.table tr.done td:first-child { border-left-color: rgb(141 255 192 / 40%); }
+.table tr.done { opacity: .72; }
+.table tr.todo { opacity: .6; }
+.id { display: inline-grid; place-items: center; width: 30px; height: 26px; border-radius: 8px; font: 700 11px var(--mono); background: rgb(255 255 255 / 7%); border: 1px solid var(--line-2); }
+.tt { min-width: 0; }
+.tt b { display: block; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46ch; }
+.tt span { display: block; font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62ch; }
+.pipe { display: inline-flex; gap: 3px; font: 10.5px var(--mono); color: var(--dim); }
+.pipe i { font-style: normal; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 99px; }
+.pipe i.done { color: var(--green); border-color: rgb(43 238 134 / 45%); }
+.pipe i.active { color: #04130a; background: var(--green); border-color: var(--green); }
+.pipe i.err { color: var(--err); border-color: rgb(255 138 130 / 55%); background: var(--err-soft); }
+.loop { font: 700 11px var(--mono); color: var(--warn); margin-left: 6px; }
+.num { font: 12.5px var(--mono); color: var(--muted); white-space: nowrap; text-align: right; }
+.deps { font: 11.5px var(--mono); color: var(--dim); white-space: nowrap; }
+.skel { display: inline-block; width: 72px; height: 10px; border-radius: 99px; background: linear-gradient(90deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 14%), rgb(255 255 255 / 6%)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* Board compacto (vista alternativa): só colunas com algo */
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.col { border: 1px solid var(--line); border-radius: 16px; padding: 10px; background: rgb(255 255 255 / 3%); }
+.col h4 { margin: 2px 4px 10px; display: flex; justify-content: space-between; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.kcard { border: 1px solid var(--line-2); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; background: rgb(255 255 255 / 4%); cursor: pointer; }
+.kcard:hover { background: rgb(255 255 255 / 8%); }
+.kcard .row { display: flex; gap: 8px; align-items: center; }
+.kcard b { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.kcard .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.kcard.wait { border-color: rgb(255 138 130 / 50%); }
+
+/* Grafo (vista alternativa) */
+.graph { display: flex; align-items: center; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.lvl { display: flex; flex-direction: column; gap: 8px; flex: none; width: 250px; }
+.arrow { color: var(--dim); font: 18px var(--mono); }
+
+/* feed recolhível com ScrollArea */
+.feed { position: sticky; top: 92px; display: flex; flex-direction: column; max-height: calc(100vh - 110px); overflow: hidden; }
+.feed-hd { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; }
+.feed-hd h3 { margin: 0; font-size: 15px; }
+.live { font: 11px var(--mono); color: var(--green); }
+.live::before { content: '● '; }
+.filters { display: flex; gap: 4px; padding: 0 14px 10px; flex-wrap: wrap; }
+.filters button { border: 1px solid var(--line-2); background: none; border-radius: 99px; padding: 2px 10px; font: 11.5px var(--mono); color: var(--muted); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--green-soft); border-color: rgb(43 238 134 / 50%); color: var(--green); }
+.filters button.err[aria-pressed="false"] { color: var(--err); border-color: rgb(255 138 130 / 40%); }
+.scroll { overflow-y: auto; padding: 0 8px 10px; scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 18%) transparent; }
+.ev { display: grid; grid-template-columns: 54px 1fr; gap: 2px 8px; padding: 8px 8px; border-radius: 12px; font-size: 13px; }
+.ev:hover { background: rgb(255 255 255 / 4%); }
+.ev time { font: 11.5px var(--mono); color: var(--dim); padding-top: 1px; }
+.ev .who { font-weight: 650; }
+.ev .who em { font-style: normal; font: 11px var(--mono); color: var(--dim); margin-left: 4px; }
+.ev p { grid-column: 2; margin: 0; color: var(--muted); }
+.ev p.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ev .more { grid-column: 2; justify-self: start; border: 0; background: none; padding: 0; font-size: 12px; color: var(--green); cursor: pointer; }
+.ev.wait { background: var(--err-soft); }
+.ev.wait .who { color: var(--err); }
+.ev .grp { display: flex; gap: 3px; margin-top: 3px; }
+.feed-mini { display: none; }
+body.feed-closed .feed > :not(.feed-mini) { display: none; }
+body.feed-closed .feed-mini { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+.feed-mini .n { font: 700 11px var(--mono); color: #1d1300; background: var(--warn); border-radius: 99px; padding: 1px 6px; }
+
+/* Sheet: detalhe do épico, lateral, largo */
+.overlay { position: fixed; inset: 0; background: rgb(0 0 0 / 45%); z-index: 20; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(720px, 100vw); z-index: 21; display: flex; flex-direction: column;
+  background: linear-gradient(135deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 2%) 60%), rgb(12 14 16 / 86%);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border-left: 1px solid var(--line-2); box-shadow: -30px 0 80px rgb(0 0 0 / 50%);
+  transform: translateX(100%); transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+body.sheet-open .overlay { opacity: 1; pointer-events: auto; }
+body.sheet-open .sheet { transform: none; }
+.sh-hd { padding: 20px 22px 0; }
+.sh-top { display: flex; align-items: flex-start; gap: 12px; }
+.sh-top h3 { margin: 0; font-size: 18px; line-height: 1.3; flex: 1; }
+.sh-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 0; }
+.path { font: 11.5px var(--mono); color: var(--dim); margin: 10px 0 0; display: flex; gap: 8px; align-items: center; }
+.path code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-tabs { display: flex; gap: 2px; padding: 14px 22px 0; border-bottom: 1px solid var(--line); }
+.sh-tabs button { border: 0; background: none; padding: 8px 14px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; gap: 6px; align-items: center; }
+.sh-tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--green); }
+.sh-tabs .dot { width: 7px; height: 7px; border-radius: 50%; }
+.sh-body { flex: 1; overflow-y: auto; padding: 18px 22px 24px; }
+.sh-body h4 { margin: 0 0 8px; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .5px; color: var(--dim); }
+.box { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: rgb(255 255 255 / 3%); margin-bottom: 16px; }
+.runs { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; font-size: 13px; align-items: center; }
+.runs .r { font: 11.5px var(--mono); color: var(--dim); }
+pre.out { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--well); border: 1px solid var(--line); font: 12px/1.55 var(--mono); color: var(--muted); overflow-x: auto; max-height: 220px; }
+pre.out .e { color: var(--err); }
+pre.out .k { color: var(--green-hi); }
+textarea { width: 100%; min-height: 96px; resize: vertical; background: var(--well); border: 1px solid var(--line-2); border-radius: 14px; padding: 10px 12px; box-shadow: inset 0 2px 8px rgb(0 0 0 / 30%); }
+textarea::placeholder { color: var(--dim); }
+.sh-foot { display: flex; gap: 8px; align-items: center; padding: 14px 22px; border-top: 1px solid var(--line); background: rgb(0 0 0 / 20%); }
+.hint { font-size: 12px; color: var(--dim); }
+
+/* barra de demo */
+.demo { position: fixed; left: 12px; bottom: 12px; z-index: 30; display: flex; gap: 6px; align-items: center; padding: 6px 8px; font: 12px var(--mono); color: var(--muted); }
+
+@media (max-width: 1100px) {
+  .grid, body.feed-closed .grid { grid-template-columns: minmax(0, 1fr); }
+  .feed { position: static; max-height: 480px; }
+  .col-deps, .col-cost { display: none; }
+}
+@media (max-width: 720px) {
+  .wrap { padding: 0 16px; }
+  .now { position: static; }
+  .now .prog { width: 100%; }
+  .col-tok, .col-pipe { display: none; }
+  .tt b, .tt span { max-width: 52vw; }
+  .alert { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'ico title' 'ico text' 'acts acts'; }
+}
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+
+<div class="wrap">
+  <header class="glass">
+    <p class="brand"><b>&gt;</b> dev-crew</p>
+    <div class="tabs-nav" role="tablist"><button role="tab" aria-selected="true">Nova tarefa</button><button role="tab" aria-selected="false">Histórico</button></div>
+    <span class="crumb"><b>T-11</b> · Introduzir ShadCN</span>
+    <span class="sp"></span>
+    <span class="chip">sessão 11% · semana 41%</span>
+  </header>
+
+  <!-- 1. faixa Agora -->
+  <section class="now glass" aria-live="polite">
+    <span class="pulse" aria-hidden="true"></span>
+    <div class="what">
+      <b>Épicos em execução · 1 precisa de você</b>
+      <span>E2 · Tester falhou 3 vezes seguidas — 3 épicos seguem rodando</span>
+    </div>
+    <div class="prog">
+      <div class="lbl"><span>épicos</span><b>1/6 prontos</b></div>
+      <div class="progress"><i style="width: 16.6%"></i></div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><b>16m 25s</b>tempo</div>
+      <div class="metric"><b>46,2 mil</b>tokens</div>
+      <div class="metric"><b>$2.47 <span class="dim">/ ~$10.24</span></b>custo / estimativa</div>
+    </div>
+    <button class="btn warn" data-open="E2">Resolver E2</button>
+    <button class="btn ghost sm">cancelar tarefa</button>
+  </section>
+
+  <!-- 2. trilho compacto -->
+  <nav class="rail glass" aria-label="Etapas da tarefa">
+    <button class="step done"><span class="dot">✓</span>Tarefa</button><span class="line"></span>
+    <button class="step done"><span class="dot">✓</span>Entrevistador</button><span class="line"></span>
+    <button class="step done"><span class="dot">✓</span>Planner</button><span class="line"></span>
+    <button class="step done"><span class="dot">✓</span>Aprovação</button><span class="line"></span>
+    <button class="step active" aria-current="true"><span class="dot">!</span>Épicos <span class="sub">1/6 · 1 precisa de você</span></button><span class="line idle"></span>
+    <button class="step idle"><span class="dot">✓</span>Review final</button><span class="line idle"></span>
+    <button class="step idle"><span class="dot">✓</span>Concluída</button>
+  </nav>
+
+  <div class="grid">
+    <!-- 3. seção Épicos -->
+    <section class="panel glass" aria-label="Épicos">
+      <div class="sec-head">
+        <h2>Épicos</h2>
+        <span class="sum">3 rodando · 1 precisa de você · 1 na fila · 1 pronto</span>
+        <div class="seg" role="tablist" aria-label="Vista dos épicos">
+          <button role="tab" aria-selected="true" data-view="table">Tabela</button>
+          <button role="tab" aria-selected="false" data-view="board">Board</button>
+          <button role="tab" aria-selected="false" data-view="graph">Grafo</button>
+        </div>
+      </div>
+
+      <div class="alert" role="alert">
+        <span class="ico" aria-hidden="true">!</span>
+        <b>E2 · Label + Input do shadcn nos formulários precisa de você</b>
+        <span class="acts"><button class="btn sm primary" data-open="E2">Abrir E2</button><button class="btn sm">+2 tentativas</button></span>
+        <p>Tester falhou 3 vezes seguidas (loop estourou). E3 está esperando o E2.</p>
+      </div>
+
+      <div id="view"></div>
+    </section>
+
+    <!-- 4. feed -->
+    <aside class="feed glass" aria-label="Atividade">
+      <div class="feed-hd">
+        <h3>Atividade</h3><span class="live">ao vivo</span><span class="sp"></span>
+        <button class="btn ghost icon" data-feed title="Recolher feed" aria-label="Recolher feed">⇥</button>
+      </div>
+      <div class="filters" role="group" aria-label="Filtrar atividade">
+        <button aria-pressed="true">Tudo</button>
+        <button aria-pressed="false" class="err">Precisa de você · 1</button>
+        <button aria-pressed="false">Erros</button>
+        <button aria-pressed="false">Épico ▾</button>
+      </div>
+      <div class="scroll">
+        <div class="ev wait"><time>19:48:02</time><span class="who">Tester <em>E2</em></span><p>3ª falha seguida: 2 testes do ManualForm. Esperando você.</p></div>
+        <div class="ev"><time>19:47:40</time><span class="who">Merge <em>E4</em></span><p>Juntado em crew/T-11 · 3 arquivos</p></div>
+        <div class="ev"><time>19:46:12</time><span class="who">Tester <em>E1</em></span><p>Rodando npm test (rodada 1)</p></div>
+        <div class="ev"><time>19:41:55</time><span class="who">Developer <em>E5</em></span><p>Editando src/bodies/FolderBrowser.tsx</p></div>
+        <div class="ev"><time>19:33:16</time><span class="who">Developer</span><p>Preparando o worktree de 5 épicos</p>
+          <span class="grp"><span class="badge plain">E1</span><span class="badge plain">E2</span><span class="badge plain">E4</span><span class="badge plain">E5</span><span class="badge plain">E6</span></span></div>
+        <div class="ev"><time>19:33:16</time><span class="who">Aprovação do plano</span><p>Plano aprovado · 6 de 6 épicos agora</p></div>
+        <div class="ev"><time>19:32:30</time><span class="who">Planner</span><p>Plano pronto · 6 épicos, 24 arquivos</p></div>
+        <div class="ev"><time>19:31:35</time><span class="who">Planner</span>
+          <p class="clamp">Revendo plano: "já instalei o input e o label sobre o Radix Dialog e Select em jsdom: o modal marca o resto da página como aria-hidden e bloqueia pointer-events, e o Select exige APIs de pointer capture. Os testes precisam fechar o dialog por Esc ou pelo botão e usar polyfills."</p>
+          <button class="more">mostrar tudo</button></div>
+        <div class="ev"><time>19:31:35</time><span class="who">Aprovação do plano</span><p class="clamp">Ajuste pedido: já instalei o input e o label sobre o Radix Dialog e Select em jsdom…</p><button class="more">mostrar tudo</button></div>
+      </div>
+      <div class="feed-mini">
+        <button class="btn ghost icon" data-feed title="Abrir feed" aria-label="Abrir feed">⇤</button>
+        <span class="n" title="1 precisa de você">1</span>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- 5. Sheet do épico -->
+<div class="overlay" data-close></div>
+<aside class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title">
+  <div class="sh-hd">
+    <div class="sh-top">
+      <span class="id" id="sh-id">E2</span>
+      <h3 id="sh-title">Label + Input do shadcn nos formulários e fim do Field</h3>
+      <button class="btn ghost icon" data-close aria-label="Fechar">✕</button>
+    </div>
+    <div class="sh-meta" id="sh-meta"></div>
+    <p class="path"><code>crew/T-11-E2 · C:\Users\guilh\.dev-crew\worktrees\dev-crew-full\T-11-E2</code><button class="btn ghost sm">copiar</button></p>
+  </div>
+  <div class="sh-tabs" role="tablist">
+    <button role="tab" aria-selected="true"><span class="dot" style="background: var(--err)"></span>Resolver</button>
+    <button role="tab" aria-selected="false"><span class="dot" style="background: var(--green)"></span>Developer</button>
+    <button role="tab" aria-selected="false"><span class="dot" style="background: var(--err)"></span>Tester</button>
+    <button role="tab" aria-selected="false"><span class="dot" style="background: var(--line-2)"></span>Merge</button>
+    <button role="tab" aria-selected="false">Log</button>
+  </div>
+  <div class="sh-body">
+    <h4>Objetivo</h4>
+    <p class="muted" style="margin: 0 0 16px">Os formulários (ManualForm, NewProjectForm, AddRepoForm, ApprovalBody, RepoSelect) usam Label e Input glass com htmlFor/id explícitos, e o Field é apagado.</p>
+
+    <h4>Rodadas</h4>
+    <div class="box runs">
+      <span class="r">1</span><span>Developer ok · Tester <b style="color: var(--err)">2 falhas</b></span><span class="r">4m 10s</span>
+      <span class="r">2</span><span>Developer ok · Tester <b style="color: var(--err)">2 falhas</b></span><span class="r">3m 02s</span>
+      <span class="r">3</span><span>Developer ok · Tester <b style="color: var(--err)">2 falhas</b> · loop estourou</span><span class="r">2m 48s</span>
+    </div>
+
+    <h4>Última saída do Tester</h4>
+    <pre class="out"><span class="k">npm test</span>
+ <span class="e">FAIL</span>  src/bodies/ManualForm.test.tsx &gt; envia a tarefa com título
+   TestingLibraryElementError: Unable to find a label with the text of: Título
+ <span class="e">FAIL</span>  src/bodies/AddRepoForm.test.tsx &gt; valida o nome
+   expected "Nome" to be associated with an input (htmlFor sem id)
+
+ Test Files  <span class="e">2 failed</span> | 30 passed (32)
+      Tests  <span class="e">2 failed</span> | 330 passed (332)</pre>
+
+    <h4 style="margin-top: 16px">Instrução pro Developer</h4>
+    <textarea placeholder="Ex.: o Label do shadcn precisa de htmlFor igual ao id do Input; use useId() em cada campo."></textarea>
+  </div>
+  <div class="sh-foot">
+    <button class="btn primary">Enviar instrução</button>
+    <button class="btn">+2 tentativas</button>
+    <span class="sp"></span>
+    <button class="btn ghost sm">Pular épico</button>
+  </div>
+</aside>
+
+<div class="demo glass" role="group" aria-label="Demo">
+  demo
+  <button class="btn sm" data-open="E2">painel E2</button>
+  <button class="btn sm" data-close>fechar painel</button>
+  <button class="btn sm" data-feed>feed</button>
+</div>
+
+<script>
+const EPICS = [
+  { id: 'E2', st: 'wait', title: 'Label + Input do shadcn nos formulários e fim do Field', goal: 'ManualForm, NewProjectForm, AddRepoForm, ApprovalBody e RepoSelect com Label/Input glass', stage: 'Tester · 3 falhas', pipe: ['done', 'err', ''], loop: 2, cost: '$0.42', tok: '7,9 mil', deps: '—' },
+  { id: 'E1', st: 'run', title: 'Button glass sobre o Button do shadcn', goal: 'src/ui/Button.tsx renderiza o Button do shadcn com as variantes glass via cva', stage: 'Tester', pipe: ['done', 'active', ''], loop: 0, cost: '$0.61', tok: '9,1 mil', deps: '—' },
+  { id: 'E5', st: 'run', title: 'Dialog no FolderBrowser e no AddRepoForm', goal: 'Navegador de pastas abre num Dialog; Esc e botão fecham', stage: 'Developer', pipe: ['active', '', ''], loop: 0, cost: '$0.38', tok: '6,3 mil', deps: '—' },
+  { id: 'E6', st: 'prep', title: 'Alert no LimitBanner e no ReconnectBanner', goal: 'Banners usam Alert com a skin, sem CSS Module próprio', stage: 'preparando', pipe: ['', '', ''], loop: 0, cost: '', tok: '', deps: '—' },
+  { id: 'E3', st: 'todo', title: 'RepoSelect com o Select do shadcn', goal: 'A escolha de repositório no formulário Manual usa o Select (Radix)', stage: 'na fila', pipe: null, loop: 0, cost: '', tok: '', deps: 'E2' },
+  { id: 'E4', st: 'done', title: 'Tooltip no UsageChip e na faixa Agora', goal: 'Tokens, custo e uso da conta com Tooltip; TooltipProvider no main.tsx', stage: 'juntado', pipe: ['done', 'done', 'done'], loop: 0, cost: '$0.33', tok: '5,4 mil', deps: '—' },
+  { id: 'REV', st: 'todo', title: 'Review final', goal: 'Reviewer revisa crew/T-11 inteira depois dos épicos', stage: 'espera todos', pipe: null, loop: 0, cost: '', tok: '', deps: 'E1–E6' },
+];
+const BADGE = { wait: ['wait', 'precisa de você'], run: ['run', 'rodando'], prep: ['prep', 'preparando'], todo: ['todo', 'na fila'], done: ['done', 'pronto'] };
+const PIPE_LBL = (e) => ['Dev', 'Test', e.id === 'REV' ? 'Rev' : 'Merge'];
+const badge = (st) => `<span class="badge ${BADGE[st][0]}">${BADGE[st][1]}</span>`;
+const pipe = (e) => e.pipe ? `<span class="pipe">${e.pipe.map((s, i) => `<i class="${s}">${PIPE_LBL(e)[i]}</i>`).join('')}</span>${e.loop ? `<span class="loop" title="voltas pro Developer">↺${e.loop}</span>` : ''}` : '<span class="dim">—</span>';
+const cost = (e) => e.st === 'prep' ? '<span class="skel"></span>' : (e.cost || '—');
+
+function table() {
+  return `<div class="tw"><table class="table">
+    <thead><tr><th></th><th>Épico</th><th>Status</th><th class="col-pipe">Pipeline</th><th class="col-cost" style="text-align:right">Custo</th><th class="col-tok" style="text-align:right">Tokens</th><th class="col-deps">Depende</th></tr></thead>
+    <tbody>${EPICS.map((e) => `<tr class="${e.st}" data-open="${e.id}" tabindex="0">
+      <td><span class="id">${e.id}</span></td>
+      <td class="tt"><b title="${e.title}">${e.title}</b><span>${e.goal}</span></td>
+      <td>${badge(e.st)}<div class="dim mono" style="font-size:11px;margin-top:3px">${e.stage}</div></td>
+      <td class="col-pipe">${pipe(e)}</td>
+      <td class="num col-cost">${cost(e)}</td>
+      <td class="num col-tok">${e.tok || '—'}</td>
+      <td class="deps col-deps">${e.deps}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+function kcard(e) {
+  return `<div class="kcard ${e.st}" data-open="${e.id}" tabindex="0"><div class="row"><span class="id">${e.id}</span><b>${e.title}</b></div>
+    <div class="foot">${pipe(e)}<span class="num">${e.tok || ''}</span></div></div>`;
+}
+function board() {
+  const cols = [['Precisa de você', ['wait']], ['Rodando', ['run', 'prep']], ['Na fila', ['todo']], ['Pronto', ['done']]];
+  return `<div class="board">${cols.map(([t, sts]) => { const l = EPICS.filter((e) => sts.includes(e.st)); return l.length ? `<div class="col"><h4>${t}<span>${l.length}</span></h4>${l.map(kcard).join('')}</div>` : ''; }).join('')}</div>`;
+}
+function graph() {
+  const lv = [['E1', 'E2', 'E4', 'E5', 'E6'], ['E3'], ['REV']];
+  return `<div class="graph">${lv.map((ids, i) => `${i ? '<span class="arrow">→</span>' : ''}<div class="lvl">${ids.map((id) => kcard(EPICS.find((e) => e.id === id))).join('')}</div>`).join('')}</div>`;
+}
+const VIEWS = { table, board, graph };
+function show(v) {
+  document.getElementById('view').innerHTML = VIEWS[v]();
+  document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.view === v)));
+}
+function open(id) {
+  const e = EPICS.find((x) => x.id === id);
+  document.getElementById('sh-id').textContent = e.id;
+  document.getElementById('sh-title').textContent = e.title;
+  document.getElementById('sh-meta').innerHTML = `${badge(e.st)} ${pipe(e)} <span class="dim mono" style="font-size:12px">${[e.cost, e.tok && e.tok + ' tok', e.deps !== '—' && 'depende de ' + e.deps].filter(Boolean).join(' · ')}</span>`;
+  document.querySelectorAll('tr[data-open]').forEach((r) => r.setAttribute('aria-selected', String(r.dataset.open === id)));
+  document.body.classList.add('sheet-open');
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-open],[data-close],[data-feed],[data-view],.sh-tabs button,.filters button,.more');
+  if (!t) return;
+  if (t.dataset.view) show(t.dataset.view);
+  else if (t.dataset.open) open(t.dataset.open);
+  else if (t.hasAttribute('data-close')) document.body.classList.remove('sheet-open');
+  else if (t.hasAttribute('data-feed')) document.body.classList.toggle('feed-closed');
+  else if (t.classList.contains('more')) { t.previousElementSibling.classList.remove('clamp'); t.remove(); }
+  else if (t.closest('.sh-tabs')) t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b === t)));
+  else t.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === t)));
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') document.body.classList.remove('sheet-open');
+  if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.open) open(ev.target.dataset.open);
+});
+show('table');
+</script>
+</body>
+</html>
