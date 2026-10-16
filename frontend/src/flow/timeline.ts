@@ -191,8 +191,14 @@ function reviewNode(view: TaskView): TimelineNode {
       : STAGE_TONE[stage.status]
     : STAGE_TONE[stage.status]
   const review = lane ? lane.review : view.review
-  const summary =
-    tone === 'done' && review?.verdict === 'approved'
+  // pediu ajuste: o estágio volta a idle enquanto o Developer corrige (replanejar desaprova o plano)
+  const sentBack =
+    tone === 'todo' &&
+    review?.verdict === 'changes_requested' &&
+    view.stages.approval.status === 'done'
+  const summary = sentBack
+    ? 'pediu ajuste · voltou pro Developer'
+    : tone === 'done' && review?.verdict === 'approved'
       ? 'aprovado'
       : tone === 'todo'
         ? ''
@@ -203,7 +209,7 @@ function reviewNode(view: TaskView): TimelineNode {
     name: isSplit(view) ? 'Review final' : 'Reviewer',
     summary,
     meta: meta(stage.logs, lane?.cost_usd ?? 0),
-    tone,
+    tone: sentBack ? 'done' : tone,
   }
 }
 

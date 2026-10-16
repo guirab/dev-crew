@@ -59,6 +59,37 @@ describe('timelineNodes', () => {
     expect(tones(view).execution).toBe('run')
   })
 
+  it('Reviewer pediu ajuste: o nó diz que devolveu ao Developer (não fica cinza)', () => {
+    const base = fixture('developing')
+    const review: TaskView['review'] = {
+      type: 'review',
+      verdict: 'changes_requested',
+      comments: [],
+      commit_message: null,
+    }
+    const node = timelineNodes({ ...base, review }).find((n) => n.key === 'review')
+    expect(node).toMatchObject({ tone: 'done', summary: 'pediu ajuste · voltou pro Developer' })
+
+    // replanejar desaprova o plano: o pedido antigo não conta mais
+    const replanning: TaskView = {
+      ...base,
+      phase: 'planning',
+      review,
+      stages: { ...base.stages, approval: { status: 'idle', now: null, logs: [] } },
+    }
+    expect(tones(replanning).review).toBe('todo')
+
+    // review final de épicos: a faixa REV volta pro Developer da faixa
+    const split = splitView(base, {
+      epics: [epicLane('E1', 'merged'), epicLane('REV', 'running', { kind: 'review', review })],
+    })
+    expect(timelineNodes(split).find((n) => n.key === 'review')).toMatchObject({
+      name: 'Review final',
+      tone: 'done',
+      summary: 'pediu ajuste · voltou pro Developer',
+    })
+  })
+
   it('concluída: tudo pronto e o resultado abre sozinho', () => {
     const view = fixture('done')
     const nodes = timelineNodes(view)
