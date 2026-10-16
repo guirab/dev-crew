@@ -61,7 +61,7 @@ export function ApprovalBody({ view, stage }: BodyProps) {
       <div className={b.actionbar}>
         <span className={b.total}>
           {split
-            ? selectionTotal(chosen, view.estimate?.epics ?? [])
+            ? selectionTotal(chosen, view.estimate)
             : view.estimate &&
               `~${formatTokens(view.estimate.tokens)} tokens · ~${formatUsd(view.estimate.usd)}`}
         </span>

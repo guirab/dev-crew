@@ -1,4 +1,4 @@
-import type { Epic, EpicEstimate } from '../contracts/generated'
+import type { Epic, EpicEstimate, Estimate } from '../contracts/generated'
 import { formatTokens, formatUsd } from '../lib/format'
 import styles from './EpicList.module.css'
 import b from './body.module.css'
@@ -12,14 +12,26 @@ export interface EpicSelection {
   locked?: ReadonlySet<string>
 }
 
-/** "2 épicos · ~120 mil tokens · ~$1.80": soma das estimativas dos épicos marcados (sem o review final). */
-export function selectionTotal(ids: readonly string[], estimates: readonly EpicEstimate[]): string {
-  const picked = estimates.filter((e) => ids.includes(e.epic_id))
+/** Fração da estimativa que cabe aos épicos marcados (1 = plano inteiro). */
+export function selectedShare(estimate: Estimate, selected: ReadonlySet<string>): number {
+  if (estimate.epics.length === 0) return 1
+  const total = estimate.epics.reduce((sum, e) => sum + e.usd, 0)
+  if (total <= 0) return 1
+  const chosen = estimate.epics
+    .filter((e) => selected.has(e.epic_id))
+    .reduce((s, e) => s + e.usd, 0)
+  return chosen / total
+}
+
+/**
+ * "2 épicos · ~120 mil tokens · ~$1.80": a fatia da estimativa dos épicos marcados, a mesma conta da
+ * caixa Estimativa (com a integração), pra bater com o total do plano quando todos estão marcados.
+ */
+export function selectionTotal(ids: readonly string[], estimate: Estimate | null): string {
   const count = `${String(ids.length)} épico${ids.length === 1 ? '' : 's'}`
-  if (picked.length === 0) return count
-  const tokens = picked.reduce((sum, e) => sum + e.tokens, 0)
-  const usd = picked.reduce((sum, e) => sum + e.usd, 0)
-  return `${count} · ~${formatTokens(tokens)} tokens · ~${formatUsd(usd)}`
+  if (!estimate || estimate.epics.length === 0) return count
+  const share = selectedShare(estimate, new Set(ids))
+  return `${count} · ~${formatTokens(estimate.tokens * share)} tokens · ~${formatUsd(estimate.usd * share)}`
 }
 
 /** Épicos do plano dividido (D53). Com `selection`, cada um ganha "rodar agora". */
