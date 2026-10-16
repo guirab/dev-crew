@@ -98,10 +98,9 @@
   color: var(--fg);
 }
 
+/* nome quebra em vez de truncar: arquivos com o mesmo prefixo ficariam iguais na árvore estreita */
 .nm {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .A {
