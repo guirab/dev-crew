@@ -215,4 +215,19 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
       expect(width, name).toBeLessThanOrEqual(390)
     }
   })
+
+  test('celular: Adicionar pasta cabe no diálogo', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('combobox', { name: 'repositório' }).click()
+    await page.getByRole('option', { name: /Adicionar pasta/ }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('button', { name: 'Selecionar' }).first()).toBeVisible()
+    const box = await dialog.boundingBox()
+    const buttons = await dialog.getByRole('button', { name: 'Selecionar' }).all()
+    for (const button of buttons) {
+      const b = await button.boundingBox()
+      expect((b?.x ?? 0) + (b?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0))
+    }
+  })
 })

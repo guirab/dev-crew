@@ -85,7 +85,7 @@ export function Composer() {
       >
         <DialogContent
           aria-describedby={undefined}
-          className="max-h-[85vh] gap-3 overflow-y-auto border border-(--glass-border) bg-(--glass-bg) p-5 shadow-(--glass-shadow) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)] sm:max-w-2xl"
+          className="max-h-[85vh] grid-cols-[minmax(0,1fr)] gap-3 overflow-y-auto border border-(--glass-border) bg-(--glass-bg) p-5 shadow-(--glass-shadow) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)] sm:max-w-2xl"
         >
           {dialog && <DialogTitle>{DIALOG_TITLE[dialog]}</DialogTitle>}
           {dialog === 'new-project' && <NewProjectForm onStarted={close} />}
