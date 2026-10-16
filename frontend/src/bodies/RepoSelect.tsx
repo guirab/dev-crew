@@ -1,15 +1,13 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import { useRepos } from '../api/queries'
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select'
-import { cx } from '../lib/cx'
-import { Label } from '../ui/Label'
-import b from './body.module.css'
 
 /** Repo escolhido pelo usuário; sem escolha, o primeiro da lista do gateway. */
 export function useRepoChoice() {
@@ -22,33 +20,57 @@ export function useRepoChoice() {
 
 export type RepoChoice = ReturnType<typeof useRepoChoice>
 
-export function RepoSelect({ choice }: { choice: RepoChoice }) {
-  const id = useId()
+/** Itens de ação no fim do menu: não são repositórios, abrem um formulário. O ":" não cabe num nome de repo. */
+export type RepoAction = 'new-project' | 'add-folder'
+
+const ACTION_VALUE: Record<RepoAction, string> = {
+  'new-project': ':new-project',
+  'add-folder': ':add-folder',
+}
+
+const GLASS =
+  'min-w-64 border border-(--line-2) bg-[#121618] text-(--text) shadow-[0_24px_50px_rgb(0_0_0/55%)]'
+
+/** Menu do repositório: os registrados, depois Novo projeto e Adicionar pasta existente. */
+export function RepoSelect({
+  choice,
+  onAction,
+}: {
+  choice: RepoChoice
+  onAction: (action: RepoAction) => void
+}) {
   const { repo, setRepo, repos } = choice
-  const hasRepos = !!repos.data && repos.data.length > 0
   const placeholder = repos.isPending
     ? 'carregando…'
     : repos.isError
       ? 'erro ao listar repositórios'
       : 'nenhum repositório'
   return (
-    <div className={cx(b.field, b.fieldInline)}>
-      <Label htmlFor={id}>repositório</Label>
-      <Select value={repo ?? undefined} onValueChange={setRepo} disabled={!hasRepos}>
-        <SelectTrigger
-          id={id}
-          className="min-w-48 border-(--line-2) bg-(--glass-bg) text-(--text) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)]"
-        >
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent className="border border-(--line-2) bg-(--glass-bg) text-(--text) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)]">
-          {repos.data?.map((r) => (
-            <SelectItem key={r.name} value={r.name}>
-              {r.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select
+      value={repo ?? ''}
+      onValueChange={(value) => {
+        if (value === ACTION_VALUE['new-project']) onAction('new-project')
+        else if (value === ACTION_VALUE['add-folder']) onAction('add-folder')
+        else setRepo(value)
+      }}
+    >
+      <SelectTrigger
+        aria-label="repositório"
+        className="h-auto! rounded-full border-(--line-2) bg-(--well) px-3 py-1.5 font-mono text-[12.5px] text-(--text)"
+      >
+        <span aria-hidden="true">▣</span>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent position="popper" align="start" className={GLASS}>
+        {repos.data?.map((r) => (
+          <SelectItem key={r.name} value={r.name}>
+            {r.name}
+          </SelectItem>
+        ))}
+        {repos.data && repos.data.length > 0 && <SelectSeparator />}
+        <SelectItem value={ACTION_VALUE['new-project']}>+ Novo projeto</SelectItem>
+        <SelectItem value={ACTION_VALUE['add-folder']}>⌂ Adicionar pasta existente</SelectItem>
+      </SelectContent>
+    </Select>
   )
 }

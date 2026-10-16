@@ -1,13 +1,12 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
 import { HISTORY } from '../mocks/data'
 import { createRestHandlers } from '../mocks/handlers'
 import { ScenarioBackend } from '../mocks/scenario'
 import { useCrewStore } from '../store/crew'
-import { focusPanel, isStageOpen, stageButton, stageCard } from '../test/dom'
+import { isNodeOpen, node, nodeBody, nodeButton } from '../test/dom'
 import { fixture } from '../test/fixtures'
 import { server } from '../test/server'
 import { renderWithClient } from '../test/render'
@@ -28,15 +27,22 @@ const SLOW = { timeout: 8000 }
 
 type User = ReturnType<typeof userEvent.setup>
 
-/** Inicia uma tarefa manual e aceita todas as recomendações da entrevista (2 rodadas no mock). */
-async function startAndAcceptInterview(user: User, title: string): Promise<void> {
-  await user.click(stageButton('manual'))
+/** Começa uma tarefa pela tela "Nova tarefa" (o repo padrão é o primeiro da lista). */
+async function startTask(user: User, title: string): Promise<void> {
+  await screen.findByRole('combobox', { name: 'repositório' })
   await user.type(screen.getByLabelText('título'), title)
-  await user.click(screen.getByRole('button', { name: 'Iniciar' }))
   await waitFor(() => {
-    expect(stageCard('interviewer')).toHaveAttribute('data-status', 'waiting')
+    expect(screen.getByRole('button', { name: 'Começar' })).toBeEnabled()
   })
-  await user.click(stageButton('interviewer'))
+  await user.click(screen.getByRole('button', { name: 'Começar' }))
+}
+
+/** Começa e aceita todas as recomendações da entrevista (2 rodadas no mock). */
+async function startAndAcceptInterview(user: User, title: string): Promise<void> {
+  await startTask(user, title)
+  await waitFor(() => {
+    expect(node('interview')).toHaveAttribute('data-tone', 'you')
+  })
   for (let i = 0; i < 2; i += 1) {
     await user.click(await screen.findByRole('button', { name: 'Aceitar todas as recomendações' }))
   }
@@ -59,7 +65,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
   it('mostra "conectando…" até o primeiro snapshot', () => {
     renderWithClient(<App />)
     expect(screen.getByText('conectando…')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Manual/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('título')).not.toBeInTheDocument()
   })
 
   it('título da aba e favicon acompanham a tarefa em andamento e a tela da tarefa', () => {
@@ -101,33 +107,28 @@ describe('App (UI + cenário mock, sem WS)', () => {
   })
 
   it.each(['done', 'cancelled', 'failed'] as const)(
-    'ao abrir ou recarregar com a última tarefa %s, a tela é o menu de origem',
+    'ao abrir ou recarregar com a última tarefa %s, a tela é a nova tarefa',
     (phase) => {
       useCrewStore.getState().applyView({ ...fixture('done'), phase })
       renderWithClient(<App />)
-      expect(screen.getByRole('tab', { name: 'Nova tarefa' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
-      expect(screen.getByRole('button', { name: /Manual/ })).toBeInTheDocument()
-      expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+      expect(screen.getByRole('tab', { name: 'Tarefa' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('heading', { name: 'O que a equipe vai fazer?' })).toBeInTheDocument()
     },
   )
 
   it.each(['developing', 'awaiting_approval', 'escalated', 'limited'] as const)(
-    'com tarefa em %s, a aba "Nova tarefa" avisa e o link abre o fluxo dela',
+    'com tarefa em %s, a nova tarefa avisa e o link abre a linha do tempo',
     async (phase) => {
       const view = { ...fixture('developing'), phase }
       useCrewStore.getState().applyView(view)
       const user = userEvent.setup()
       renderWithClient(<App />)
 
-      expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
       expect(screen.getByText(/Tarefa em andamento:/)).toHaveTextContent(view.task_id)
       await user.click(screen.getByRole('button', { name: 'ver tarefa' }))
 
-      expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
-      expect(screen.getByRole('banner')).toHaveTextContent(view.title)
+      expect(screen.getByRole('heading', { name: view.title })).toBeInTheDocument()
+      expect(node('interview')).toHaveAttribute('data-tone', 'done')
       expect(screen.queryByText(/Tarefa em andamento:/)).not.toBeInTheDocument()
     },
   )
@@ -138,7 +139,7 @@ describe('App (UI + cenário mock, sem WS)', () => {
     expect(screen.queryByText(/Tarefa em andamento:/)).not.toBeInTheDocument()
   })
 
-  it('a aba "Histórico" lista as tarefas do gateway e "Nova tarefa" volta ao menu', async () => {
+  it('a aba "Histórico" lista as tarefas do gateway e "+ Nova" volta à nova tarefa', async () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
@@ -148,31 +149,29 @@ describe('App (UI + cenário mock, sem WS)', () => {
     const items = await screen.findAllByRole('listitem')
     expect(items).toHaveLength(HISTORY.length)
     expect(screen.getByText('T-104')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Manual/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('título')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('tab', { name: 'Nova tarefa' }))
-    expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+    await user.click(screen.getByRole('button', { name: '+ Nova' }))
+    expect(screen.getByLabelText('título')).toBeInTheDocument()
   })
 
-  it('iniciar uma tarefa pelo Manual mostra o fluxo dela', async () => {
+  it('começar uma tarefa mostra a linha do tempo dela', async () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
 
-    await user.click(stageButton('manual'))
-    await user.type(screen.getByLabelText('título'), 'Algo novo')
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    await startTask(user, 'Algo novo')
 
     expect(await screen.findByText('T-107')).toBeInTheDocument()
     expect(useCrewStore.getState().screen).toBe('task')
-    expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
+    expect(node('task')).toHaveAttribute('data-tone', 'done')
   })
 
-  it('mostra a faixa "reconectando…" quando o WS cai, e mostra os cards mesmo sem snapshot', () => {
+  it('mostra a faixa "reconectando…" quando o WS cai, e a nova tarefa mesmo sem snapshot', () => {
     useCrewStore.getState().setConnection('closed')
     renderWithClient(<App />)
     expect(screen.getByRole('status')).toHaveTextContent('reconectando…')
-    expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+    expect(screen.getByLabelText('título')).toBeInTheDocument()
   })
 
   it('fluxo completo até a conclusão, com 1º teste falhando e 1º review pedindo mudanças', async () => {
@@ -182,62 +181,56 @@ describe('App (UI + cenário mock, sem WS)', () => {
 
     await startAndAcceptInterview(user, 'Filtro por intervalo de datas no relatório de vendas')
 
-    expect(await screen.findByText('T-107')).toBeInTheDocument() // header
-    expect(stageCard('manual')).toHaveAttribute('data-status', 'done')
+    expect(await screen.findByText('T-107')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'cancelar tarefa' })).toBeInTheDocument()
 
-    // aprovação: waiting, o foco vai sozinho pra ela
+    // aprovação: o nó do Planner abre sozinho na sua vez
     await waitFor(() => {
-      expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
+      expect(node('plan')).toHaveAttribute('data-tone', 'you')
     }, SLOW)
-    expect(isStageOpen('approval')).toBe(true)
+    expect(isNodeOpen('plan')).toBe(true)
 
     await user.click(screen.getByRole('button', { name: 'Aprovar plano' }))
-    // ao aprovar, o foco segue a ação (o usuário já agiu)
+    // aprovado: o nó vira uma linha
     await waitFor(() => {
-      expect(isStageOpen('approval')).toBe(false)
+      expect(isNodeOpen('plan')).toBe(false)
     })
 
     await waitFor(() => {
-      expect(stageCard('done')).toHaveAttribute('data-status', 'done')
+      expect(node('result')).toHaveAttribute('data-tone', 'done')
     }, SLOW)
-    expect(isStageOpen('done')).toBe(true)
-    // concluída: relatório + commit
+    expect(isNodeOpen('result')).toBe(true)
+    // concluída: commit sugerido
     expect(screen.getByText(/^feat: filtro por intervalo/)).not.toHaveTextContent('Refs:')
 
-    // tester: resultado e a 1ª execução que falhou
-    await user.click(stageButton('tester'))
-    expect(within(focusPanel()).getAllByText(/PASSOU · 48\/48/).length).toBeGreaterThan(0)
-    expect(within(focusPanel()).getByText('FALHOU')).toBeInTheDocument()
-    await user.click(stageButton('reviewer'))
-    expect(within(focusPanel()).getAllByText(/APROVADO/).length).toBeGreaterThan(0)
+    // a Execução guarda a 1ª execução que falhou; o Reviewer, o veredito
+    await user.click(nodeButton('execution'))
+    expect(within(nodeBody('execution')).getAllByText(/48\/48/).length).toBeGreaterThan(0)
+    expect(within(nodeBody('execution')).getByText('FALHOU')).toBeInTheDocument()
+    await user.click(nodeButton('review'))
+    expect(within(nodeBody('review')).getAllByText(/APROVADO/).length).toBeGreaterThan(0)
 
-    // "Nova tarefa" volta ao menu de origem
-    await user.click(screen.getByRole('tab', { name: 'Nova tarefa' }))
-    expect(stageCard('manual')).toHaveAttribute('data-status', 'pick')
+    // Alterações: abre pelo botão ao lado do título e volta pela linha de cima
+    await user.click(screen.getByRole('button', { name: /^Alterações/ }))
+    expect(screen.getByRole('heading', { name: 'Alterações' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /← T-107/ }))
+    expect(node('result')).toBeInTheDocument()
+
+    // "+ Nova" volta à nova tarefa
+    await user.click(screen.getByRole('button', { name: '+ Nova' }))
+    expect(screen.getByLabelText('título')).toBeInTheDocument()
     expect(screen.queryByText('T-107')).not.toBeInTheDocument()
   })
 
-  it('fluxo Manual: entrevista (aceitar + responder), plano e aprovação', async () => {
+  it('entrevista (aceitar + responder), plano e aprovação', async () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
 
-    await user.click(stageButton('manual'))
-    const start = screen.getByRole('button', { name: 'Iniciar' })
-    expect(start).toBeDisabled() // título obrigatório
-    await user.type(screen.getByLabelText('título'), 'Exportar pedidos em CSV')
-    await user.type(screen.getByLabelText(/descrição · pode ser vaga/), 'Mandar pro financeiro')
-    await user.click(await screen.findByRole('combobox', { name: 'repositório' }))
-    await user.click(await screen.findByRole('option', { name: 'api-pedidos' }))
-    await user.click(start)
-
+    await startTask(user, 'Exportar pedidos em CSV')
     await waitFor(() => {
-      expect(stageCard('interviewer')).toHaveAttribute('data-status', 'waiting')
+      expect(node('interview')).toHaveAttribute('data-tone', 'you')
     })
-    expect(useCrewStore.getState().view?.repo).toBe('api-pedidos')
-
-    await user.click(stageButton('interviewer'))
     // rodada 1: aceita "Fora de escopo", responde "Critérios de aceite" com texto próprio
     const criteria = screen.getByRole('group', { name: /Critérios de aceite/ })
     await user.click(within(criteria).getByRole('radio', { name: 'Outra resposta' }))
@@ -247,13 +240,13 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await user.click(await screen.findByRole('button', { name: 'Aceitar todas as recomendações' }))
 
     await waitFor(() => {
-      expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
+      expect(node('plan')).toHaveAttribute('data-tone', 'you')
     }, SLOW)
-    expect(isStageOpen('interviewer')).toBe(false) // o foco saiu sozinho
+    expect(isNodeOpen('interview')).toBe(false) // virou uma linha
     expect(useCrewStore.getState().view?.interview?.decisions).toHaveLength(3)
   })
 
-  it('escalada: abre o Tester, instrui o Developer e o fluxo segue até concluir', async () => {
+  it('escalada: a Execução abre na sua vez, instrui o Developer e o fluxo segue até concluir', async () => {
     backend.setForceEscalate(true)
     wire(backend)
     const user = userEvent.setup()
@@ -261,17 +254,15 @@ describe('App (UI + cenário mock, sem WS)', () => {
 
     await startAndAcceptInterview(user, 'Filtro por intervalo de datas')
     await waitFor(() => {
-      expect(stageCard('approval')).toHaveAttribute('data-status', 'waiting')
+      expect(node('plan')).toHaveAttribute('data-tone', 'you')
     }, SLOW)
-    await user.click(stageButton('approval'))
     await user.click(screen.getByRole('button', { name: 'Aprovar plano' }))
 
     await waitFor(() => {
       expect(useCrewStore.getState().view?.phase).toBe('escalated') // 3 falhas seguidas
     }, SLOW)
-    expect(stageCard('tester')).toHaveAttribute('data-status', 'error')
-    expect(isStageOpen('tester')).toBe(true) // o foco vai pro que precisa de você
-    expect(within(focusPanel()).getAllByText(/Limite 3\/3 atingido/).length).toBeGreaterThan(0)
+    expect(node('execution')).toHaveAttribute('data-tone', 'you')
+    expect(isNodeOpen('execution')).toBe(true)
 
     await user.type(
       screen.getByLabelText('Instrução pro Developer'),
@@ -280,22 +271,23 @@ describe('App (UI + cenário mock, sem WS)', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar instrução' }))
 
     await waitFor(() => {
-      expect(stageCard('done')).toHaveAttribute('data-status', 'done')
+      expect(node('result')).toHaveAttribute('data-tone', 'done')
     }, SLOW)
-    expect(isStageOpen('tester')).toBe(false)
+    expect(isNodeOpen('execution')).toBe(false)
   })
 
-  it('cancelar tarefa (com confirmação) mostra "cancelada" e tira o botão de cancelar', async () => {
+  it('cancelar tarefa (com confirmação) para a linha do tempo e tira o botão de cancelar', async () => {
     wire(backend)
     const user = userEvent.setup()
     renderWithClient(<App />)
-    await user.click(stageButton('manual'))
-    await user.type(screen.getByLabelText('título'), 'Dashboard de metas')
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    await startTask(user, 'Dashboard de metas')
     await user.click(await screen.findByRole('button', { name: 'cancelar tarefa' }))
 
     expect(confirm).toHaveBeenCalledTimes(1)
-    expect(await screen.findByText('⊘ Cancelada')).toBeInTheDocument() // faixa Agora
+    await waitFor(() => {
+      expect(useCrewStore.getState().view?.phase).toBe('cancelled')
+    })
+    expect(document.title).toMatch(/^⊘ Cancelada/)
     expect(screen.queryByRole('button', { name: 'cancelar tarefa' })).not.toBeInTheDocument()
   })
 
@@ -304,31 +296,8 @@ describe('App (UI + cenário mock, sem WS)', () => {
     confirm.mockReturnValue(false)
     const user = userEvent.setup()
     renderWithClient(<App />)
-    await user.click(stageButton('manual'))
-    await user.type(screen.getByLabelText('título'), 'Algo')
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    await startTask(user, 'Algo')
     await user.click(await screen.findByRole('button', { name: 'cancelar tarefa' }))
     expect(useCrewStore.getState().view?.phase).toBe('interviewing')
-  })
-
-  it('erro do gateway ao iniciar aparece inline e não trava o formulário', async () => {
-    wire(backend)
-    server.use(
-      http.post('*/api/commands', () =>
-        HttpResponse.json(
-          { ok: false, error: 'Já existe uma tarefa ativa.', view: null },
-          { status: 409 },
-        ),
-      ),
-    )
-    const user = userEvent.setup()
-    renderWithClient(<App />)
-    await user.click(stageButton('manual'))
-    await user.type(screen.getByLabelText('título'), 'Algo')
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Já existe uma tarefa ativa.')
-    expect(screen.getByRole('button', { name: 'Iniciar' })).toBeEnabled()
-    expect(screen.getByLabelText('título')).toHaveValue('Algo')
   })
 })

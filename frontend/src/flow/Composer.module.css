@@ -1,0 +1,81 @@
+.title {
+  margin: 44px 0 0;
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  margin: 4px 0 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.compose {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* campos sem poço: o card de vidro já é o campo */
+.big,
+.details,
+.big:focus,
+.details:focus {
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--fg);
+}
+
+.big {
+  font-size: 20px;
+}
+
+.details {
+  min-height: 64px;
+  padding: 0;
+  resize: none;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.sp {
+  flex: 1;
+}
+
+.hint {
+  font: 12.5px var(--mono);
+  color: var(--dim);
+}
+
+@container page (max-width: 620px) {
+  .title {
+    margin-top: 24px;
+    font-size: 21px;
+  }
+
+  .compose {
+    padding: 16px;
+  }
+
+  .hint {
+    display: none;
+  }
+}

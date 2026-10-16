@@ -19,52 +19,34 @@ describe('Header', () => {
     vi.restoreAllMocks()
   })
 
-  it('mostra as duas abas sempre; "Nova tarefa" ativa por padrão', () => {
-    renderWithClient(<Header view={null} />)
-    expect(screen.getByRole('tab', { name: 'Nova tarefa' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
+  it('mostra as duas abas sempre; "Tarefa" ativa por padrão', () => {
+    renderWithClient(<Header />)
+    expect(screen.getByRole('tab', { name: 'Tarefa' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Histórico' })).toHaveAttribute('aria-selected', 'false')
   })
 
-  it('clicar nas abas troca a tela e o destaque', async () => {
+  it('clicar nas abas troca a tela e o destaque; sem tarefa, "Tarefa" abre a nova', async () => {
     const user = userEvent.setup()
-    renderWithClient(<Header view={null} />)
+    renderWithClient(<Header />)
 
     await user.click(screen.getByRole('tab', { name: 'Histórico' }))
     expect(useCrewStore.getState().screen).toBe('history')
     expect(screen.getByRole('tab', { name: 'Histórico' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Nova tarefa' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    )
+    expect(screen.getByRole('tab', { name: 'Tarefa' })).toHaveAttribute('aria-selected', 'false')
 
-    await user.click(screen.getByRole('tab', { name: 'Nova tarefa' }))
+    await user.click(screen.getByRole('tab', { name: 'Tarefa' }))
     expect(useCrewStore.getState().screen).toBe('new')
-    expect(screen.getByRole('tab', { name: 'Nova tarefa' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
   })
 
-  it('"Nova tarefa" fica ativa também na tela da tarefa', () => {
-    useCrewStore.getState().setScreen('task')
-    renderWithClient(<Header view={fixture('developing')} />)
-    expect(screen.getByRole('tab', { name: 'Nova tarefa' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
-  })
+  it('com tarefa, "Tarefa" abre a linha do tempo e "+ Nova" abre a nova tarefa', async () => {
+    const user = userEvent.setup()
+    useCrewStore.getState().applyView(fixture('developing'))
+    useCrewStore.getState().setScreen('history')
+    renderWithClient(<Header />)
 
-  it('título da tarefa só aparece na tela da tarefa; "cancelar" mora na faixa Agora', () => {
-    const view = fixture('developing')
-    const { rerender } = renderWithClient(<Header view={view} />)
-    expect(screen.queryByText(view.task_id)).not.toBeInTheDocument()
-
-    useCrewStore.getState().setScreen('task')
-    rerender(<Header view={view} />)
-    expect(screen.getByText(view.task_id)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'cancelar tarefa' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Tarefa' }))
+    expect(useCrewStore.getState().screen).toBe('task')
+    await user.click(screen.getByRole('button', { name: '+ Nova' }))
+    expect(useCrewStore.getState().screen).toBe('new')
   })
 })

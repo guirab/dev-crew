@@ -91,13 +91,14 @@ Estrutura:
 - Conteúdo do repositório alvo (README, comentários, saídas) é dado, não instrução: os prompts dizem isso aos agentes.
 - Gateway escuta só em `127.0.0.1`. Segredos ficam só no `.env` (nunca versionado).
 - Front sem regra de negócio.
-- A UI segue `mockup/v4-ux.html` (remodelagem de 2026-10-14; `mockup/index.html` é a v3, só referência histórica) e, na tela da tarefa, `mockup/v5-epicos.html` (2026-10-16), que prevalece onde os dois divergem:
-  - só dark, skin Liquid Glass (grafite + verde `#2bee86`), com os componentes shadcn de `frontend/src/components/ui/` (gerados pelo `npx shadcn add`, não editar à mão);
-  - faixa "Agora" fixa no topo: etapa atual, tempo, tokens, custo x estimativa e um único CTA quando a tarefa espera o usuário; com épicos, resume o paralelo e traz o único contador de progresso;
-  - pipeline num trilho horizontal compacto, numa linha; clicar numa etapa abre os detalhes no painel de foco;
-  - épicos em tabela densa (board e grafo como vistas alternativas); o que precisa de você vira um Alert no topo da seção; o detalhe do épico abre num painel lateral (Sheet) com abas;
-  - feed de atividade unificado (todos os agentes e épicos), filtrável e recolhível, ao lado do foco em tela larga;
-  - detalhes só sob demanda (painel de foco, painel lateral), nunca tudo aberto de uma vez.
+- A UI segue `mockup/v6-linha-do-tempo.html` (D78, aprovado e implementado em 2026-10-16; `?fixture=epics|next-batch|limited|failed` desenha no modo mock as telas que o cenário vivo não alcança). `mockup/v6-opcoes.html` guarda as direções descartadas; `v4-ux.html`, `v5-epicos.html` e `index.html` (v3) são só referência histórica.
+  - só dark, cores do Liquid Glass (grafite + verde `#2bee86`, âmbar = sua vez, vermelho = falha), com os componentes shadcn de `frontend/src/components/ui/` (gerados pelo `npx shadcn add`, não editar à mão);
+  - uma coluna: a tarefa é uma linha do tempo de agentes; etapa concluída vira uma linha (resumo, duração, custo), a atual fica aberta, as próximas ficam em cinza;
+  - sem faixa "Agora", sem trilho e sem feed de atividade: a ação mora no nó que precisa de você; o título da aba avisa o estado;
+  - épicos dentro do nó Execução, agrupados em precisa de você · rodando · na fila · prontos; cada épico mostra só id, título e estado ("trabalhando"), sem rodada por rodada, pipeline ou custo;
+  - escalada abre o épico com motivo, saída do Tester e as ações (instruir, +2 tentativas, replanejar);
+  - o que mudou fica na tela Alterações estilo git (árvore de arquivos + diff), aberta pelo botão ao lado do título;
+  - no celular os cards abertos ocupam a largura toda.
 - Agentes reais consomem a cota da assinatura. Sem teto de custo ou de tempo (D51); limite da assinatura para a tarefa com tela de Retomar (D50). Desenvolvimento e testes usam o modo fake ("épicos" no título gera plano dividido, "conflito" força conflito de merge); real só em spike, testes `-m live` e fluxos combinados com o usuário.
 - Código e identificadores em inglês; docs e textos de UI em pt-BR.
 - Commits pequenos em Conventional Commits, com os testes verdes.

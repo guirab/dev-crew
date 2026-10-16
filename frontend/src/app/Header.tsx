@@ -1,15 +1,14 @@
-import type { TaskView } from '../contracts/generated'
 import { useCrewStore } from '../store/crew'
 import { Button } from '../ui/Button'
 import { useNotificationPermission } from './notify'
 import styles from './Header.module.css'
 import { UsageChip } from './UsageChip'
 
-/** Marca, abas e a tarefa aberta. Estado e "cancelar" ficam na faixa Agora (`NowBar`). */
-export function Header({ view }: { view: TaskView | null }) {
+/** Marca, abas (Tarefa, Histórico), uso da assinatura e "+ Nova". O estado da tarefa fica no nó que pede você. */
+export function Header() {
   const screen = useCrewStore((s) => s.screen)
   const setScreen = useCrewStore((s) => s.setScreen)
-  const shown = screen === 'task' ? view : null
+  const hasTask = useCrewStore((s) => s.view !== null)
   const [permission, askPermission] = useNotificationPermission()
 
   return (
@@ -25,10 +24,10 @@ export function Header({ view }: { view: TaskView | null }) {
           aria-selected={screen !== 'history'}
           className={styles.tab}
           onClick={() => {
-            setScreen('new')
+            setScreen(hasTask ? 'task' : 'new')
           }}
         >
-          Nova tarefa
+          Tarefa
         </button>
         <button
           type="button"
@@ -42,11 +41,6 @@ export function Header({ view }: { view: TaskView | null }) {
           Histórico
         </button>
       </div>
-      {shown && (
-        <span className={styles.task}>
-          <b>{shown.task_id}</b> · {shown.title}
-        </span>
-      )}
       <span className={styles.sp} />
       {permission === 'default' && (
         <Button
@@ -58,6 +52,15 @@ export function Header({ view }: { view: TaskView | null }) {
         </Button>
       )}
       <UsageChip />
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={() => {
+          setScreen('new')
+        }}
+      >
+        + Nova
+      </Button>
     </header>
   )
 }

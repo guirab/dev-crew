@@ -113,16 +113,16 @@ describe('Header: ativar avisos', () => {
     FakeNotification.permission = 'default'
     vi.stubGlobal('Notification', FakeNotification)
     const user = userEvent.setup()
-    renderWithClient(<Header view={null} />)
+    renderWithClient(<Header />)
     await user.click(screen.getByRole('button', { name: 'ativar avisos' }))
     expect(FakeNotification.requestPermission).toHaveBeenCalled()
-    expect(await screen.findByRole('tab', { name: 'Nova tarefa' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'Tarefa' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'ativar avisos' })).not.toBeInTheDocument()
   })
 
   it('sem suporte a Notification não mostra o botão', () => {
     vi.stubGlobal('Notification', undefined)
-    renderWithClient(<Header view={null} />)
+    renderWithClient(<Header />)
     expect(screen.queryByRole('button', { name: 'ativar avisos' })).not.toBeInTheDocument()
   })
 })

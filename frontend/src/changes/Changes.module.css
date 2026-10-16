@@ -1,0 +1,139 @@
+.back {
+  margin-top: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.back:hover {
+  color: var(--fg);
+}
+
+.trow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 600;
+}
+
+.sp {
+  flex: 1;
+}
+
+.sub {
+  margin: 4px 0 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.chg {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.tree {
+  position: sticky;
+  top: 80px;
+  padding: 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  font: 12.5px var(--mono);
+}
+
+.dir {
+  padding: 8px 10px 4px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+
+.tf {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px 5px 22px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tf.root {
+  padding-left: 10px;
+}
+
+.tf:hover {
+  background: var(--surface);
+}
+
+.tf[aria-current='true'] {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.A {
+  color: var(--green);
+}
+
+.M {
+  color: var(--warn);
+}
+
+.D {
+  color: var(--err);
+}
+
+.add {
+  color: var(--green);
+}
+
+.rem {
+  color: var(--err);
+}
+
+.empty {
+  color: var(--muted);
+}
+
+@container page (max-width: 620px) {
+  .chg {
+    grid-template-columns: 1fr;
+  }
+
+  .tree {
+    position: static;
+  }
+}

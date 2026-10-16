@@ -36,7 +36,7 @@ export function DeveloperBody({ view, stage }: BodyProps) {
           ))}
         </div>
       ) : (
-        <Empty>Aguardando plano aprovado.</Empty>
+        <Empty>Nenhuma rodada ainda.</Empty>
       )}
       <ActivityLog logs={stage.logs} />
     </>

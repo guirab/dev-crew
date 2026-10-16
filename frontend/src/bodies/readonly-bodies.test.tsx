@@ -55,7 +55,7 @@ describe('DeveloperBody', () => {
   it('sem plano aprovado, mostra o estado vazio', () => {
     const view = fixture('planning')
     renderWithClient(<DeveloperBody view={view} stage={view.stages.developer} />)
-    expect(screen.getByText('Aguardando plano aprovado.')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma rodada ainda.')).toBeInTheDocument()
   })
 })
 

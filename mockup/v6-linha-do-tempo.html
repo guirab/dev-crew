@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dev-crew · mockup v6 (linha do tempo)</title>
+<!--
+  Mockup v6 (2026-10-16): direção A "Linha do tempo", escolhida entre as três de mockup/v6-opcoes.html.
+  Mesmas cores do v4/v5 (grafite + verde #2bee86, âmbar = sua vez, vermelho = falha).
+  Regras:
+    1. Uma coluna. A tarefa é uma linha do tempo de agentes: o que passou vira uma linha, o atual fica aberto, o que vem fica cinza.
+    2. Sem barra de resumo: o nó que precisa de você carrega a ação; o título da aba do navegador avisa o estado.
+    3. Sem feed. Log, diff e saída de teste abrem dentro do nó que os gerou, sob demanda.
+    4. Épicos dentro do nó Execução, agrupados por quem age: precisa de você · rodando · na fila · prontos.
+       Cada épico é só id, título e estado ("trabalhando"); não mostra rodada por rodada.
+    6. O que mudou fica numa tela Alterações estilo git (árvore + diff), aberta pelo botão ao lado do título.
+    5. A ação mora no nó que pede (âmbar). Botão principal à direita; destrutivo (cancelar) longe dele.
+  Barra embaixo: troca a tela e a largura (desktop / celular).
+-->
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #070809;
+  --surface: rgb(255 255 255 / 4%);
+  --surface-2: rgb(255 255 255 / 7%);
+  --line: rgb(255 255 255 / 8%);
+  --line-2: rgb(255 255 255 / 15%);
+  --fg: #eef3f0;
+  --muted: rgb(238 243 240 / 70%);
+  --dim: rgb(238 243 240 / 46%);
+  --green: #2bee86;
+  --green-2: #17b862;
+  --green-hi: #8dffc0;
+  --green-soft: #2bee8614;
+  --warn: #f4b544;
+  --warn-soft: #f4b5441a;
+  --err: #ff8a82;
+  --err-soft: #ff6b6b1f;
+  --glass-bg: linear-gradient(135deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 2%) 60%), rgb(10 12 14 / 40%);
+  --glass-wait-bg: linear-gradient(135deg, rgb(244 181 68 / 18%), rgb(255 255 255 / 3%) 70%), rgb(10 12 14 / 40%);
+  --glass-ok-bg: linear-gradient(135deg, rgb(43 238 134 / 16%), rgb(255 255 255 / 3%) 70%), rgb(10 12 14 / 40%);
+  --glass-err-bg: linear-gradient(135deg, rgb(255 107 107 / 18%), rgb(255 255 255 / 3%) 70%), rgb(10 12 14 / 40%);
+  --glass-blur: blur(24px) saturate(170%);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 24%), inset 0 0 22px rgb(255 255 255 / 3%), 0 20px 50px rgb(0 0 0 / 32%);
+  --well: rgb(0 0 0 / 28%);
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); padding-bottom: 110px; min-height: 100vh; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.backdrop span { position: absolute; border-radius: 50%; filter: blur(90px); }
+.backdrop .a { left: -140px; top: -120px; width: 640px; height: 640px; background: #5a6270; opacity: .45; }
+.backdrop .b { right: -160px; top: 140px; width: 660px; height: 660px; background: #8aa0b8; opacity: .2; }
+.backdrop .c { left: 28%; bottom: -260px; width: 720px; height: 720px; background: #2f3640; opacity: .9; }
+.glass { background: var(--glass-bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.glass.wait { background: var(--glass-wait-bg); border-color: rgb(244 181 68 / 35%); }
+.glass.ok { background: var(--glass-ok-bg); border-color: rgb(43 238 134 / 30%); }
+.glass.err { background: var(--glass-err-bg); border-color: rgb(255 138 130 / 35%); }
+h1, h2, h3 { margin: 0; font-weight: 600; }
+p { margin: 0; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+.ok-t { color: var(--green); } .warn-t { color: var(--warn); } .err-t { color: var(--err); }
+.sp { flex: 1; }
+.row { display: flex; align-items: center; gap: 10px; }
+.wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kicker { font: 600 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-2); background: rgb(255 255 255 / 6%);
+  padding: 7px 14px; border-radius: 99px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.btn:hover { background: rgb(255 255 255 / 11%); }
+.btn.primary { background: var(--green); border-color: var(--green); color: #04130a; font-weight: 600; box-shadow: 0 0 24px rgb(43 238 134 / 22%); }
+.btn.amber { background: var(--warn); border-color: var(--warn); color: #1d1200; font-weight: 600; }
+.btn.ghost { background: none; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--fg); background: rgb(255 255 255 / 6%); }
+.btn.danger { background: none; border-color: transparent; color: var(--err); }
+.btn.sm { padding: 4px 11px; font-size: 12px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.link { color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; cursor: pointer; font-size: 12.5px; background: none; border: 0; padding: 0; }
+.link:hover { color: var(--fg); }
+.chip { font: 12px var(--mono); color: var(--muted); padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line-2); white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font: 600 11px var(--mono); padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.run { color: var(--green); border-color: rgb(43 238 134 / 40%); background: var(--green-soft); }
+.badge.you { color: var(--warn); border-color: rgb(244 181 68 / 45%); background: var(--warn-soft); }
+.badge.err { color: var(--err); border-color: rgb(255 138 130 / 45%); background: var(--err-soft); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; display: inline-block; }
+.dot.run { background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 1.6s infinite; }
+.dot.you, .dot.pause { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.dot.done { background: var(--green-2); }
+.dot.err { background: var(--err); }
+.dot.todo { background: transparent; border: 1.5px solid var(--dim); }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .dot.run { animation: none; } }
+.bar { height: 6px; border-radius: 99px; background: var(--well); overflow: hidden; position: relative; }
+.bar > b { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: 99px; }
+.input { width: 100%; background: var(--well); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; color: var(--fg); }
+.input::placeholder { color: var(--dim); }
+textarea.input { min-height: 76px; resize: vertical; }
+.opt { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); cursor: pointer; }
+.opt:hover { background: var(--surface); }
+.opt .r { width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--line-2); flex: none; }
+.opt.sel { border-color: rgb(43 238 134 / 45%); background: var(--green-soft); }
+.opt.sel .r { border: 5px solid var(--green); }
+.opt .ck { width: 16px; height: 16px; margin-top: 2px; border-radius: 4px; border: 1.5px solid var(--line-2); flex: none; display: grid; place-items: center; font-size: 11px; }
+.opt.sel .ck { background: var(--green); border-color: var(--green); color: #04130a; }
+.rec { font: 600 10px var(--mono); color: var(--green); border: 1px solid rgb(43 238 134 / 40%); border-radius: 99px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
+.term { font: 12.5px/1.6 var(--mono); background: rgb(0 0 0 / 45%); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; white-space: pre-wrap; color: var(--muted); overflow-x: auto; }
+.term .f { color: var(--err); } .term .c { color: var(--fg); } .term .o { color: var(--green); }
+
+/* ---------- página ---------- */
+.A { max-width: 880px; margin: 0 auto; padding: 0 20px; container-type: inline-size; }
+.head { display: flex; align-items: center; gap: 12px; padding: 18px 0 8px; }
+.brand { font: 700 15px var(--mono); }
+.brand b { color: var(--green); }
+.nav { display: flex; gap: 2px; }
+.nav a { color: var(--muted); padding: 5px 12px; border-radius: 99px; cursor: pointer; font-size: 13px; }
+.nav a.on { background: var(--surface-2); color: var(--fg); }
+.usage { font: 12px var(--mono); color: var(--muted); padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line-2); white-space: nowrap; }
+
+
+.title { font-size: 23px; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 13px; margin: 4px 0 28px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sub .mono { font-size: 12px; }
+
+/* linha do tempo */
+.tl { position: relative; padding-left: 40px; display: grid; gap: 12px; }
+.tl::before { content: ''; position: absolute; left: 14px; top: 8px; bottom: 8px; width: 2px; background: var(--line); border-radius: 2px; }
+.node { position: relative; }
+.node > .ic { position: absolute; left: -40px; top: 1px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 10.5px var(--mono); background: #101315; border: 1.5px solid var(--line-2); color: var(--muted); }
+.node.done > .ic { border-color: var(--green-2); color: var(--green); }
+.node.you > .ic { border-color: var(--warn); color: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+.node.pause > .ic { border-color: var(--warn); color: var(--warn); }
+.node.run > .ic { border-color: var(--green); color: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+.node.err > .ic { border-color: var(--err); color: var(--err); box-shadow: 0 0 0 4px var(--err-soft); }
+.node.todo > .ic { border-style: dashed; color: var(--dim); }
+.nh { display: flex; align-items: center; gap: 10px; min-height: 32px; cursor: pointer; border-radius: 10px; padding: 0 6px; margin: 0 -6px; }
+.nh:hover { background: var(--surface); }
+.nh .n { font-weight: 600; white-space: nowrap; }
+.nh .s { color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nh .m { font: 12px var(--mono); color: var(--dim); white-space: nowrap; }
+.nh .chev { color: var(--dim); width: 14px; text-align: center; transition: transform .15s; }
+.node.open > .nh .chev { transform: rotate(90deg); }
+.node.todo .nh { cursor: default; color: var(--dim); }
+.node.todo .nh:hover { background: none; }
+.node.todo .nh .s { color: var(--dim); }
+.nb { margin-top: 6px; padding: 18px 20px; display: grid; gap: 14px; }
+.nb.flat { padding: 4px 0 6px; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.nb h3 { font-size: 16px; }
+.acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.acts .sp { min-width: 8px; }
+.hint { font-size: 12.5px; color: var(--dim); }
+
+.grp { display: grid; gap: 2px; }
+.grp + .grp { margin-top: 10px; }
+.grp > .kicker { padding: 0 10px 4px; display: flex; gap: 8px; }
+.grp > .kicker.you { color: var(--warn); }
+/* lista curta das rodadas anteriores (entrevista) */
+.mini { display: grid; gap: 2px; border-left: 2px solid var(--line); padding-left: 14px; margin-left: 4px; }
+.mini div { display: flex; gap: 10px; align-items: center; font-size: 13px; position: relative; padding: 3px 0; }
+.mini div::before { content: ''; position: absolute; left: -19px; width: 8px; height: 8px; border-radius: 50%; background: var(--green-2); }
+.mini div.x::before { background: var(--err); }
+.mini div.y::before { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+.mini div span:first-child { font: 600 11px var(--mono); color: var(--muted); width: 82px; flex: none; }
+.mini div .m { margin-left: auto; font: 11.5px var(--mono); color: var(--dim); }
+
+/* épicos dentro da Execução: id, título, estado */
+.ep { display: grid; grid-template-columns: 10px 34px minmax(0, 1fr) auto 14px; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 12px; cursor: pointer; }
+.ep:hover { background: var(--surface); }
+.ep .id { font: 600 12px var(--mono); color: var(--muted); }
+.ep .ti { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep .chev { color: var(--dim); }
+.ep.you { background: var(--warn-soft); border: 1px solid rgb(244 181 68 / 30%); }
+.ep.open .chev { transform: rotate(90deg); display: inline-block; }
+.ep.todo .ti, .ep.todo .id { color: var(--dim); }
+.ep-body { margin: 6px 0 8px 22px; display: grid; gap: 14px; }
+.work { font-size: 12.5px; color: var(--green); }
+.trow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+.trow + .sub { margin-top: 4px; }
+.chg-btn .mono { font-size: 11.5px; }
+.st-A { color: var(--green); } .st-M { color: var(--warn); } .st-D { color: var(--err); }
+.add { color: var(--green); } .rem { color: var(--err); }
+
+/* Alterações (diff estilo git) */
+.A.wide { max-width: 1240px; }
+.scope { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: -10px 0 14px; }
+.chg { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 14px; align-items: start; }
+.tree { padding: 10px 6px; font: 12.5px var(--mono); position: sticky; top: 12px; }
+.tree .dir { color: var(--dim); padding: 8px 10px 4px; }
+.tree .tf { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; gap: 8px; padding: 5px 10px 5px 22px; border-radius: 8px; cursor: pointer; }
+.tree .tf:hover { background: var(--surface); }
+.tree .tf.on { background: var(--surface-2); color: var(--fg); }
+.tree .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dview { overflow: hidden; padding: 0; }
+.dhead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; }
+.dbody { font: 12.5px/1.65 var(--mono); overflow-x: auto; padding: 6px 0; }
+.dl { display: grid; grid-template-columns: 46px 46px 1fr; min-width: max-content; }
+.dl span { color: var(--dim); text-align: right; padding-right: 10px; user-select: none; }
+.dl code { white-space: pre; padding: 0 14px 0 4px; font: inherit; }
+.dl.a { background: rgb(43 238 134 / 9%); } .dl.a code { color: var(--green-hi); }
+.dl.d { background: rgb(255 107 107 / 10%); } .dl.d code { color: var(--err); }
+.dl.h { background: var(--surface); } .dl.h code { color: var(--dim); }
+
+/* composer (nova tarefa) */
+.compose { padding: 22px; display: grid; gap: 12px; }
+.compose .big { font-size: 20px; background: none; border: 0; padding: 4px 0; width: 100%; color: var(--fg); }
+.compose .big::placeholder, .compose textarea::placeholder { color: var(--dim); }
+.compose textarea { background: none; border: 0; padding: 0; resize: none; min-height: 64px; color: var(--fg); width: 100%; }
+.compose .foot { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; flex-wrap: wrap; position: relative; }
+.repo-btn { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--line-2); border-radius: 99px; padding: 5px 12px; font: 12.5px var(--mono); background: var(--well); cursor: pointer; }
+.menu { position: absolute; left: 0; top: 54px; z-index: 6; width: 340px; max-width: 100%; padding: 6px; border-radius: 14px; background: #121618; border: 1px solid var(--line-2); box-shadow: 0 24px 50px rgb(0 0 0 / 55%); }
+.menu a { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; font-size: 13px; cursor: pointer; }
+.menu a:hover, .menu a.on { background: var(--surface-2); }
+.menu a small { grid-column: 2; color: var(--dim); font: 11.5px var(--mono); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+
+/* histórico */
+.day { font: 600 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 6px; }
+.hrow { display: grid; grid-template-columns: 12px 56px minmax(0, 1fr) auto 64px 56px; gap: 14px; align-items: center; padding: 11px 12px; border-radius: 12px; cursor: pointer; }
+.hrow:hover { background: var(--surface); }
+.hrow .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrow .t small { color: var(--dim); font-size: 12px; margin-left: 6px; }
+.hrow .num { font: 12px var(--mono); color: var(--muted); text-align: right; }
+.seg { display: inline-flex; padding: 3px; border-radius: 99px; background: var(--well); gap: 2px; }
+.seg button { border: 0; background: none; padding: 5px 13px; border-radius: 99px; color: var(--muted); cursor: pointer; font-size: 12.5px; }
+.seg button.on { background: rgb(255 255 255 / 10%); color: var(--fg); }
+
+/* largura estreita (celular ou janela pequena) */
+@container (max-width: 620px) {
+  .head .nav, .head .usage { display: none; }
+  .brand { white-space: nowrap; }
+  .mini div { flex-wrap: wrap; column-gap: 8px; row-gap: 0; }
+  .mini div span:first-child { width: auto; }
+  .mini div .m { white-space: nowrap; }
+  .title { font-size: 19px; }
+  .tl { padding-left: 34px; }
+  .tl::before { left: 11px; }
+  .node > .ic { left: -34px; width: 24px; height: 24px; font-size: 9px; }
+  .nh .s { display: none; }
+  .chg { grid-template-columns: 1fr; }
+  .tree { position: static; }
+  .ep-body { margin-left: 0; }
+  .nb { padding: 14px; margin-left: -34px; } /* card sai do recuo da linha do tempo e fica centrado */
+      .hrow { grid-template-columns: 12px minmax(0, 1fr) 56px; }
+  .hrow > :nth-child(2), .hrow > :nth-child(4), .hrow > :nth-child(5) { display: none; }
+  .acts .btn { flex: 1 1 auto; }
+}
+
+/* moldura do celular */
+.phone { width: 390px; height: 800px; margin: 20px auto 0; border: 1px solid var(--line-2); border-radius: 36px; overflow: hidden auto; position: relative;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 60%), inset 0 0 0 6px #0b0d0e; background: var(--bg); }
+.phone .A { padding: 0 14px 40px; }
+
+/* barra de troca */
+.switch { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 50; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center;
+  padding: 8px; border-radius: 22px; background: rgb(12 14 16 / 88%); border: 1px solid var(--line-2); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 50%); width: max-content; max-width: calc(100vw - 24px); }
+.switch .g { display: flex; gap: 2px; padding: 3px; border-radius: 99px; background: var(--well); flex-wrap: wrap; }
+.switch button { border: 0; background: none; padding: 5px 11px; border-radius: 99px; color: var(--muted); cursor: pointer; font-size: 12px; white-space: nowrap; }
+.switch button.on { background: rgb(255 255 255 / 14%); color: var(--fg); }
+.switch .g.w button.on { background: var(--green); color: #04130a; font-weight: 600; }
+.about { max-width: 880px; margin: 26px auto 0; padding: 0 20px; font-size: 12px; color: var(--dim); }
+.about b { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="backdrop"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+<div id="stage"></div>
+<p class="about" id="about"></p>
+<nav class="switch" aria-label="Trocar tela do mockup"><div class="g" id="scrs"></div><div class="g w" id="widths"></div></nav>
+
+<script>
+/* ---------- dados de exemplo (forma do TaskView) ---------- */
+const T = { id: 'T-107', title: 'Exportar pedidos filtrados em CSV', repo: 'portal-vendas', branch: 'crew/T-107' };
+const TEST_OUT = `<span class="c">$ npm test</span>
+<span class="f">FAIL</span> src/server/orders/csv.test.ts › escapa aspas e quebras de linha
+  expected '"a ""b"""'  received '"a "b""'
+<span class="f">FAIL</span> src/server/orders/csv.test.ts › fecha o stream no fim
+  timeout de 5000 ms
+41/43 passaram`;
+const HIST = [
+  ['hoje', 'done', 'T-107', 'Exportar pedidos filtrados em CSV', 'portal-vendas', '6 épicos', '$2,38', '42 min'],
+  ['hoje', 'err', 'T-106', 'Migrar datas pra Temporal', 'portal-vendas', 'falhou no setup', '$0,81', '19 min'],
+  ['ontem', 'done', 'T-105', 'Corrigir paginação da busca de clientes', 'portal-vendas', 'execução única', '$0,99', '11 min'],
+  ['ontem', 'todo', 'T-104', 'Tema escuro no painel admin', 'admin-web', 'cancelada', '$0,12', '3 min'],
+  ['14 out', 'done', 'T-103', 'Adicionar repositório pela UI', 'dev-crew', '3 épicos', '$9,23', '1 h 12'],
+  ['14 out', 'done', 'T-102', 'Board kanban das tarefas', 'dev-crew', '2 épicos', '$1,67', '24 min'],
+];
+
+/* ---------- peças ---------- */
+const dot = (s) => `<span class="dot ${s}"></span>`;
+const head = (on = 'task') => `<div class="head"><span class="brand">&gt; dev-crew<b>▌</b></span>
+  <nav class="nav"><a class="${on === 'task' ? 'on' : ''}">Tarefa</a><a class="${on === 'hist' ? 'on' : ''}">Histórico</a></nav><span class="sp"></span>
+  <span class="usage" title="uso da assinatura">sessão 12% · semana 14%</span><button class="btn sm primary">+ Nova</button></div>`;
+// botão que abre a tela Alterações (diff estilo git)
+const changes = (n, a, r) => `<button class="btn sm chg-btn">Alterações <span class="mono"><span class="dim">${n}</span> <span class="add">+${a}</span> <span class="rem">−${r}</span></span></button>`;
+const title = (t = T.title, sub = '', chg = '', id = T.id) => `<div class="trow"><h1 class="title">${t}</h1><span class="sp"></span>${chg}</div>
+  <p class="sub"><span class="mono">${id}</span><span class="dim">·</span><span>▣ ${T.repo}</span>${sub}</p>`;
+// nó: ic = sigla do agente, st = done|you|run|todo|err|pause, body = conteúdo quando aberto
+function node({ ic, name, sum = '', meta = '', st = 'done', body = null, card = '' }) {
+  const open = body !== null;
+  const chev = st === 'todo' ? '' : '<span class="chev">›</span>';
+  return `<div class="node ${st} ${open ? 'open' : ''}"><span class="ic">${ic}</span>
+    <div class="nh"><span class="n">${name}</span><span class="s">${sum}</span><span class="sp"></span><span class="m">${meta}</span>${chev}</div>
+    ${open ? `<div class="nb ${card ? 'glass ' + card : 'glass'}">${body}</div>` : ''}</div>`;
+}
+const opts = (list, rec, multi) => list.map((o, i) => `<div class="opt ${i === rec ? 'sel' : ''}">${multi ? `<span class="ck">${i === rec ? '✓' : ''}</span>` : '<span class="r"></span>'}<span>${o}${i === rec && !multi ? '<span class="rec">recomendada</span>' : ''}</span></div>`).join('');
+const commitMsg = `<div class="term" style="color:var(--fg)">feat(orders): export filtered orders as CSV
+
+Streams the filtered order list as CSV (";" + UTF-8 BOM) from
+GET /orders/export and adds an Export button to the orders table.</div>`;
+
+/* nós concluídos, reaproveitados */
+const N_TASK = node({ ic: '▤', name: 'Tarefa', sum: 'descrição + repositório', meta: '14:02' });
+const N_EN = node({ ic: 'EN', name: 'Entrevista', sum: '2 rodadas · 4 decisões', meta: '4 min · $0,09' });
+const N_PL = node({ ic: 'PL', name: 'Plano aprovado', sum: '5 épicos + review final · estimativa ~$2,10', meta: '3 min · $0,21' });
+
+/* épico: só id, título e estado; o grupo já diz quem age */
+function ep(e, body = '') {
+  const right = e.st === 'run' ? '<span class="work">trabalhando</span>' : e.note ? `<span class="hint">${e.note}</span>` : '';
+  return `<div class="ep ${e.st} ${body ? 'open' : ''}">${dot(e.st)}<span class="id">${e.id}</span><span class="ti">${e.title}</span>${right}<span class="chev">›</span></div>
+    ${body ? `<div class="ep-body">${body}</div>` : ''}`;
+}
+const grp = (label, cls, html) => `<div class="grp"><span class="kicker ${cls}">${label}</span>${html}</div>`;
+const E = {
+  E1: { id: 'E1', title: 'Endpoint de exportação com filtros', st: 'done' },
+  E2: { id: 'E2', title: 'Serializador CSV em streaming', st: 'you' },
+  E4: { id: 'E4', title: 'Filtros da listagem na URL', st: 'run' },
+  E5: { id: 'E5', title: 'Toast de progresso do download', st: 'run' },
+  E3: { id: 'E3', title: 'Botão Exportar na tabela de pedidos', st: 'todo', note: 'espera E1 e E2' },
+  REV: { id: 'REV', title: 'Review final', st: 'todo', note: 'depois de todos' },
+};
+
+/* =============================== telas =============================== */
+const S = {};
+
+S.nova = () => `${head()}
+  <div style="height:44px"></div>
+  <h1 class="title" style="font-size:27px">O que a equipe vai fazer?</h1>
+  <p class="sub" style="margin-bottom:20px">Descreva solto. O Entrevistador pergunta o que faltar antes do Planner entrar.</p>
+  <div class="glass compose">
+    <input class="big" placeholder="Ex.: Exportar pedidos filtrados em CSV">
+    <textarea placeholder="Detalhes, contexto, links… (opcional)"></textarea>
+    <div class="foot">
+      <span class="repo-btn">▣ portal-vendas <span class="dim">▾</span></span>
+      <div class="menu">
+        <a class="on"><span class="ok-t">✓</span><span>portal-vendas</span><span class="dim mono" style="font-size:11px">git ok</span><small>C:\\dev\\portal-vendas</small></a>
+        <a><span></span><span>admin-web</span><span></span><small>C:\\dev\\admin-web</small></a>
+        <a><span></span><span>dev-crew</span><span></span><small>C:\\Users\\guilh\\Documents\\dev-crew</small></a>
+        <hr>
+        <a><span class="ok-t">+</span><span>Novo projeto</span><span></span><small>pasta + git do zero; o Planner define a stack</small></a>
+        <a><span class="ok-t">⌂</span><span>Adicionar pasta existente</span><span></span><small>escolhe no navegador de pastas</small></a>
+      </div>
+      <span class="sp"></span><span class="hint"><span class="mono">Ctrl Enter</span></span><button class="btn primary">Começar</button>
+    </div>
+  </div>
+  <div style="height:190px"></div>
+  <div class="day">recentes</div>${HIST.slice(0, 3).map(hrow).join('')}`;
+
+S.entrevista = () => `${head()}
+  ${title(T.title, '<span class="dim">·</span><span>começou 14:02</span>')}
+  <div class="tl">
+    ${N_TASK}
+    ${node({ ic: 'EN', name: 'Entrevistador', sum: 'rodada 2 de ~3', meta: '4 min', st: 'you', card: 'wait', body: `
+      <div class="mini"><div><span>rodada 1</span>Fora de escopo: agendar exportação fica pra depois</div><div><span></span>Critérios: 3 testáveis (filtro, encoding, arquivo grande)</div></div>
+      <div style="display:grid;gap:8px"><span class="kicker warn-t">Formato</span><h3>Separador e encoding do CSV?</h3><p class="hint">Excel em pt-BR abre ";" com BOM sem perguntar nada.</p>
+        ${opts(['";" com UTF-8 BOM', '"," com UTF-8 sem BOM', '<span class="muted">Outra resposta…</span>'], 0)}</div>
+      <div style="display:grid;gap:8px"><span class="kicker warn-t">Volume</span><h3>Exportação grande: até quantas linhas?</h3><p class="hint">A listagem passa de 50 mil pedidos nos clientes grandes.</p>
+        ${opts(['Sem limite, em streaming', 'Até 10 mil e avisa se passar', '<span class="muted">Outra resposta…</span>'], 0)}</div>
+      <div class="acts"><span class="hint">recomendadas já marcadas</span><span class="sp"></span><button class="btn">Aceitar todas</button><button class="btn amber">Enviar respostas</button></div>` })}
+    ${node({ ic: 'PL', name: 'Planner', sum: 'planeja depois da entrevista', st: 'todo' })}
+    ${node({ ic: '▶', name: 'Execução', st: 'todo' })}
+    ${node({ ic: '✓', name: 'Resultado', st: 'todo' })}
+  </div>`;
+
+S.plano = () => `${head()}
+  ${title(T.title, '<span class="dim">·</span><span>começou 14:02</span>')}
+  <div class="tl">
+    ${N_TASK}${N_EN}
+    ${node({ ic: 'PL', name: 'Planner', sum: '5 épicos · 4 rodam juntos', meta: '3 min', st: 'you', card: 'wait', body: `
+      <p style="font-size:15px">Exportar a listagem de pedidos já filtrada como CSV, em streaming, com botão na tabela.</p>
+      <div class="wrap"><span class="chip">~$2,10</span><span class="chip">~410 mil tokens</span><span class="chip">sessão 12% → 34%</span><span class="chip">semana 14% → 19%</span><span class="chip ok-t">cabe em 1 sessão</span></div>
+      <div class="grp">
+        <span class="kicker">lote 1 · em paralelo</span>
+        ${[['E1', 'Endpoint de exportação com filtros', 'S', '3 arquivos', '$0,30'], ['E2', 'Serializador CSV em streaming', 'M', '2 arquivos', '$0,45'], ['E4', 'Filtros da listagem na URL', 'S', '2 arquivos', '$0,32'], ['E5', 'Toast de progresso do download', 'S', '2 arquivos', '$0,20']]
+          .map(([id, t, sz, f, c]) => `<div class="opt sel" style="border:0;background:none;padding:6px 10px"><span class="ck">✓</span><span class="mono dim" style="width:24px">${id}</span><span style="flex:1">${t} <span class="dim" style="font-size:12px">· ${sz} · ${f}</span></span><span class="mono dim" style="font-size:12px">${c}</span></div>`).join('')}
+      </div>
+      <div class="grp">
+        <span class="kicker">lote 2 · depois de E1 e E2</span>
+        <div class="opt sel" style="border:0;background:none;padding:6px 10px"><span class="ck">✓</span><span class="mono dim" style="width:24px">E3</span><span style="flex:1">Botão Exportar na tabela de pedidos <span class="dim" style="font-size:12px">· S · 2 arquivos</span></span><span class="mono dim" style="font-size:12px">$0,28</span></div>
+        <div class="opt" style="border:0;background:none;padding:6px 10px;opacity:.7"><span class="ck" style="opacity:0"></span><span class="mono dim" style="width:24px">REV</span><span style="flex:1">Review final <span class="dim" style="font-size:12px">· sempre roda no fim</span></span><span class="mono dim" style="font-size:12px">$0,55</span></div>
+      </div>
+      <p class="muted" style="font-size:13px"><b style="color:var(--fg)">Por que dividir:</b> E1, E2, E4 e E5 mexem em arquivos separados. E3 junta tudo na tela, então espera E1 e E2.</p>
+      <div class="wrap"><button class="link">3 critérios de aceite</button><button class="link">passos por épico</button><button class="link">arquivos (11)</button><button class="link">riscos (1)</button></div>
+      <div class="acts"><button class="btn ghost">Pedir ajuste…</button><span class="sp"></span><button class="btn amber">Aprovar e rodar lote 1</button></div>` })}
+    ${node({ ic: '▶', name: 'Execução', st: 'todo' })}${node({ ic: '✓', name: 'Resultado', st: 'todo' })}
+  </div>`;
+
+S.epicos = () => `${head()}
+  ${title(T.title, `<span class="dim">·</span><span class="mono">${T.branch}</span><span class="dim">·</span><span>começou 14:02</span>`, changes(5, 210, 4))}
+  <div class="tl">
+    ${N_EN}${N_PL}
+    ${node({ ic: '▶', name: 'Execução', sum: '1 de 6 prontos', meta: '11 min · $1,27', st: 'you', body: `
+      ${grp('precisa de você', 'you', ep(E.E2, `
+        <p><b>Tester falhou 3 vezes seguidas.</b> <span class="muted">O loop de correção estourou.</span></p>
+        <div class="term">${TEST_OUT}</div>
+        <textarea class="input" placeholder="Instrução pro Developer, ex.: dobre as aspas internas e feche o stream no 'finish', não no 'end'"></textarea>
+        <div class="acts"><button class="link">alterações do E2</button><span class="sp"></span><button class="btn ghost">Replanejar</button><button class="btn">+2 tentativas</button><button class="btn amber">Enviar instrução</button></div>`))}
+      ${grp('rodando', '', ep(E.E4) + ep(E.E5))}
+      ${grp('na fila', '', ep(E.E3) + ep(E.REV))}
+      ${grp('prontos', '', ep(E.E1))}` })}
+    ${node({ ic: '✓', name: 'Resultado', st: 'todo' })}
+  </div>`;
+
+S.lote = () => `${head()}
+  ${title(T.title, `<span class="dim">·</span><span class="mono">${T.branch}</span>`, changes(7, 301, 8))}
+  <div class="tl">
+    ${N_EN}${N_PL}
+    ${node({ ic: '▶', name: 'Execução · lote 1', sum: '4 épicos prontos', meta: '27 min · $1,68' })}
+    ${node({ ic: '⎇', name: 'Próximo lote', st: 'you', card: 'wait', body: `
+      <h3>O que rodar agora?</h3>
+      <div style="display:grid;gap:6px">
+        ${opts(['<b>E3</b> · Botão Exportar na tabela de pedidos <span class="dim">· ~$0,28</span>', '<b>E6</b> · Exportar também em XLSX <span class="dim">· você desmarcou no plano · ~$0,60</span>'], 0, true)}
+      </div>
+      <div class="acts"><button class="btn ghost">Terminar aqui</button><span class="sp"></span><button class="btn amber">Rodar E3</button></div>` })}
+    ${node({ ic: 'RV', name: 'Review final', st: 'todo' })}${node({ ic: '✓', name: 'Resultado', st: 'todo' })}
+  </div>`;
+
+S.limite = () => `${head()}
+  ${title(T.title, `<span class="dim">·</span><span class="mono">${T.branch}</span>`, changes(5, 180, 4))}
+  <div class="tl">
+    ${N_EN}${N_PL}
+    ${node({ ic: '⏸', name: 'Execução', sum: 'pausada', meta: '24 min · $1,52', st: 'pause', card: 'wait', body: `
+      <div class="row" style="align-items:flex-start;gap:16px"><div style="flex:1;display:grid;gap:6px"><h3>Limite da sessão da assinatura</h3>
+        <p class="muted" style="font-size:13px">E4 e E5 pararam no meio. Retomar roda de novo o que foi interrompido.</p></div>
+        <div style="text-align:right"><div class="mono" style="font-size:26px;font-weight:600">1:12:04</div><span class="hint">volta às 15:40</span></div></div>
+      <div class="acts"><button class="btn danger">Cancelar tarefa</button><span class="sp"></span><button class="btn" disabled>Retomar às 15:40</button></div>` })}
+    ${node({ ic: '✓', name: 'Resultado', st: 'todo' })}
+  </div>`;
+
+S.unica = () => `${head()}
+  ${title('Corrigir paginação da busca de clientes', '<span class="dim">·</span><span>execução única</span>', changes(2, 18, 6), 'T-108')}
+  <div class="tl">
+    ${node({ ic: 'EN', name: 'Entrevista', sum: '1 rodada · 2 decisões', meta: '2 min · $0,04' })}
+    ${node({ ic: 'PL', name: 'Plano aprovado', sum: '3 passos · 4 arquivos', meta: '2 min · $0,12' })}
+    ${node({ ic: '▶', name: 'Execução', sum: '<span class="work">Tester trabalhando</span>', meta: '11 min · $0,61', st: 'run' })}
+    ${node({ ic: 'RV', name: 'Reviewer', st: 'todo' })}
+    ${node({ ic: '✓', name: 'Resultado', st: 'todo' })}
+  </div>`;
+
+S.resultado = () => `${head()}
+  ${title(T.title, `<span class="dim">·</span><span class="mono">${T.branch}</span><span class="dim">·</span><span>terminou 14:44</span>`, changes(8, 345, 11))}
+  <div class="tl">
+    ${N_EN}${N_PL}
+    ${node({ ic: '▶', name: 'Execução', sum: '6 épicos prontos', meta: '33 min · $1,95' })}
+    ${node({ ic: 'RV', name: 'Review final', sum: 'aprovado', meta: '4 min · $0,13' })}
+    ${node({ ic: '✓', name: 'Pronto pra commitar', meta: '42 min · $2,38', card: 'ok', body: `
+      <div style="display:grid;gap:6px"><div class="row"><span class="kicker">mensagem de commit sugerida</span><span class="sp"></span><button class="btn sm">Copiar</button></div>${commitMsg}</div>
+      <div class="acts"><button class="btn">Ver alterações</button><button class="btn">Abrir pasta</button><span class="sp"></span><button class="btn primary">Nova tarefa</button></div>` })}
+  </div>`;
+
+S.falhou = () => `${head()}
+  ${title('Migrar datas pra Temporal', '<span class="dim">·</span><span>terminou 13:41</span>', changes(9, 142, 88), 'T-106')}
+  <div class="tl">
+    ${node({ ic: 'EN', name: 'Entrevista', sum: '1 rodada · 3 decisões', meta: '3 min · $0,06' })}
+    ${node({ ic: 'PL', name: 'Plano aprovado', sum: 'execução única · 9 arquivos', meta: '4 min · $0,27' })}
+    ${node({ ic: '▶', name: 'Execução', sum: 'falhou no setup', meta: '10 min · $0,48', st: 'err', card: 'err', body: `
+      <h3>npm ci saiu com código 1 no container</h3>
+      <p class="muted" style="font-size:13px">O Developer adicionou <span class="mono">@js-temporal/polyfill</span> ao package.json, mas agentes não instalam dependências e o lock não bate.</p>
+      <div class="term"><span class="c">$ npm ci</span>
+npm ERR! \`npm ci\` can only install packages when your package.json and package-lock.json are in sync.
+npm ERR! Missing: @js-temporal/polyfill@0.4.4 from lock file</div>
+      <div class="acts"><button class="link">log completo</button><span class="sp"></span><button class="btn">Abrir pasta</button><button class="btn primary">Nova tarefa com esta descrição</button></div>` })}
+  </div>`;
+
+/* Alterações: diff estilo git (árvore à esquerda, diff à direita) */
+const TREE = [
+  ['src/server/orders/', [['A', 'csv.ts', 64, 0, 'E2'], ['A', 'csv.test.ts', 72, 0, 'E2'], ['A', 'export.ts', 86, 0, 'E1'], ['M', 'routes.ts', 4, 1, 'E1']]],
+  ['src/web/orders/', [['M', 'filters.ts', 18, 7, 'E4'], ['M', 'OrdersTable.tsx', 22, 3, 'E3'], ['A', 'useExport.ts', 41, 0, 'E5'], ['A', 'useExport.test.ts', 38, 0, 'E5']]],
+];
+const DIFF_ROWS = [
+  ['h', '', '', '@@ -10,9 +10,11 @@ export function OrdersTable({ orders, filters }) {'],
+  ['', 10, 10, '  const [page, setPage] = useState(1)'],
+  ['', 11, 11, '  const pageSize = 50'],
+  ['a', '', 12, '  const { start, progress } = useExport(filters)'],
+  ['', 12, 13, ''],
+  ['', 13, 14, '  return ('],
+  ['', 14, 15, '    <section className={styles.table}>'],
+  ['d', 15, '', '      <Toolbar filters={filters} />'],
+  ['a', '', 16, '      <Toolbar filters={filters}>'],
+  ['a', '', 17, '        <Button onClick={start} disabled={progress !== null}>'],
+  ['a', '', 18, '          Exportar CSV'],
+  ['a', '', 19, '        </Button>'],
+  ['a', '', 20, '      </Toolbar>'],
+  ['', 16, 21, '      <Table rows={orders} page={page} pageSize={pageSize} />'],
+  ['h', '', '', '@@ -41,6 +46,7 @@ export function OrdersTable({ orders, filters }) {'],
+  ['', 41, 46, '      <Pagination page={page} onChange={setPage} />'],
+  ['d', 42, '', '    </section>'],
+  ['a', '', 47, '      {progress !== null && <ExportToast progress={progress} />}'],
+  ['a', '', 48, '    </section>'],
+];
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+S.alteracoes = () => `${head()}
+  <div class="trow"><button class="link">← ${T.id} · ${T.title}</button></div>
+  <div class="trow" style="margin-top:6px"><h1 class="title">Alterações</h1><span class="sp"></span>
+    <span class="mono" style="font-size:13px"><span class="muted">8 arquivos</span> <span class="add">+345</span> <span class="rem">−11</span></span></div>
+  <p class="sub">na <span class="mono">${T.branch}</span> contra <span class="mono">main</span> · nada commitado na sua branch</p>
+  <div class="scope"><span class="seg"><button class="on">Tudo</button><button>E1</button><button>E2</button><button>E3</button><button>E4</button><button>E5</button><button>REV</button></span>
+    <span class="sp"></span><span class="seg"><button class="on">Unificado</button><button>Lado a lado</button></span></div>
+  <div class="chg">
+    <aside class="glass tree">${TREE.map(([dir, fs]) => `<div class="dir">▾ ${dir}</div>${fs.map(([s, n, a, r]) => `<div class="tf ${n === 'OrdersTable.tsx' ? 'on' : ''}"><span class="st-${s}">${s}</span><span class="nm">${n}</span><span class="add">+${a}</span><span class="rem">${r ? '−' + r : ''}</span></div>`).join('')}`).join('')}</aside>
+    <section class="glass dview">
+      <div class="dhead"><span class="st-M mono">M</span><span class="mono">src/web/orders/OrdersTable.tsx</span><span class="sp"></span><span class="mono dim" style="font-size:12px">E3</span><span class="mono"><span class="add">+22</span> <span class="rem">−3</span></span><button class="btn sm">Abrir no editor</button></div>
+      <div class="dbody">${DIFF_ROWS.map(([k, o, n, code]) => `<div class="dl ${k}"><span>${o}</span><span>${n}</span><code>${k === 'a' ? '+' : k === 'd' ? '−' : k === 'h' ? '' : ' '}${esc(code)}</code></div>`).join('')}</div>
+    </section>
+  </div>`;
+
+function hrow([d, s, id, t, r, k, c, du]) {
+  return `<div class="hrow">${dot({ done: 'done', err: 'err', todo: 'todo' }[s])}<span class="mono dim" style="font-size:12px">${id}</span><span class="t">${t}<small>${k}</small></span><span class="chip">${r}</span><span class="num">${c}</span><span class="num">${du}</span></div>`;
+}
+S.historico = () => `${head('hist')}
+  <div class="row" style="margin-top:26px;flex-wrap:wrap"><h1 class="title">Histórico</h1><span class="sp"></span><input class="input" style="width:220px;padding:6px 12px;border-radius:99px" placeholder="buscar"><div class="seg"><button class="on">Todas</button><button>Concluídas</button><button>Falharam</button></div></div>
+  <p class="sub">6 tarefas · $15,20 · clique pra reabrir a linha do tempo (só leitura)</p>
+  ${['hoje', 'ontem', '14 out'].map((d) => `<div class="day">${d}</div>${HIST.filter((h) => h[0] === d).map(hrow).join('')}`).join('')}`;
+
+/* ---------- troca ---------- */
+const SCREENS = [
+  ['nova', 'Nova tarefa', 'sem tarefa ativa · o menu de repositório traz Novo projeto e Adicionar pasta (some com os cards de origem)'],
+  ['entrevista', 'Entrevista', '<b>phase</b> interviewing · <b>interview.pending</b> vira o corpo do nó; rodadas anteriores numa lista curta'],
+  ['plano', 'Plano', '<b>phase</b> awaiting_approval · <b>plan.epics</b> agrupados em lotes pelo depends_on · <b>estimate</b> em chips · detalhes em links'],
+  ['epicos', 'Épicos + escalada', '<b>phase</b> escalated · épico = id, título, estado (sem rodadas, pipeline nem custo) · o escalado abre com motivo, saída do Tester e EscalationAction'],
+  ['lote', 'Próximo lote', '<b>phase</b> awaiting_selection · RunEpics(epics) ou FinishTask'],
+  ['limite', 'Limite de uso', '<b>phase</b> limited · <b>limit.resets_at</b> vira contagem · ResumeAfterLimit'],
+  ['unica', 'Execução única', 'sem épicos: um nó "Execução" que só diz quem está trabalhando; o que mudou fica em Alterações'],
+  ['resultado', 'Resultado', '<b>phase</b> done · mensagem de commit + atalho pra Alterações'],
+  ['falhou', 'Falhou', '<b>phase</b> failed · o nó que falhou abre em vermelho com a causa e o log'],
+  ['alteracoes', 'Alterações', 'diff estilo git · hoje o FileDiff (D75) só cobre o resultado final por arquivo: diff durante a execução e filtro por épico pedem mudança de contrato'],
+  ['historico', 'Histórico', 'GET /api/tasks · agrupado por dia · reabrir mostra a mesma linha do tempo'],
+];
+const params = new URLSearchParams(location.hash.slice(1));
+let scr = params.get('s') || 'epicos';
+let width = params.get('w') || 'desk';
+
+function render() {
+  const html = `<div class="A ${scr === 'alteracoes' ? 'wide' : ''}">${S[scr]()}</div>`;
+  document.getElementById('stage').innerHTML = width === 'phone' ? `<div class="phone">${html}</div>` : html;
+  document.getElementById('about').innerHTML = SCREENS.find(([k]) => k === scr)[2];
+  document.getElementById('scrs').innerHTML = SCREENS.map(([k, l]) => `<button data-s="${k}" class="${k === scr ? 'on' : ''}">${l}</button>`).join('');
+  document.getElementById('widths').innerHTML = [['desk', 'Desktop'], ['phone', 'Celular']].map(([k, l]) => `<button data-w="${k}" class="${k === width ? 'on' : ''}">${l}</button>`).join('');
+  history.replaceState(null, '', `#s=${scr}&w=${width}`);
+}
+document.querySelector('.switch').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  if (b.dataset.s) scr = b.dataset.s;
+  if (b.dataset.w) width = b.dataset.w;
+  render();
+  window.scrollTo(0, 0);
+});
+render();
+</script>
+</body>
+</html>

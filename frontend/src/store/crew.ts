@@ -1,13 +1,12 @@
 import { create } from 'zustand'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 import type { LogLine, TaskView, WsProgress } from '../contracts/generated'
-import type { FocusTarget } from '../app/nowStatus'
 
 const TERMINAL_PHASES: readonly TaskPhase[] = ['done', 'cancelled', 'failed']
 
 export type ConnectionState = 'connecting' | 'open' | 'closed'
 
-export type Screen = 'new' | 'history' | 'task'
+export type Screen = 'new' | 'history' | 'task' | 'changes'
 
 const MAX_PROGRESS_LINES = 50
 
@@ -21,12 +20,8 @@ interface CrewState {
   connection: ConnectionState
   /** Linhas de progresso entre snapshots. O snapshot seguinte é a verdade e as descarta. */
   progress: Partial<Record<StageKey, LogLine[]>>
-  /** Tela aberta: menu de origem (`new`), histórico ou o fluxo da tarefa. Sempre abre em `new`. */
+  /** Tela aberta: nova tarefa (`new`), histórico, a linha do tempo da tarefa ou as Alterações dela. Sempre abre em `new`. */
   screen: Screen
-  /** Pedido pra abrir e mostrar um card (CTA da faixa Agora). `seq` muda a cada clique, mesmo no mesmo alvo. */
-  focus: { target: FocusTarget; seq: number } | null
-  /** Épico aberto no painel lateral (Sheet); `null` fechado. */
-  openEpic: string | null
 
   applyView: (view: TaskView | null) => void
   /** Aplica um snapshot vindo do REST só se nenhum snapshot chegou desde `sinceVersion`. */
@@ -35,8 +30,6 @@ interface CrewState {
   applyProgress: (msg: WsProgress) => void
   setConnection: (connection: ConnectionState) => void
   setScreen: (screen: Screen) => void
-  focusOn: (target: FocusTarget) => void
-  setOpenEpic: (id: string | null) => void
 }
 
 const initialState = {
@@ -46,8 +39,6 @@ const initialState = {
   connection: 'connecting',
   progress: {},
   screen: 'new',
-  focus: null,
-  openEpic: null,
 } satisfies Partial<CrewState>
 
 export const useCrewStore = create<CrewState>()((set) => ({
@@ -85,14 +76,6 @@ export const useCrewStore = create<CrewState>()((set) => ({
   setScreen: (screen) => {
     set({ screen })
   },
-
-  focusOn: (target) => {
-    set((s) => ({ focus: { target, seq: (s.focus?.seq ?? 0) + 1 } }))
-  },
-
-  setOpenEpic: (openEpic) => {
-    set({ openEpic })
-  },
 }))
 
 /**
@@ -100,17 +83,15 @@ export const useCrewStore = create<CrewState>()((set) => ({
  * abre o fluxo; o primeiro snapshot (abrir/recarregar) e a reconexão com a mesma tarefa não mexem na tela.
  */
 function snapshot(
-  s: Pick<CrewState, 'view' | 'hydrated' | 'viewVersion' | 'screen' | 'openEpic'>,
+  s: Pick<CrewState, 'view' | 'hydrated' | 'viewVersion' | 'screen'>,
   view: TaskView | null,
-): Pick<CrewState, 'view' | 'viewVersion' | 'progress' | 'screen' | 'openEpic'> {
+): Pick<CrewState, 'view' | 'viewVersion' | 'progress' | 'screen'> {
   const started = s.hydrated && view !== null && view.task_id !== s.view?.task_id
   return {
     view,
     viewVersion: s.viewVersion + 1,
     progress: {},
     screen: started ? 'task' : s.screen,
-    // os ids dos épicos se repetem entre tarefas (E1, E2...)
-    openEpic: view?.task_id === s.view?.task_id ? s.openEpic : null,
   }
 }
 

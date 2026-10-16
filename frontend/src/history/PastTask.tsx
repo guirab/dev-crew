@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { taskQuery } from '../api/queries'
 import { DoneBody } from '../bodies/DoneBody'
+import { ChangesPanel } from '../changes/ChangesPanel'
 import type { TaskSummary } from '../contracts/generated'
 import { Button } from '../ui/Button'
 import styles from './HistoryList.module.css'
@@ -34,7 +35,11 @@ export function PastTask({
           {error.message}
         </p>
       ) : data.final ? (
-        <DoneBody view={data} stage={data.stages.done} />
+        <>
+          <DoneBody view={data} stage={data.stages.done} />
+          <h3 className={styles.changes}>Alterações</h3>
+          <ChangesPanel taskId={data.task_id} files={data.final.files} />
+        </>
       ) : (
         <p className={styles.hint}>Sem resultado: a tarefa terminou antes de gerar alterações.</p>
       )}

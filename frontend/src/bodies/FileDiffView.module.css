@@ -1,48 +1,115 @@
-.wrap {
-  margin: 4px 0 8px;
+.view {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 
-.patch {
-  margin: 0;
-  max-height: 420px;
-  overflow: auto;
-  padding: 8px 0;
-  border-radius: 10px;
-  background: rgb(0 0 0 / 28%);
-  box-shadow: 0 0 0 1px var(--line-2);
-  font: 12px/1.5 var(--mono);
-  color: var(--muted);
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
 }
 
-.patch span {
-  display: block;
+.path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+}
+
+.st,
+.count {
+  font-family: var(--mono);
+}
+
+.A {
+  color: var(--green);
+}
+
+.M {
+  color: var(--warn);
+}
+
+.D {
+  color: var(--err);
+}
+
+.plus {
+  color: var(--green);
+}
+
+.minus {
+  color: var(--err);
+}
+
+.body {
+  overflow-x: auto;
+  padding: 6px 0;
+  font: 12.5px/1.65 var(--mono);
+}
+
+.dl {
+  display: grid;
+  grid-template-columns: 46px 46px 1fr;
   min-width: max-content;
-  padding: 0 12px;
+}
+
+.dl span {
+  padding-right: 10px;
+  color: var(--dim);
+  text-align: right;
+  user-select: none;
+}
+
+.dl code {
+  padding: 0 14px 0 4px;
+  font: inherit;
   white-space: pre;
 }
 
 .add {
-  color: var(--fg);
-  background: rgb(43 238 134 / 12%);
+  background: rgb(43 238 134 / 9%);
+}
+
+.add code {
+  color: var(--green-hi);
 }
 
 .del {
-  color: var(--fg);
-  background: rgb(255 138 130 / 12%);
+  background: rgb(255 107 107 / 10%);
+}
+
+.del code {
+  color: var(--err);
 }
 
 .hunk {
+  background: var(--surface);
+}
+
+.hunk code {
   color: var(--dim);
 }
 
 .note {
-  margin: 4px 0 8px;
+  margin: 0;
+  padding: 12px 14px;
   font: 12px var(--mono);
   color: var(--muted);
 }
 
 .error {
-  margin: 4px 0 8px;
+  margin: 0;
+  padding: 12px 14px;
   font-size: 12.5px;
   color: var(--err);
 }
