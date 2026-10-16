@@ -229,6 +229,24 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     }
   })
 
+  test('celular: a barra de aprovação fecha o card, sem vão no fim', async ({ page }) => {
+    // um print fullPage congela a barra sticky na altura da janela e mostra o lugar dela vazio;
+    // rolando de verdade até o fim do card a barra assenta no lugar
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openFixture(page, 'awaiting_approval')
+    const card = body(page, 'plan')
+    await card.evaluate((el) => {
+      el.scrollIntoView({ block: 'end' })
+    })
+    const box = await card.boundingBox()
+    const bar = await card
+      .getByRole('button', { name: 'Aprovar plano' })
+      .locator('..')
+      .boundingBox()
+    const end = (box?.y ?? 0) + (box?.height ?? 0)
+    expect(end - ((bar?.y ?? 0) + (bar?.height ?? 0))).toBeLessThan(30)
+  })
+
   test('celular: Adicionar pasta cabe no diálogo', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
