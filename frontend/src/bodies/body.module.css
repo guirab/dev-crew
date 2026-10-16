@@ -119,6 +119,8 @@
   font: 12px var(--mono);
   color: var(--err);
   margin-top: 6px;
+  /* id de teste (caminho::nome) não tem espaço pra quebrar */
+  overflow-wrap: anywhere;
 }
 
 .error {

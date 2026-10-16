@@ -199,4 +199,20 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     const card = await body(page, 'execution').boundingBox()
     expect(card?.width).toBeGreaterThan(390 - 2 * 16 - 2)
   })
+
+  test('celular: o card aberto não passa da largura da tela', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    for (const name of ['escalated', 'epics', 'next-batch', 'limited', 'failed']) {
+      if (name === 'failed') {
+        // tarefa terminada: sem aviso "ver tarefa", abre pela aba
+        await page.goto('/?fixture=failed')
+        await page.getByRole('tab', { name: 'Tarefa' }).click()
+      } else {
+        await openFixture(page, name)
+      }
+      await expect(page.locator('[data-node] > [role="region"]').first()).toBeVisible()
+      const width = await page.evaluate(() => document.documentElement.scrollWidth)
+      expect(width, name).toBeLessThanOrEqual(390)
+    }
+  })
 })
