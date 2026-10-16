@@ -72,6 +72,33 @@ describe('ScenarioBackend', () => {
     expect(done.active_edge).toBeNull()
   })
 
+  it('"épicos" no título: plano dividido, 6 épicos + review rodando, E2 escalado e retomável', async () => {
+    backend.handle({ ...MANUAL, title: 'Migrar a UI em épicos' })
+    backend.handle({ type: 'answer_interview', answers: [null, null] })
+    backend.handle({ type: 'answer_interview', answers: [null] })
+    await settle()
+    expect(view(backend).plan?.execution).toBe('epics')
+    backend.handle({ type: 'approve_plan' })
+    await settle()
+
+    const v = view(backend)
+    expect(isTaskView(v)).toBe(true)
+    expect(v.phase).toBe('executing')
+    expect(v.epics.map((l) => `${l.id}:${l.status}`)).toEqual([
+      'E1:running',
+      'E2:escalated',
+      'E3:waiting',
+      'E4:merged',
+      'E5:running',
+      'E6:preparing',
+      'REV:pending',
+    ])
+    expect(
+      backend.handle({ type: 'escalation', action: 'more_attempts', epic_id: 'E2' }).status,
+    ).toBe(200)
+    expect(view(backend).epics.find((l) => l.id === 'E2')?.status).toBe('running')
+  })
+
   it('todo snapshot emitido cumpre o contrato TaskView', async () => {
     await toPlan(backend)
     backend.handle({ type: 'approve_plan' })
