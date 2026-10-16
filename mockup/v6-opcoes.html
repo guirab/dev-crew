@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dev-crew · mockup v6 (3 direções)</title>
+<!--
+  Mockup v6 (2026-10-16): três direções de layout pro app inteiro, mesmas cores do v4/v5 (grafite + verde #2bee86).
+  Problemas atacados (feedback do v5): informação demais ao mesmo tempo, hierarquia confusa, feed de atividade sem uso.
+  Regras comuns às três:
+    1. Uma coisa manda na tela: o que precisa de você (âmbar) ou, se nada, onde a tarefa está.
+    2. Sem feed permanente. Log só dentro do item que gerou (sob demanda).
+    3. Um número de progresso só, um de custo só (gasto x estimativa).
+    4. Etapas concluídas viram uma linha.
+  A · Linha do tempo: coluna única, a tarefa como uma conversa/PR; cada agente é um nó; o atual fica aberto.
+  B · Foco único: uma coisa por vez no meio da tela (a decisão ou o que roda); fita fina de progresso no topo; resto a um clique.
+  C · Quadro: colunas por quem age (precisa de você · rodando · na fila · pronto); etapas e épicos viram cartões; histórico é o mesmo quadro.
+  (v6.1: "Etapas + palco" e "Painel de missão" da primeira rodada saíram; a A ficou.)
+  Barra embaixo: troca direção e tela.
+-->
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #070809;
+  --surface: rgb(255 255 255 / 4%);
+  --surface-2: rgb(255 255 255 / 7%);
+  --line: rgb(255 255 255 / 8%);
+  --line-2: rgb(255 255 255 / 15%);
+  --fg: #eef3f0;
+  --muted: rgb(238 243 240 / 70%);
+  --dim: rgb(238 243 240 / 46%);
+  --green: #2bee86;
+  --green-2: #17b862;
+  --green-hi: #8dffc0;
+  --green-soft: #2bee8614;
+  --warn: #f4b544;
+  --warn-soft: #f4b5441a;
+  --err: #ff8a82;
+  --err-soft: #ff6b6b1f;
+  --glass-bg: linear-gradient(135deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 2%) 60%), rgb(10 12 14 / 40%);
+  --glass-wait-bg: linear-gradient(135deg, rgb(244 181 68 / 20%), rgb(255 255 255 / 3%) 70%), rgb(10 12 14 / 40%);
+  --glass-ok-bg: linear-gradient(135deg, rgb(43 238 134 / 18%), rgb(255 255 255 / 3%) 70%), rgb(10 12 14 / 40%);
+  --glass-blur: blur(24px) saturate(170%);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 26%), inset 0 0 22px rgb(255 255 255 / 3%), 0 20px 50px rgb(0 0 0 / 34%);
+  --well: rgb(0 0 0 / 28%);
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); padding-bottom: 96px; min-height: 100vh; }
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.backdrop span { position: absolute; border-radius: 50%; filter: blur(90px); }
+.backdrop .a { left: -140px; top: -120px; width: 640px; height: 640px; background: #5a6270; opacity: .45; }
+.backdrop .b { right: -160px; top: 140px; width: 660px; height: 660px; background: #8aa0b8; opacity: .2; }
+.backdrop .c { left: 28%; bottom: -260px; width: 720px; height: 720px; background: #2f3640; opacity: .9; }
+.glass { background: var(--glass-bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.glass.wait { background: var(--glass-wait-bg); border-color: rgb(244 181 68 / 35%); }
+.glass.ok { background: var(--glass-ok-bg); border-color: rgb(43 238 134 / 30%); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.dim { color: var(--dim); }
+.warn-t { color: var(--warn); }
+.ok-t { color: var(--green); }
+.err-t { color: var(--err); }
+.sp { flex: 1; }
+.row { display: flex; align-items: center; gap: 10px; }
+.wrap-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+p { margin: 0; }
+.kicker { font: 600 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+/* botões */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-2); background: rgb(255 255 255 / 6%);
+  padding: 7px 14px; border-radius: 99px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.btn:hover { background: rgb(255 255 255 / 11%); }
+.btn.primary { background: var(--green); border-color: var(--green); color: #04130a; font-weight: 600; box-shadow: 0 0 24px rgb(43 238 134 / 25%); }
+.btn.primary:hover { background: var(--green-hi); }
+.btn.amber { background: var(--warn); border-color: var(--warn); color: #1d1200; font-weight: 600; }
+.btn.ghost { background: none; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--fg); background: rgb(255 255 255 / 6%); }
+.btn.lg { padding: 11px 20px; font-size: 14px; }
+.btn.sm { padding: 4px 10px; font-size: 12px; }
+.link { color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; cursor: pointer; font-size: 12.5px; }
+.link:hover { color: var(--fg); }
+
+/* chips e badges */
+.chip { font: 12px var(--mono); color: var(--muted); padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line-2); white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font: 600 11px var(--mono); padding: 2px 8px; border-radius: 99px;
+  border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.run { color: var(--green); border-color: rgb(43 238 134 / 40%); background: var(--green-soft); }
+.badge.you { color: var(--warn); border-color: rgb(244 181 68 / 45%); background: var(--warn-soft); }
+.badge.done { color: var(--green-hi); border-color: rgb(141 255 192 / 25%); }
+.badge.err { color: var(--err); border-color: rgb(255 138 130 / 45%); background: var(--err-soft); }
+.badge.todo { color: var(--dim); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; display: inline-block; }
+.dot.run { background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 1.6s infinite; }
+.dot.you { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.dot.done { background: var(--green-2); }
+.dot.err { background: var(--err); }
+.dot.todo { background: transparent; border: 1.5px solid var(--dim); }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .dot.run { animation: none; } }
+
+/* mini pipeline */
+.pipe { display: inline-flex; gap: 3px; font: 10.5px var(--mono); color: var(--dim); }
+.pipe i { font-style: normal; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 99px; }
+.pipe i.done { color: var(--green); border-color: rgb(43 238 134 / 45%); }
+.pipe i.active { color: #04130a; background: var(--green); border-color: var(--green); }
+.pipe i.err { color: #1d1200; background: var(--warn); border-color: var(--warn); }
+
+/* barras */
+.bar { height: 6px; border-radius: 99px; background: var(--well); overflow: hidden; position: relative; }
+.bar > b { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: 99px; }
+.bar > b.est { background: rgb(255 255 255 / 14%); }
+.bar.warn > b { background: var(--warn); }
+
+/* campos */
+.field { display: grid; gap: 6px; }
+.field label { font: 600 11px var(--mono); color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+.input { width: 100%; background: var(--well); border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; color: var(--fg); }
+.input::placeholder { color: var(--dim); }
+textarea.input { min-height: 84px; resize: vertical; }
+
+/* opções (entrevista) */
+.opt { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); cursor: pointer; }
+.opt:hover { background: var(--surface); }
+.opt .r { width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--line-2); flex: none; }
+.opt.sel { border-color: rgb(43 238 134 / 45%); background: var(--green-soft); }
+.opt.sel .r { border: 5px solid var(--green); }
+.rec { font: 600 10px var(--mono); color: var(--green); border: 1px solid rgb(43 238 134 / 40%); border-radius: 99px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
+
+/* terminal */
+.term { font: 12.5px/1.6 var(--mono); background: rgb(0 0 0 / 45%); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; white-space: pre-wrap; color: var(--muted); }
+.term .f { color: var(--err); }
+.term .c { color: var(--fg); }
+
+/* arquivos */
+.files { display: grid; gap: 2px; font: 12.5px var(--mono); }
+.files .f { display: grid; grid-template-columns: 22px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; }
+.files .f:hover { background: var(--surface); }
+.st-A { color: var(--green); } .st-M { color: var(--warn); } .st-D { color: var(--err); }
+.add { color: var(--green); } .rem { color: var(--err); }
+
+/* tabelas simples */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font: 600 11px var(--mono); color: var(--dim); letter-spacing: .04em; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.tbl td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tr.hl td { background: var(--warn-soft); }
+.tbl tr.dimrow td { color: var(--dim); }
+
+/* abas */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: none; padding: 9px 14px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 13px; }
+.tabs button.on { color: var(--fg); border-bottom-color: var(--green); }
+.tabs button .dot { margin-right: 6px; width: 6px; height: 6px; }
+
+/* ============ A · Linha do tempo ============ */
+.A { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+.A-head { display: flex; align-items: center; gap: 14px; padding: 18px 0 10px; }
+.brand { font: 700 15px var(--mono); }
+.brand b { color: var(--green); }
+.A-nav { display: flex; gap: 2px; }
+.A-nav a { color: var(--muted); padding: 5px 12px; border-radius: 99px; cursor: pointer; font-size: 13px; }
+.A-nav a.on { background: var(--surface-2); color: var(--fg); }
+.A-status { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; margin: 6px 0 22px; border-radius: 99px; }
+.A-status .t { font-weight: 600; }
+.A-status .m { font: 12px var(--mono); color: var(--muted); }
+.A-title { margin: 0 0 4px; font-size: 22px; letter-spacing: -.01em; }
+.A-sub { color: var(--muted); font-size: 13px; margin-bottom: 26px; }
+.tl { position: relative; padding-left: 38px; display: grid; gap: 14px; }
+.tl::before { content: ''; position: absolute; left: 13px; top: 6px; bottom: 6px; width: 2px; background: var(--line); border-radius: 2px; }
+.node { position: relative; }
+.node > .ic { position: absolute; left: -38px; top: 2px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 11px var(--mono); background: #111416; border: 1.5px solid var(--line-2); color: var(--muted); }
+.node.done > .ic { border-color: var(--green-2); color: var(--green); }
+.node.you > .ic { border-color: var(--warn); color: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+.node.run > .ic { border-color: var(--green); color: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+.node.todo > .ic { border-style: dashed; color: var(--dim); }
+.node .line1 { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.node .line1 .n { font-weight: 600; }
+.node .line1 .s { color: var(--muted); font-size: 13px; }
+.node.todo .line1 { color: var(--dim); }
+.node .card { padding: 18px 20px; margin-top: 6px; }
+.node .card h3 { font-size: 16px; }
+.A-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.A-epic { display: grid; grid-template-columns: 44px 1fr auto 120px; gap: 12px; align-items: center; padding: 9px 12px; border-radius: 12px; }
+.A-epic:hover { background: var(--surface); cursor: pointer; }
+.A-epic .id { font: 600 12px var(--mono); color: var(--muted); }
+.A-epic .ti { min-width: 0; }
+.A-epic .ti b { font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.A-epic .ti small { color: var(--dim); font-size: 12px; }
+.A-epic.you { background: var(--warn-soft); border: 1px solid rgb(244 181 68 / 30%); }
+.A-epic.wait { opacity: .55; }
+.A-resolve { margin: 4px 0 8px 56px; padding: 14px 16px; border-left: 2px solid var(--warn); display: grid; gap: 12px; }
+.A-compose { padding: 22px; display: grid; gap: 14px; }
+.A-compose .big { font-size: 20px; background: none; border: 0; padding: 4px 0; width: 100%; color: var(--fg); }
+.A-compose .big::placeholder { color: var(--dim); }
+.A-compose textarea { background: none; border: 0; padding: 0; resize: none; min-height: 70px; color: var(--fg); width: 100%; }
+.A-compose textarea::placeholder { color: var(--dim); }
+.A-compose .foot { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; flex-wrap: wrap; }
+.A-hist-day { font: 600 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 8px; }
+.A-hrow { display: grid; grid-template-columns: 14px 60px 1fr auto auto auto; gap: 14px; align-items: center; padding: 11px 14px; border-radius: 12px; }
+.A-hrow:hover { background: var(--surface); cursor: pointer; }
+.A-hrow .num { font: 12px var(--mono); color: var(--muted); text-align: right; }
+
+/* ============ B · Foco único ============ */
+.F { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+.F-head { display: flex; align-items: center; gap: 14px; padding: 18px 0 14px; }
+.F-head .t { flex: 1; text-align: center; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ribbon { display: flex; gap: 10px; margin: 2px 0 0; }
+.ribbon .sg { display: grid; gap: 6px; min-width: 0; }
+.ribbon .bars { display: flex; gap: 3px; }
+.ribbon .bars i { flex: 1; height: 4px; border-radius: 99px; background: var(--line-2); }
+.ribbon .bars i.done { background: var(--green-2); }
+.ribbon .bars i.run { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.ribbon .bars i.you { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+.ribbon small { font: 11px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ribbon .sg.cur small { color: var(--fg); }
+.F-stage { max-width: 680px; margin: 44px auto 0; display: grid; gap: 14px; }
+.F-card { padding: 30px 32px; border-radius: 24px; display: grid; gap: 18px; }
+.F-card h1 { font-size: 28px; letter-spacing: -.02em; line-height: 1.2; }
+.F-card .lead { color: var(--muted); font-size: 15px; }
+.F-acts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.F-meanwhile { display: flex; gap: 10px; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; flex-wrap: wrap; text-align: center; }
+.F-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.F-nums div { padding: 12px 14px; border-radius: 14px; background: var(--surface); }
+.F-nums small { display: block; font: 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
+.F-nums b { font-size: 20px; font-weight: 600; }
+.F-check { display: grid; gap: 2px; }
+.F-check div { display: flex; gap: 10px; align-items: baseline; padding: 5px 2px; font-size: 14px; }
+.F-big { font-size: 44px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+.F-input { font-size: 22px; width: 100%; background: none; border: 0; color: var(--fg); padding: 0; }
+.F-input::placeholder { color: var(--dim); }
+.kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 6px; padding: 0 5px; color: var(--muted); }
+
+/* ============ C · Quadro ============ */
+.Q { max-width: 1480px; margin: 0 auto; padding: 0 24px; }
+.Q-task { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 16px; margin: 4px 0 16px; flex-wrap: wrap; }
+.Q-task h1 { font-size: 17px; }
+.Q-task .m { font: 12px var(--mono); color: var(--muted); }
+.board { display: grid; grid-template-columns: 1.55fr 1fr 1fr 1fr; gap: 14px; align-items: start; }
+.col { display: grid; gap: 10px; padding: 12px; border-radius: 18px; background: rgb(255 255 255 / 2.5%); border: 1px solid var(--line); min-height: 240px; align-content: start; }
+.col.you { background: var(--warn-soft); border-color: rgb(244 181 68 / 28%); }
+.col.new { background: var(--green-soft); border-color: rgb(43 238 134 / 25%); }
+.col > .h { display: flex; align-items: center; gap: 8px; font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 2px 4px 4px; }
+.col.you > .h { color: var(--warn); }
+.col.new > .h { color: var(--green); }
+.col > .h .n { margin-left: auto; color: var(--dim); }
+.qc { padding: 12px 14px; border-radius: 14px; background: rgb(14 17 19 / 72%); border: 1px solid var(--line); display: grid; gap: 8px; cursor: pointer; }
+.qc:hover { border-color: var(--line-2); }
+.qc .top { display: flex; align-items: center; gap: 8px; font: 11.5px var(--mono); color: var(--dim); }
+.qc b { font-weight: 500; }
+.qc small { color: var(--dim); font-size: 12.5px; }
+.qc.big { padding: 16px 18px; gap: 12px; border-color: rgb(244 181 68 / 40%); cursor: default; }
+.qc.big h3 { font-size: 16px; }
+.qc.ghost { background: none; border-style: dashed; }
+.qc.ghost b { color: var(--muted); }
+.qc.okc b { color: var(--muted); }
+.qc.live { border-color: rgb(43 238 134 / 35%); }
+.col .empty { color: var(--dim); font-size: 13px; text-align: center; padding: 26px 8px; }
+
+/* ============ barra de troca ============ */
+.switch { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 50; display: flex; gap: 10px; align-items: center;
+  padding: 8px; border-radius: 99px; background: rgb(12 14 16 / 86%); border: 1px solid var(--line-2); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 50%); max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
+@media (max-width: 1100px) { .switch { border-radius: 22px; } body { padding-bottom: 140px; } }
+.switch .grp { display: flex; gap: 2px; padding: 3px; border-radius: 99px; background: var(--well); }
+.switch button { border: 0; background: none; padding: 6px 12px; border-radius: 99px; color: var(--muted); cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+.switch button.on { background: var(--green); color: #04130a; font-weight: 600; }
+.switch .grp.scr button.on { background: rgb(255 255 255 / 14%); color: var(--fg); }
+.about { max-width: 860px; margin: 14px auto 0; padding: 0 20px; font-size: 12.5px; color: var(--dim); text-align: center; }
+
+@media (max-width: 1100px) { .board { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 980px) {
+  .F-nums { grid-template-columns: 1fr; }
+  .F-card { padding: 22px; }
+  .F-card h1 { font-size: 22px; }
+  .A-epic { grid-template-columns: 36px 1fr auto; }
+  .A-epic > :last-child { display: none; }
+  .A-hrow { grid-template-columns: 14px 1fr auto; }
+  .A-hrow > :nth-child(2), .A-hrow > :nth-child(5) { display: none; }
+}
+@media (max-width: 700px) { .board { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="backdrop"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+<div id="app"></div>
+<p class="about" id="about"></p>
+
+<nav class="switch" aria-label="Trocar mockup">
+  <div class="grp dir" id="dirs"></div>
+  <div class="grp scr" id="scrs"></div>
+</nav>
+
+<script>
+/* ---------- dados de exemplo (formato do TaskView) ---------- */
+const T = { id: 'T-107', title: 'Exportar pedidos filtrados em CSV', repo: 'portal-vendas', time: '18 min', tokens: '286 mil',
+  cost: '$1,74', est: '$2,10', costPct: 83, session: 12, week: 14 };
+
+const EPICS = [
+  { id: 'E2', title: 'Serializador CSV em streaming', goal: 'Gera o CSV linha a linha, sem carregar tudo na memória', st: 'you', label: 'precisa de você',
+    where: 'Tester', pipe: ['done', 'err', ''], col: 1, tokens: '79 mil', cost: '$0,42', deps: [], size: 'M', rounds: 3 },
+  { id: 'E4', title: 'Filtros da listagem na URL', goal: 'Filtros viram query string pra exportar o que está na tela', st: 'run', label: 'rodando',
+    where: 'Tester', pipe: ['done', 'active', ''], col: 1, tokens: '61 mil', cost: '$0,38', deps: [], size: 'S' },
+  { id: 'E5', title: 'Toast de progresso do download', goal: 'Mostra andamento e erro do download', st: 'run', label: 'rodando',
+    where: 'Developer', pipe: ['active', '', ''], col: 0, tokens: '23 mil', cost: '$0,14', deps: [], size: 'S' },
+  { id: 'E1', title: 'Endpoint de exportação com filtros', goal: 'GET /orders/export aceita os filtros da listagem', st: 'done', label: 'pronto',
+    where: 'merge a3f91c2', pipe: ['done', 'done', 'done'], col: 3, tokens: '54 mil', cost: '$0,33', deps: [], size: 'S' },
+  { id: 'E3', title: 'Botão Exportar na tabela de pedidos', goal: 'Botão chama o endpoint com os filtros atuais', st: 'todo', label: 'na fila',
+    where: 'espera E1, E2', pipe: ['', '', ''], col: -1, tokens: '—', cost: '—', deps: ['E1', 'E2'], size: 'S' },
+  { id: 'REV', title: 'Review final', goal: 'Reviewer revisa crew/T-107 inteira', st: 'todo', label: 'na fila',
+    where: 'depois de todos', pipe: ['', '', ''], col: -1, tokens: '—', cost: '—', deps: ['todos'], size: '' },
+];
+const TEST_OUT = `<span class="c">$ npm test</span>
+<span class="f">FAIL</span> src/server/orders/csv.test.ts › escapa aspas e quebras de linha
+  expected '"a ""b"""'  received '"a "b""'
+<span class="f">FAIL</span> src/server/orders/csv.test.ts › fecha o stream no fim
+  timeout de 5000 ms
+41/43 passaram`;
+
+const Q_DONE = [
+  ['Fora de escopo', 'Agendar exportação fica pra depois'],
+  ['Critérios', '3 critérios testáveis (filtro, encoding, arquivo grande)'],
+];
+const Q_NOW = [
+  { topic: 'Formato', q: 'Separador e encoding do CSV?', why: 'Excel em pt-BR abre ";" com BOM sem perguntar nada.',
+    opts: ['";" com UTF-8 BOM', '"," com UTF-8 sem BOM'], rec: 0 },
+  { topic: 'Volume', q: 'Exportação grande: até quantas linhas?', why: 'A listagem passa de 50 mil pedidos em clientes grandes.',
+    opts: ['Sem limite, em streaming', 'Até 10 mil e avisa se passar'], rec: 0 },
+];
+const PLAN = { summary: 'Exportar a listagem de pedidos já filtrada como CSV, em streaming, com botão na tabela.',
+  why: 'E1, E2, E4 e E5 mexem em arquivos separados e rodam juntos. E3 junta tudo na tela, então espera E1 e E2.',
+  est: { tokens: '~410 mil', usd: '~$2,10', session: '12% → 34%', week: '14% → 19%', fits: 'cabe em 1 sessão' },
+  criteria: ['Exporta só os pedidos que batem com os filtros da tela', 'Abre certo no Excel pt-BR (";" + BOM)', '50 mil linhas sem estourar memória'] };
+const PLAN_EPICS = [
+  { id: 'E1', title: 'Endpoint de exportação com filtros', size: 'S', files: 3, deps: '—', usd: '$0,30' },
+  { id: 'E2', title: 'Serializador CSV em streaming', size: 'M', files: 2, deps: '—', usd: '$0,45' },
+  { id: 'E4', title: 'Filtros da listagem na URL', size: 'S', files: 2, deps: '—', usd: '$0,32' },
+  { id: 'E5', title: 'Toast de progresso do download', size: 'S', files: 2, deps: '—', usd: '$0,20' },
+  { id: 'E3', title: 'Botão Exportar na tabela de pedidos', size: 'S', files: 2, deps: 'E1, E2', usd: '$0,28' },
+];
+const FILES = [
+  ['A', 'src/server/orders/export.ts', 86, 0], ['A', 'src/server/orders/csv.ts', 64, 0], ['M', 'src/server/orders/routes.ts', 4, 1],
+  ['M', 'src/web/orders/OrdersTable.tsx', 22, 3], ['A', 'src/web/orders/useExport.ts', 41, 0], ['M', 'src/web/orders/filters.ts', 18, 7],
+  ['A', 'src/server/orders/csv.test.ts', 72, 0], ['A', 'src/web/orders/useExport.test.ts', 38, 0],
+];
+const COMMITS = [
+  ['E1', 'a3f91c2', 'feat(orders): export endpoint with list filters'], ['E2', 'b71e0d4', 'feat(orders): stream orders as CSV'],
+  ['E4', 'c0d22a9', 'feat(orders): keep list filters in the URL'], ['E5', '4e81f30', 'feat(orders): download progress toast'],
+  ['E3', '9a1c7b5', 'feat(orders): export button on the orders table'], ['REV', 'f02b6e1', 'fix(orders): close CSV stream on client abort'],
+];
+const HIST = [
+  ['hoje', 'done', 'T-107', 'Exportar pedidos filtrados em CSV', 'portal-vendas', '6 épicos', '$2,38', '42 min'],
+  ['hoje', 'err', 'T-106', 'Migrar datas pra Temporal', 'portal-vendas', 'falhou no Tester', '$0,81', '19 min'],
+  ['ontem', 'done', 'T-105', 'Corrigir paginação da busca de clientes', 'portal-vendas', 'execução única', '$0,99', '11 min'],
+  ['ontem', 'todo', 'T-104', 'Tema escuro no painel admin', 'admin-web', 'cancelada', '$0,12', '3 min'],
+  ['14 out', 'done', 'T-103', 'Adicionar repositório pela UI', 'dev-crew', '3 épicos', '$9,23', '1 h 12'],
+];
+
+/* ---------- peças comuns ---------- */
+const dot = (s) => `<span class="dot ${s}"></span>`;
+const badge = (s, t) => `<span class="badge ${s}">${t}</span>`;
+const pipe = (p, labels = ['Dev', 'Test', 'Merge']) => `<span class="pipe">${labels.map((l, i) => `<i class="${p[i] || ''}">${l}</i>`).join('')}</span>`;
+const opts = (q, compact) => q.opts.map((o, i) => `<div class="opt ${i === q.rec ? 'sel' : ''}"><span class="r"></span><span>${o}${i === q.rec ? '<span class="rec">recomendada</span>' : ''}</span></div>`).join('')
+  + `<div class="opt"><span class="r"></span><span class="muted">Outra resposta…</span></div>`;
+const files = (rows = FILES) => `<div class="files">${rows.map(([s, p, a, r]) => `<div class="f"><span class="st-${s}">${s}</span><span>${p}</span><span class="add">+${a}</span><span class="rem">${r ? '−' + r : ''}</span></div>`).join('')}</div>`;
+const commitMsg = `<div class="term" style="color:var(--fg)">feat(orders): export filtered orders as CSV
+
+Streams the filtered order list as CSV (";" + UTF-8 BOM) from
+GET /orders/export and adds an Export button to the orders table.</div>`;
+const histIcon = { done: 'done', err: 'err', todo: 'todo' };
+
+/* =====================================================================
+   A · LINHA DO TEMPO
+   ===================================================================== */
+const A = {};
+const aHead = (on) => `<div class="A-head"><span class="brand">&gt; dev-crew<b>▌</b></span>
+  <nav class="A-nav"><a class="${on === 'task' ? 'on' : ''}">Tarefa</a><a class="${on === 'hist' ? 'on' : ''}">Histórico</a></nav><span class="sp"></span>
+  <span class="chip">sessão ${T.session}% · semana ${T.week}%</span><button class="btn sm primary">+ Nova</button></div>`;
+const aStatus = (kind, text, meta, cta) => `<div class="A-status glass ${kind}">${dot(kind === 'wait' ? 'you' : kind === 'ok' ? 'done' : 'run')}
+  <span class="t">${text}</span><span class="sp"></span><span class="m">${meta}</span>${cta || ''}</div>`;
+const aTitle = (sub) => `<h1 class="A-title">${T.title}</h1><p class="A-sub"><span class="mono">${T.id}</span> · ${T.repo} · ${sub}</p>`;
+const aDone = (ic, n, s, link = 'ver') => `<div class="node done"><span class="ic">${ic}</span><div class="line1"><span class="n">${n}</span><span class="s">${s}</span><span class="sp"></span><a class="link">${link}</a></div></div>`;
+const aTodo = (ic, n, s = '') => `<div class="node todo"><span class="ic">${ic}</span><div class="line1"><span class="n">${n}</span><span class="s dim">${s}</span></div></div>`;
+
+A.nova = () => `${aHead('task')}
+  <div style="height:40px"></div>
+  <h1 class="A-title" style="font-size:26px">O que a equipe vai fazer?</h1>
+  <p class="A-sub">Descreva solto. O Entrevistador pergunta o que faltar antes de planejar.</p>
+  <div class="glass A-compose">
+    <input class="big" placeholder="Ex.: Exportar pedidos filtrados em CSV">
+    <textarea placeholder="Detalhes, contexto, links… (opcional)"></textarea>
+    <div class="foot">
+      <span class="chip">▣ portal-vendas ▾</span>
+      <a class="link">+ novo projeto</a><a class="link">+ adicionar pasta</a>
+      <span class="sp"></span><button class="btn primary lg">Começar</button>
+    </div>
+  </div>
+  <div class="A-hist-day">recentes</div>
+  ${HIST.slice(0, 3).map(aHist).join('')}`;
+
+A.entrevista = () => `${aHead('task')}
+  ${aStatus('wait', 'Precisa de você: 2 perguntas', `${T.time} · rodada 2`, '<button class="btn amber sm">Responder ↓</button>')}
+  ${aTitle('começou há 4 min')}
+  <div class="tl">
+    ${aDone('✓', 'Tarefa', 'descrição + repositório')}
+    <div class="node you"><span class="ic">EN</span>
+      <div class="line1"><span class="n">Entrevistador</span><span class="s">rodada 2 · ${Q_DONE.length} decisões já tomadas</span><span class="sp"></span><a class="link">ver rodada 1</a></div>
+      <div class="glass wait card" style="display:grid;gap:18px">
+        ${Q_NOW.map((q) => `<div style="display:grid;gap:8px"><div><span class="kicker" style="color:var(--warn)">${q.topic}</span><h3 style="margin-top:2px">${q.q}</h3><p class="dim" style="font-size:13px">${q.why}</p></div>${opts(q)}</div>`).join('')}
+        <div class="A-actions" style="margin-top:0"><button class="btn">Aceitar as recomendadas</button><button class="btn primary">Enviar respostas</button></div>
+      </div>
+    </div>
+    ${aTodo('PL', 'Plano')}${aTodo('▶', 'Execução')}${aTodo('✓', 'Resultado')}
+  </div>`;
+
+A.plano = () => `${aHead('task')}
+  ${aStatus('wait', 'Precisa de você: aprovar o plano', `${T.time} · estimativa ${PLAN.est.usd}`, '<button class="btn amber sm">Revisar ↓</button>')}
+  ${aTitle('começou há 9 min')}
+  <div class="tl">
+    ${aDone('✓', 'Tarefa', 'descrição + repositório')}
+    ${aDone('✓', 'Entrevista', '2 rodadas · 4 decisões')}
+    <div class="node you"><span class="ic">PL</span>
+      <div class="line1"><span class="n">Plano</span><span class="s">5 épicos · 4 rodam juntos</span></div>
+      <div class="glass wait card" style="display:grid;gap:16px">
+        <p style="font-size:15px">${PLAN.summary}</p>
+        <div class="wrap-row"><span class="chip">${PLAN.est.usd}</span><span class="chip">${PLAN.est.tokens} tokens</span><span class="chip">sessão ${PLAN.est.session}</span><span class="chip">${PLAN.est.fits}</span></div>
+        <div>
+          ${PLAN_EPICS.map((e) => `<div class="A-epic ${e.deps !== '—' ? 'wait' : ''}" style="opacity:1"><span class="id">☑ ${e.id}</span><span class="ti"><b>${e.title}</b><small>${e.deps === '—' ? 'sem dependência' : 'espera ' + e.deps} · ${e.files} arquivos</small></span><span class="chip">${e.size}</span><span class="mono dim" style="text-align:right;font-size:12px">${e.usd}</span></div>`).join('')}
+        </div>
+        <p class="muted" style="font-size:13px"><b style="color:var(--fg)">Por que dividir:</b> ${PLAN.why}</p>
+        <a class="link">critérios de aceite (3) · passos · arquivos</a>
+        <div class="A-actions" style="margin-top:0"><button class="btn">Pedir ajuste</button><button class="btn primary">Aprovar e rodar 4 épicos</button></div>
+      </div>
+    </div>
+    ${aTodo('▶', 'Execução')}${aTodo('✓', 'Resultado')}
+  </div>`;
+
+A.epicos = () => `${aHead('task')}
+  ${aStatus('wait', 'E2 precisa de você', `1/6 prontos · ${T.time} · ${T.cost} de ~${T.est}`, '<button class="btn amber sm">Resolver ↓</button>')}
+  ${aTitle('começou há 18 min')}
+  <div class="tl">
+    ${aDone('✓', 'Entrevista', '2 rodadas · 4 decisões')}
+    ${aDone('✓', 'Plano aprovado', '5 épicos + review final · ~$2,10')}
+    <div class="node you"><span class="ic">▶</span>
+      <div class="line1"><span class="n">Execução</span><span class="s">1 de 6 prontos · 3 rodando</span><span class="sp"></span><div class="bar" style="width:140px"><b style="width:17%"></b></div></div>
+      <div class="glass card" style="padding:10px">
+        ${EPICS.map((e) => `<div class="A-epic ${e.st === 'you' ? 'you' : e.st === 'todo' ? 'wait' : ''}">
+          <span class="id">${e.id}</span><span class="ti"><b>${e.title}</b><small>${e.st === 'todo' ? e.where : e.where + ' · ' + e.cost}</small></span>
+          ${badge(e.st, e.label)}<span style="text-align:right">${e.id === 'REV' ? '' : pipe(e.pipe)}</span></div>
+          ${e.st === 'you' ? `<div class="A-resolve">
+            <p><b>Tester falhou 3 vezes seguidas.</b> <span class="muted">E3 e o review final esperam por E2.</span></p>
+            <div class="term">${TEST_OUT}</div>
+            <textarea class="input" placeholder="Instrução pro Developer, ex.: dobre as aspas internas e feche o stream no 'finish'"></textarea>
+            <div class="row" style="justify-content:flex-end;flex-wrap:wrap"><a class="link">log do Developer</a><span class="sp"></span><button class="btn ghost">Cancelar tarefa</button><button class="btn">+2 tentativas</button><button class="btn amber">Enviar instrução</button></div>
+          </div>` : ''}`).join('')}
+      </div>
+    </div>
+    ${aTodo('✓', 'Resultado', 'commit por épico em crew/T-107')}
+  </div>`;
+
+A.unica = () => `${aHead('task')}
+  ${aStatus('run', 'Tester rodando os testes', '11 min · $0,61 de ~$0,90')}
+  <h1 class="A-title">Corrigir paginação da busca de clientes</h1><p class="A-sub"><span class="mono">T-108</span> · portal-vendas · execução única</p>
+  <div class="tl">
+    ${aDone('✓', 'Entrevista', '1 rodada · 2 decisões')}
+    ${aDone('✓', 'Plano aprovado', '3 passos · 4 arquivos')}
+    ${aDone('DV', 'Developer', 'rodada 2 · 4 arquivos · corrigiu o offset da última página', 'ver diff')}
+    <div class="node run"><span class="ic">TS</span>
+      <div class="line1"><span class="n">Tester</span><span class="s">tentativa 1 de 3</span></div>
+      <div class="glass card" style="display:grid;gap:12px">
+        <div class="row"><span class="mono" style="font-size:13px">npm test</span><span class="sp"></span><span class="mono ok-t" style="font-size:13px">28 / 40</span></div>
+        <div class="bar"><b style="width:70%"></b></div>
+        <p class="muted" style="font-size:13px">Escreveu 2 testes novos: <span class="mono">search.pagination.test.ts</span></p>
+        <a class="link">ver saída completa</a>
+      </div>
+    </div>
+    ${aTodo('RV', 'Reviewer', 'até 2 rodadas')}${aTodo('✓', 'Resultado')}
+  </div>`;
+
+A.resultado = () => `${aHead('task')}
+  ${aStatus('ok', 'Pronto pra commitar', `42 min · $2,38 · 512 mil tokens`, '<button class="btn primary sm">Copiar mensagem</button>')}
+  ${aTitle('terminou há 2 min')}
+  <div class="tl">
+    ${aDone('✓', 'Entrevista', '2 rodadas · 4 decisões')}
+    ${aDone('✓', 'Plano', '5 épicos + review')}
+    ${aDone('✓', 'Execução', '6/6 · 1 escalada resolvida por você')}
+    <div class="node done"><span class="ic">✓</span>
+      <div class="line1"><span class="n">Resultado</span><span class="s">8 arquivos · +345 −11 · branch <span class="mono">crew/T-107</span></span></div>
+      <div class="glass ok card" style="display:grid;gap:16px">
+        <div><div class="row" style="margin-bottom:6px"><span class="kicker">mensagem de commit sugerida</span><span class="sp"></span><button class="btn sm">Copiar</button></div>${commitMsg}</div>
+        <div><span class="kicker">arquivos</span>${files()}</div>
+        <details><summary class="link">6 commits já na branch (um por épico)</summary><div class="files" style="margin-top:8px">${COMMITS.map(([e, s, m]) => `<div class="f" style="grid-template-columns:40px 70px 1fr"><span class="dim">${e}</span><span class="ok-t">${s}</span><span>${m}</span></div>`).join('')}</div></details>
+        <div class="A-actions" style="margin-top:0"><button class="btn">Abrir pasta</button><button class="btn">Copiar branch</button><button class="btn primary">Nova tarefa</button></div>
+      </div>
+    </div>
+  </div>`;
+
+function aHist(h) {
+  const [, s, id, title, repo, kind, cost, dur] = h;
+  return `<div class="A-hrow">${dot(histIcon[s])}<span class="mono dim" style="font-size:12px">${id}</span><span>${title} <span class="dim" style="font-size:12px">· ${kind}</span></span><span class="chip">${repo}</span><span class="num">${cost}</span><span class="num">${dur}</span></div>`;
+}
+A.historico = () => `${aHead('hist')}
+  <h1 class="A-title" style="margin-top:24px">Histórico</h1><p class="A-sub">5 tarefas · $13,53 no total · clique pra reabrir a linha do tempo</p>
+  ${['hoje', 'ontem', '14 out'].map((d) => `<div class="A-hist-day">${d}</div>${HIST.filter((h) => h[0] === d).map(aHist).join('')}`).join('')}`;
+
+/* =====================================================================
+   B · FOCO ÚNICO
+   ===================================================================== */
+const F = {};
+const fHead = (title = T.title, id = T.id) => `<div class="F-head"><span class="brand">&gt; dev-crew<b>▌</b></span>
+  <span class="t">${title ? `<span class="mono">${id}</span> · ${title}` : ''}</span>
+  <a class="link">Histórico</a><span class="chip">sessão ${T.session}% · semana ${T.week}%</span><button class="btn sm primary">+ Nova</button></div>`;
+// fita de progresso: [rótulo, estados das barrinhas, é a etapa atual]
+const rib = (segs) => `<div class="ribbon">${segs.map(([l, bars, cur]) => `<div class="sg ${cur ? 'cur' : ''}" style="flex:${Math.max(1, bars.length / 2)}"><div class="bars">${bars.map((b) => `<i class="${b}"></i>`).join('')}</div><small>${l}</small></div>`).join('')}</div>`;
+const EPIC_BARS = EPICS.map((e) => ({ you: 'you', run: 'run', done: 'done', todo: '' })[e.st]);
+
+F.nova = () => `${fHead('')}
+  <div class="F-stage" style="margin-top:80px">
+    <div class="glass F-card">
+      <span class="kicker">nova tarefa</span>
+      <input class="F-input" placeholder="O que a equipe vai fazer?">
+      <textarea class="input" style="min-height:70px" placeholder="Detalhes (opcional). O Entrevistador pergunta o resto."></textarea>
+      <div class="F-acts"><span class="chip" style="color:var(--fg)">▣ portal-vendas ▾</span><a class="link">+ novo projeto</a><a class="link">+ adicionar pasta</a><span class="sp"></span><button class="btn primary lg">Começar</button></div>
+    </div>
+    <div class="F-meanwhile"><span>ou reabra</span><a class="link">T-107 Exportar pedidos em CSV</a><a class="link">T-106 Migrar datas</a><span class="dim">·</span><span><span class="kbd">Ctrl</span> <span class="kbd">Enter</span> começa</span></div>
+  </div>`;
+
+F.entrevista = () => `${fHead()}
+  ${rib([['Entrevista', ['you'], true], ['Plano', ['']], ['Execução', ['', '', '']], ['Resultado', ['']]])}
+  <div class="F-stage">
+    <div class="row"><span class="kicker warn-t">entrevista · pergunta 3 de 4</span><span class="sp"></span><span class="dim mono" style="font-size:12px">2 já decididas</span></div>
+    <div class="glass wait F-card">
+      <span class="kicker">${Q_NOW[0].topic}</span>
+      <h1>${Q_NOW[0].q}</h1>
+      <p class="lead">${Q_NOW[0].why}</p>
+      <div style="display:grid;gap:8px">${opts(Q_NOW[0])}</div>
+      <div class="F-acts"><button class="btn ghost">‹ anterior</button><span class="sp"></span><button class="btn">Aceitar todas as recomendadas</button><button class="btn amber">Próxima →</button></div>
+    </div>
+    <div class="F-meanwhile"><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span> escolhe · <span class="kbd">Enter</span> próxima</div>
+  </div>`;
+
+F.plano = () => `${fHead()}
+  ${rib([['Entrevista', ['done']], ['Plano', ['you'], true], ['Execução', ['', '', '']], ['Resultado', ['']]])}
+  <div class="F-stage">
+    <span class="kicker warn-t">plano pronto · sua aprovação</span>
+    <div class="glass wait F-card">
+      <h1>${PLAN.summary}</h1>
+      <div class="F-nums"><div><small>custo</small><b>${PLAN.est.usd}</b></div><div><small>tokens</small><b>${PLAN.est.tokens}</b></div><div><small>sessão</small><b>${PLAN.est.session}</b></div></div>
+      <div class="F-check">${PLAN_EPICS.map((e) => `<div><span>☑</span><span class="mono dim" style="font-size:12px;width:24px">${e.id}</span><span>${e.title}</span><span class="sp"></span><span class="dim mono" style="font-size:12px">${e.deps === '—' ? 'paralelo' : 'depois de ' + e.deps}</span></div>`).join('')}</div>
+      <p class="lead" style="font-size:14px">${PLAN.why}</p>
+      <div class="F-acts"><button class="btn amber lg">Aprovar e rodar</button><button class="btn lg">Pedir ajuste</button><span class="sp"></span><a class="link">critérios, passos e arquivos</a></div>
+    </div>
+  </div>`;
+
+F.epicos = () => `${fHead()}
+  ${rib([['Entrevista', ['done']], ['Plano', ['done']], ['Execução · 1/6', EPIC_BARS, true], ['Resultado', ['']]])}
+  <div class="F-stage">
+    <span class="kicker warn-t">precisa de você · E2 Serializador CSV</span>
+    <div class="glass wait F-card">
+      <h1>Tester falhou 3 vezes seguidas</h1>
+      <p class="lead">Aspas internas não são escapadas e o stream não fecha. E3 e o review final esperam por esse épico.</p>
+      <div class="term">${TEST_OUT}</div>
+      <textarea class="input" placeholder="Instrução pro Developer, ex.: dobre as aspas internas e feche o stream no 'finish'"></textarea>
+      <div class="F-acts"><button class="btn amber lg">Enviar instrução</button><button class="btn lg">+2 tentativas</button><span class="sp"></span><a class="link">tudo do E2</a></div>
+    </div>
+    <div class="F-meanwhile">${dot('run')}<span>Enquanto isso: E4 testando, E5 desenvolvendo · ${T.time} · ${T.cost} de ~${T.est}</span><a class="link">ver os 6 épicos</a></div>
+  </div>`;
+
+F.unica = () => `${fHead('Corrigir paginação da busca de clientes', 'T-108')}
+  ${rib([['Entrevista', ['done']], ['Plano', ['done']], ['Execução · Tester', ['done', 'run', ''], true], ['Resultado', ['']]])}
+  <div class="F-stage">
+    <span class="kicker ok-t">nada pra você agora</span>
+    <div class="glass F-card">
+      <h1>Tester está rodando os testes</h1>
+      <div class="row" style="align-items:flex-end"><span class="F-big ok-t">28</span><span class="dim mono" style="font-size:16px;padding-bottom:4px">/ 40 testes</span><span class="sp"></span><span class="mono muted" style="font-size:13px">tentativa 1 de 3</span></div>
+      <div class="bar"><b style="width:70%"></b></div>
+      <p class="lead">O Developer terminou a rodada 2 (offset da última página e total com filtro). Te aviso pelo Windows se precisar de você.</p>
+      <div class="F-acts"><a class="link">ver saída ao vivo</a><a class="link">ver diff do Developer</a><span class="sp"></span><button class="btn ghost sm">Cancelar tarefa</button></div>
+    </div>
+    <div class="F-meanwhile"><span>11 min · $0,61 de ~$0,90 · depois: Reviewer (até 2 rodadas)</span></div>
+  </div>`;
+
+F.resultado = () => `${fHead()}
+  ${rib([['Entrevista', ['done']], ['Plano', ['done']], ['Execução · 6/6', ['done', 'done', 'done', 'done', 'done', 'done']], ['Resultado', ['done'], true]])}
+  <div class="F-stage">
+    <span class="kicker ok-t">pronto pra commitar</span>
+    <div class="glass ok F-card">
+      <h1>8 arquivos em <span class="mono" style="font-size:24px">crew/T-107</span></h1>
+      <div class="F-nums"><div><small>tempo</small><b>42 min</b></div><div><small>custo</small><b>$2,38</b> <span class="dim mono" style="font-size:12px">/ ~$2,10</span></div><div><small>linhas</small><b><span class="add">+345</span> <span class="rem">−11</span></b></div></div>
+      ${commitMsg}
+      <div class="F-acts"><button class="btn primary lg">Copiar mensagem</button><button class="btn lg">Ver diff</button><button class="btn lg">Abrir pasta</button></div>
+    </div>
+    <div class="F-meanwhile"><span>6 commits já na branch, um por épico · nada foi pro remoto</span><a class="link">ver commits</a></div>
+  </div>`;
+
+F.historico = () => `${fHead('')}
+  <div class="F-stage" style="max-width:820px;margin-top:30px;gap:4px">
+    <h1 style="font-size:24px;margin-bottom:6px">Histórico</h1>
+    ${HIST.map(aHist).join('')}
+  </div>`;
+
+/* =====================================================================
+   C · QUADRO (por quem age)
+   ===================================================================== */
+const Q = {};
+const qTask = (title, id, prog, meta) => `<div class="glass Q-task"><span class="mono dim">${id}</span><h1>${title}</h1><span class="chip">${T.repo}</span><span class="sp"></span>${prog}<span class="m">${meta}</span><button class="btn ghost sm">Cancelar</button></div>`;
+const qProg = (txt, pct) => `<span class="m" style="color:var(--fg)">${txt}</span><div class="bar" style="width:120px"><b style="width:${pct}%"></b></div>`;
+const col = (cls, title, cards, n = '') => `<section class="col ${cls}"><div class="h">${title}<span class="n">${n}</span></div>${cards}</section>`;
+const qc = (top, title, body = '', cls = '') => `<div class="qc ${cls}"><div class="top">${top}</div><b>${title}</b>${body}</div>`;
+const empty = (t) => `<div class="empty">${t}</div>`;
+const COLS = ['precisa de você', 'rodando', 'na fila', 'pronto'];
+
+Q.nova = () => `${aHead('task')}
+  <div class="board" style="margin-top:8px">
+    ${col('new', '+ nova tarefa', `<div class="qc big" style="border-color:rgb(43 238 134 / 35%)">
+      <input class="input" placeholder="O que a equipe vai fazer?">
+      <textarea class="input" style="min-height:70px" placeholder="Detalhes (opcional)"></textarea>
+      <div class="wrap-row"><span class="chip" style="color:var(--fg)">▣ portal-vendas ▾</span><a class="link">+ novo projeto</a><a class="link">+ pasta</a><span class="sp"></span><button class="btn primary">Começar</button></div></div>`)}
+    ${col('', 'rodando', empty('nenhuma tarefa rodando'), '0')}
+    ${col('', 'concluídas', HIST.filter((h) => h[1] === 'done').map(qHist).join(''), '3')}
+    ${col('', 'falharam / canceladas', HIST.filter((h) => h[1] !== 'done').map(qHist).join(''), '2')}
+  </div>`;
+
+function qHist([d, s, id, t, r, k, c, du]) {
+  return qc(`${dot(histIcon[s])}<span>${id}</span><span class="sp"></span><span>${d}</span>`, t, `<small class="mono">${k} · ${c} · ${du}</small>`, s === 'done' ? 'okc' : '');
+}
+
+Q.entrevista = () => `${aHead('task')}
+  ${qTask(T.title, T.id, qProg('entrevista', 15), '4 min')}
+  <div class="board">
+    ${col('you', COLS[0], Q_NOW.map((q) => `<div class="qc big"><div class="top"><span class="warn-t">${q.topic}</span></div><h3>${q.q}</h3><small>${q.why}</small>${opts(q)}</div>`).join('')
+      + '<div class="row" style="justify-content:flex-end"><button class="btn">Aceitar recomendadas</button><button class="btn amber">Enviar respostas</button></div>', '2')}
+    ${col('', COLS[1], empty('Entrevistador espera suas respostas'), '0')}
+    ${col('', COLS[2], qc('PL', 'Plano', '<small>Planner, depois da entrevista</small>', 'ghost') + qc('▶', 'Execução', '', 'ghost') + qc('✓', 'Resultado', '', 'ghost'), '3')}
+    ${col('', COLS[3], Q_DONE.map(([t, a]) => qc(`${dot('done')}<span>rodada 1 · ${t}</span>`, a, '', 'okc')).join(''), '2')}
+  </div>`;
+
+Q.plano = () => `${aHead('task')}
+  ${qTask(T.title, T.id, qProg('plano', 30), `9 min · est. ${PLAN.est.usd}`)}
+  <div class="board">
+    ${col('you', COLS[0], `<div class="qc big"><div class="top"><span class="warn-t">plano · aprovar</span></div><h3>${PLAN.summary}</h3>
+      <div class="wrap-row"><span class="chip">${PLAN.est.usd}</span><span class="chip">${PLAN.est.tokens} tokens</span><span class="chip">sessão ${PLAN.est.session}</span></div>
+      <small>${PLAN.why}</small><a class="link">critérios, passos e arquivos</a>
+      <div class="row" style="justify-content:flex-end"><button class="btn">Pedir ajuste</button><button class="btn amber">Aprovar e rodar</button></div></div>`, '1')}
+    ${col('', COLS[1], empty('nada rodando até você aprovar'), '0')}
+    ${col('', COLS[2] + ' · proposto', PLAN_EPICS.map((e) => qc(`<span>☑</span><span>${e.id}</span><span class="sp"></span><span class="chip">${e.size}</span>`, e.title, `<small class="mono">${e.deps === '—' ? 'paralelo' : 'espera ' + e.deps} · ${e.usd}</small>`, 'ghost')).join('') + qc('REV', 'Review final', '<small class="mono">depois de todos</small>', 'ghost'), '6')}
+    ${col('', COLS[3], qc(`${dot('done')}<span>entrevista</span>`, '2 rodadas · 4 decisões', '', 'okc'), '1')}
+  </div>`;
+
+Q.epicos = () => `${aHead('task')}
+  ${qTask(T.title, T.id, qProg('1/6 prontos', 17), `${T.time} · ${T.cost} de ~${T.est}`)}
+  <div class="board">
+    ${col('you', COLS[0], `<div class="qc big"><div class="top"><span class="warn-t">E2 · Tester 3/3</span><span class="sp"></span><span>${EPICS[0].cost}</span></div><h3>${EPICS[0].title}</h3>
+      <small>Tester falhou 3 vezes seguidas. E3 e o review final esperam por ele.</small>
+      <div class="term" style="font-size:12px">${TEST_OUT}</div>
+      <textarea class="input" placeholder="Instrução pro Developer"></textarea>
+      <div class="row" style="justify-content:flex-end;flex-wrap:wrap"><a class="link">log</a><span class="sp"></span><button class="btn">+2 tentativas</button><button class="btn amber">Enviar instrução</button></div></div>`, '1')}
+    ${col('', COLS[1], qc(`${dot('run')}<span>E4 · Tester</span><span class="sp"></span><span>${EPICS[1].cost}</span>`, EPICS[1].title, `<small class="mono">npm test · 31/38</small><div class="bar"><b style="width:82%"></b></div>`, 'live')
+      + qc(`${dot('run')}<span>E5 · Developer</span><span class="sp"></span><span>${EPICS[2].cost}</span>`, EPICS[2].title, '<small>editando useExport.ts</small>', 'live'), '2')}
+    ${col('', COLS[2], qc('E3', EPICS[4].title, '<small class="mono">espera E1, E2</small>', 'ghost') + qc('REV', 'Review final', '<small class="mono">depois de todos</small>', 'ghost'), '2')}
+    ${col('', COLS[3], qc(`${dot('done')}<span>E1 · a3f91c2</span><span class="sp"></span><span>${EPICS[3].cost}</span>`, EPICS[3].title, '', 'okc')
+      + qc(`${dot('done')}<span>plano</span>`, '5 épicos + review · ~$2,10', '', 'okc') + qc(`${dot('done')}<span>entrevista</span>`, '2 rodadas · 4 decisões', '', 'okc'), '3')}
+  </div>`;
+
+Q.unica = () => `${aHead('task')}
+  ${qTask('Corrigir paginação da busca de clientes', 'T-108', qProg('Tester', 60), '11 min · $0,61 de ~$0,90')}
+  <div class="board">
+    ${col('you', COLS[0], empty('Nada pra você agora.<br>Te aviso pelo Windows quando precisar.'), '0')}
+    ${col('', COLS[1], `<div class="qc live" style="gap:10px"><div class="top">${dot('run')}<span>Tester · tentativa 1 de 3</span></div><b>Rodando a suíte</b>
+      <div class="row" style="align-items:flex-end"><span style="font-size:30px;font-weight:600" class="ok-t">28</span><span class="dim mono">/ 40</span></div><div class="bar"><b style="width:70%"></b></div>
+      <small>2 testes novos em search.pagination.test.ts</small><a class="link">saída ao vivo</a></div>`, '1')}
+    ${col('', COLS[2], qc('RV', 'Reviewer', '<small class="mono">até 2 rodadas</small>', 'ghost') + qc('✓', 'Resultado', '', 'ghost'), '2')}
+    ${col('', COLS[3], qc(`${dot('done')}<span>Developer · rodada 2</span>`, 'Offset da última página e total com filtro', '<small class="mono">4 arquivos · ver diff</small>', 'okc')
+      + qc(`${dot('done')}<span>plano</span>`, '3 passos · 4 arquivos', '', 'okc') + qc(`${dot('done')}<span>entrevista</span>`, '1 rodada · 2 decisões', '', 'okc'), '3')}
+  </div>`;
+
+Q.resultado = () => `${aHead('task')}
+  ${qTask(T.title, T.id, qProg('6/6 prontos', 100), '42 min · $2,38 de ~$2,10')}
+  <div class="board">
+    ${col('you', 'revisar e commitar', `<div class="qc big"><div class="top"><span class="warn-t">crew/T-107</span><span class="sp"></span><span><span class="add">+345</span> <span class="rem">−11</span></span></div><h3>8 arquivos, 6 commits na branch</h3>
+      ${commitMsg}<a class="link">ver diff dos 8 arquivos</a>
+      <div class="row" style="justify-content:flex-end;flex-wrap:wrap"><button class="btn">Abrir pasta</button><button class="btn">Copiar branch</button><button class="btn primary">Copiar mensagem</button></div></div>`, '1')}
+    ${col('', COLS[1], empty('nada rodando'), '0')}
+    ${col('', COLS[2], empty('nada na fila'), '0')}
+    ${col('', COLS[3], COMMITS.map(([e, s, m]) => qc(`${dot('done')}<span>${e} · ${s}</span>`, m, '', 'okc')).join(''), '6')}
+  </div>`;
+
+Q.historico = () => `${aHead('hist')}
+  <div class="board" style="margin-top:8px">
+    ${col('', 'rodando', qc(`${dot('run')}<span>T-108</span><span class="sp"></span><span>agora</span>`, 'Corrigir paginação da busca de clientes', '<small class="mono">Tester · 11 min · $0,61</small>', 'live'), '1')}
+    ${col('', 'concluídas', HIST.filter((h) => h[1] === 'done').map(qHist).join(''), '3')}
+    ${col('', 'falharam', HIST.filter((h) => h[1] === 'err').map(qHist).join(''), '1')}
+    ${col('', 'canceladas', HIST.filter((h) => h[1] === 'todo').map(qHist).join(''), '1')}
+  </div>`;
+
+/* ---------- troca ---------- */
+const DIRS = { A: ['A · Linha do tempo', A, 'Coluna única. A tarefa vira uma linha do tempo: o que passou é uma linha, o que é agora fica aberto, o que vem é cinza. Sem feed: o log fica dentro de cada nó.', 'A'],
+  B: ['B · Foco único', F, 'Uma coisa por vez no meio da tela: a decisão, ou o que está rodando se nada precisa de você. Uma fita fina no topo mostra onde a tarefa está; o resto fica a um clique.', 'F'],
+  C: ['C · Quadro', Q, 'Colunas por quem age: precisa de você, rodando, na fila, pronto. Etapas e épicos viram cartões que andam da fila até o pronto. O histórico é o mesmo quadro, com tarefas.', 'Q'] };
+const SCREENS = [['nova', 'Nova tarefa'], ['entrevista', 'Entrevista'], ['plano', 'Plano'], ['epicos', 'Épicos + escalada'], ['unica', 'Execução única'], ['resultado', 'Resultado'], ['historico', 'Histórico']];
+const params = new URLSearchParams(location.hash.slice(1));
+let dir = params.get('d') || 'A';
+let scr = params.get('s') || 'epicos';
+
+function render() {
+  const [, impl, about] = DIRS[dir];
+  const app = document.getElementById('app');
+  app.className = DIRS[dir][3];
+  app.innerHTML = impl[scr]();
+  document.getElementById('about').textContent = about;
+  document.getElementById('dirs').innerHTML = Object.entries(DIRS).map(([k, [l]]) => `<button data-d="${k}" class="${k === dir ? 'on' : ''}">${l}</button>`).join('');
+  document.getElementById('scrs').innerHTML = SCREENS.map(([k, l]) => `<button data-s="${k}" class="${k === scr ? 'on' : ''}">${l}</button>`).join('');
+  history.replaceState(null, '', `#d=${dir}&s=${scr}`);
+}
+document.querySelector('.switch').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  if (b.dataset.d) dir = b.dataset.d;
+  if (b.dataset.s) scr = b.dataset.s;
+  render();
+  window.scrollTo(0, 0);
+});
+render();
+</script>
+</body>
+</html>

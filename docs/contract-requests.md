@@ -15,6 +15,12 @@ Formato:
 
 ---
 
+## 2026-10-16 · UI v6 · Tela Alterações durante a execução e por épico — pendente
+- O quê: a tela Alterações do `mockup/v6-linha-do-tempo.html` (D78) mostra a árvore de arquivos + diff a qualquer momento da tarefa, com filtro por épico. Hoje `FileDiff` e `GET /api/tasks/{id}/diff?path=` só cobrem os arquivos do `FinalReport` (fase `done`).
+- Por quê: com o "rodada por rodada" fora da tela, o diff vira o único jeito de ver o que os agentes estão fazendo.
+- Proposta (código): `GET /api/tasks/{id}/files?epic=` (lista `path`, `status`, `added`, `removed`, `epic_id`) calculada do worktree da tarefa ou do épico; `diff?path=&epic=` aceita o mesmo filtro.
+- Workaround atual: nenhum; até lá a tela Alterações só aparece em `done`, com os arquivos do `FinalReport`.
+
 ## 2026-10-14 · UI v4 · Diff inline no resultado e reabrir tarefa do Histórico — ✅ aplicado (exceção ao congelamento, como D38/D39)
 
 Dois itens que a UI v4 (D73–D74, `mockup/v4-ux.html`) deixou de fora por pedirem dado novo do backend. Os dois são só leitura, sem comando novo, sem subject novo e sem mudar `TaskView`/`FinalReport`.
