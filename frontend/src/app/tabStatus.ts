@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 import type { TaskView } from '../contracts/generated'
+import { EPIC_TONE } from '../flow/lanes'
 import { STAGE_META } from '../flow/stages'
+import { reviewLane } from '../flow/timeline'
 
 export const BASE_TITLE = 'Dev Crew'
 export const TITLE_MAX = 40
@@ -57,8 +59,13 @@ export function describe(view: TaskView): { state: string; favicon: FaviconKind 
       }
     case 'awaiting_selection':
       return { state: `${NEEDS_YOU}: escolha os próximos épicos`, favicon: 'attention' }
-    case 'executing':
-      return { state: 'Épicos em execução', favicon: 'working' }
+    case 'executing': {
+      // o review final roda como faixa REV com a fase ainda em `executing`
+      const review = reviewLane(view)
+      return review && EPIC_TONE[review.status] === 'running'
+        ? { state: 'Review final em andamento', favicon: 'working' }
+        : { state: 'Épicos em execução', favicon: 'working' }
+    }
     case 'limited':
       return { state: `${NEEDS_YOU}: limite de uso atingido`, favicon: 'error' }
     case 'planning':

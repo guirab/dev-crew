@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { TaskView } from '../contracts/generated'
-import { fixture } from '../test/fixtures'
+import { epicLane, fixture } from '../test/fixtures'
 import { FAVICON_HREF, tabStatus, truncate, type FaviconKind } from './tabStatus'
 
 function view(
@@ -72,6 +72,18 @@ describe('tabStatus', () => {
   ] as const)('%s: %s trabalhando', (phase, agent) => {
     expect(tabStatus(view({ phase }))).toEqual({
       title: `${agent} trabalhando · Exportar CSV · Dev Crew`,
+      favicon: 'working',
+    })
+  })
+
+  it('executing: épicos em execução; com a faixa REV rodando, review final', () => {
+    const merged = epicLane('E1', 'merged')
+    expect(tabStatus(view({ phase: 'executing', epics: [merged] })).title).toBe(
+      'Épicos em execução · Exportar CSV · Dev Crew',
+    )
+    const review = epicLane('REV', 'running', { kind: 'review' })
+    expect(tabStatus(view({ phase: 'executing', epics: [merged, review] }))).toEqual({
+      title: 'Review final em andamento · Exportar CSV · Dev Crew',
       favicon: 'working',
     })
   })
