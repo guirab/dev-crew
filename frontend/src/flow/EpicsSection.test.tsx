@@ -66,119 +66,153 @@ function splitView(lanes: EpicView[], phase: TaskView['phase'] = 'executing'): T
   return { ...base, phase, plan, epics: lanes }
 }
 
+const rows = () =>
+  screen
+    .getAllByRole('row')
+    .map((row) => row.getAttribute('data-lane'))
+    .filter(Boolean)
+
+const escalatedE2 = (over: Partial<EpicView> = {}) =>
+  lane('E2', 'escalated', {
+    stages: {
+      developer: idle,
+      tester: { status: 'error', now: 'Limite 3/3', logs: [] },
+      reviewer: idle,
+    },
+    escalation: { stage: 'tester', reason: '3 falhas consecutivas de teste', epic_id: 'E2' },
+    ...over,
+  })
+
 describe('EpicsSection', () => {
-  it('abre no board, com as quatro colunas e o NextBatch acima', () => {
-    const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
-    renderWithClient(<EpicsSection view={view} />)
-    expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Grafo' })).toHaveAttribute('aria-pressed', 'false')
-    for (const name of ['A fazer', 'Em andamento', 'Precisa de você', 'Concluído']) {
-      expect(screen.getByRole('group', { name })).toBeInTheDocument()
-    }
-    expect(
-      within(screen.getByRole('group', { name: 'Concluído' })).getByText('Épico E1'),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
-  })
-
-  it('alterna entre board e grafo, mantendo o NextBatch', async () => {
-    const user = userEvent.setup()
-    const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
-    renderWithClient(<EpicsSection view={view} />)
-    await user.click(screen.getByRole('button', { name: 'Grafo' }))
-    expect(screen.getByRole('button', { name: 'Grafo' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByRole('group', { name: 'A fazer' })).not.toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Nível 1' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Épico E1/ })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Board' }))
-    expect(screen.getByRole('group', { name: 'A fazer' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
-  })
-
-  it('no grafo cada épico mostra status e o que está acontecendo', async () => {
-    const user = userEvent.setup()
-    const running = lane('E1', 'running', {
-      stages: {
-        developer: { status: 'active', now: 'Editando core.py', logs: [] },
-        tester: idle,
-        reviewer: idle,
-      },
-    })
+  it('abre na tabela, ordenada por precisa de você, rodando, preparando, na fila, pronto', () => {
     const view = splitView([
-      running,
-      lane('E2', 'merged', { commit: 'abcdef123456' }),
-      lane('E3', 'waiting'),
+      lane('E1', 'merged'),
+      lane('E2', 'pending'),
+      lane('E3', 'running'),
+      escalatedE2({ id: 'E4' }),
+      lane('E5', 'preparing'),
     ])
     renderWithClient(<EpicsSection view={view} />)
-    await user.click(screen.getByRole('button', { name: 'Grafo' }))
-    expect(screen.getByText('1/3 prontos · 1 em paralelo')).toBeInTheDocument()
-    expect(screen.getByText('Editando core.py')).toBeInTheDocument()
-    expect(screen.getByText('juntado · abcdef12')).toBeInTheDocument()
-    expect(screen.getByText('na fila')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Tabela' })).toHaveAttribute('aria-selected', 'true')
+    expect(rows()).toEqual(['E4', 'E3', 'E5', 'E2', 'E1'])
+    expect(
+      screen.getByText('1 precisa de você · 2 rodando · 1 na fila · 1 pronto'),
+    ).toBeInTheDocument()
   })
 
-  it('a escolha da vista não persiste: remontar volta ao board', async () => {
-    const user = userEvent.setup()
-    const view = splitView([lane('E1', 'running')])
-    const { unmount } = renderWithClient(<EpicsSection view={view} />)
-    await user.click(screen.getByRole('button', { name: 'Grafo' }))
-    unmount()
-    renderWithClient(<EpicsSection view={view} />)
-    expect(screen.getByRole('group', { name: 'Em andamento' })).toBeInTheDocument()
-  })
-
-  it('o ticket abre Developer, Tester e Merge (sem Reviewer, D68)', async () => {
-    const user = userEvent.setup()
-    renderWithClient(<EpicsSection view={splitView([lane('E1', 'running')])} />)
-    await user.click(screen.getByRole('button', { name: /Épico E1/ }))
-    const region = screen.getByRole('region', { name: 'Épico E1' })
-    for (const title of ['Developer', 'Tester', 'Merge']) {
-      expect(within(region).getByText(title)).toBeInTheDocument()
-    }
-    expect(within(region).queryByText('Reviewer')).not.toBeInTheDocument()
-  })
-
-  it('o review final aprovado mostra as rodadas', () => {
-    const review = lane('REV', 'merged', { kind: 'review', title: 'Review final' })
-    review.counters = { ...review.counters, review_round: 2 }
-    renderWithClient(<EpicsSection view={splitView([review])} />)
-    expect(screen.getByText('aprovado · 2 rodadas de review')).toBeInTheDocument()
-  })
-
-  it('o review final abre Developer, Tester e Reviewer', async () => {
-    const user = userEvent.setup()
-    const review = lane('REV', 'running', { kind: 'review', title: 'Review final' })
-    renderWithClient(<EpicsSection view={splitView([lane('E1', 'merged'), review])} />)
-    await user.click(screen.getByRole('button', { name: /Review final/ }))
-    const region = screen.getByRole('region', { name: 'Review final' })
-    for (const title of ['Developer', 'Tester', 'Reviewer']) {
-      expect(within(region).getByText(title)).toBeInTheDocument()
-    }
-  })
-
-  it('escalada de uma faixa manda o épico e não oferece replanejar', async () => {
-    const commands = captureCommands()
-    const user = userEvent.setup()
-    const escalated = lane('E2', 'escalated', {
+  it('a linha mostra status, etapa, tokens, custo e dependências', () => {
+    const running = lane('E1', 'running', {
       stages: {
         developer: idle,
-        tester: { status: 'error', now: 'Limite 3/3', logs: [] },
+        tester: { status: 'active', now: 'npm test', logs: [] },
         reviewer: idle,
       },
-      escalation: { stage: 'tester', reason: '3 falhas consecutivas de teste', epic_id: 'E2' },
+      tokens: 9100,
+      cost_usd: 0.61,
+      depends_on: ['E0'],
     })
-    renderWithClient(<EpicsSection view={splitView([escalated])} />)
-    await user.click(screen.getByRole('button', { name: /Épico E2/ }))
-    const region = screen.getByRole('region', { name: 'Épico E2' })
-    await user.click(within(region).getByRole('button', { name: /Tester/ }))
-    expect(screen.queryByRole('button', { name: 'Voltar pro Planner' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '+2 tentativas' }))
+    renderWithClient(<EpicsSection view={splitView([running])} />)
+    const row = screen.getByRole('row', { name: /E1 · Épico E1/ })
+    expect(within(row).getByText('rodando')).toBeInTheDocument()
+    expect(within(row).getByText('Tester')).toBeInTheDocument()
+    expect(within(row).getByText('9,1 mil')).toBeInTheDocument()
+    expect(within(row).getByText('$0.61')).toBeInTheDocument()
+    expect(within(row).getByText('E0')).toBeInTheDocument()
+  })
+
+  it('board e grafo são vistas alternativas; o NextBatch fica em todas', async () => {
+    const user = userEvent.setup()
+    const view = splitView([lane('E1', 'merged'), lane('E2', 'pending')], 'awaiting_selection')
+    renderWithClient(<EpicsSection view={view} />)
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Board' }))
+    expect(screen.getByRole('group', { name: 'Pronto' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Rodando' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Grafo' }))
+    expect(screen.getByRole('group', { name: 'Nível 1' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
+  })
+
+  it('escalada vira Alert no topo com motivo, quem espera e +2 tentativas', async () => {
+    const commands = captureCommands()
+    const user = userEvent.setup()
+    const view = splitView([escalatedE2(), lane('E3', 'waiting', { depends_on: ['E2'] })])
+    renderWithClient(<EpicsSection view={view} />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('E2 · Épico E2 precisa de você')
+    expect(alert).toHaveTextContent('3 falhas consecutivas de teste. E3 está esperando o E2.')
+    await user.click(within(alert).getByRole('button', { name: '+2 tentativas' }))
     await waitFor(() => {
       expect(commands.received).toEqual([
         { type: 'escalation', action: 'more_attempts', epic_id: 'E2' },
       ])
     })
+  })
+
+  it('sem nada parado, sem Alert', () => {
+    renderWithClient(<EpicsSection view={splitView([lane('E1', 'running')])} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('"Abrir E2" abre o painel lateral na aba Resolver; Esc fecha', async () => {
+    const user = userEvent.setup()
+    const run = {
+      type: 'test' as const,
+      ok: false,
+      passed: 30,
+      total: 32,
+      failures: [{ test: 'ManualForm > título', message: 'Unable to find a label' }],
+      coverage: null,
+      command: 'npm test',
+      tests_written: [],
+    }
+    renderWithClient(<EpicsSection view={splitView([escalatedE2({ test_runs: [run, run] })])} />)
+    await user.click(screen.getByRole('button', { name: 'Abrir E2' }))
+    const sheet = screen.getByRole('dialog', { name: 'Épico E2' })
+    expect(within(sheet).getByRole('tab', { name: 'Resolver' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(within(sheet).getByText('Última saída do Tester')).toBeInTheDocument()
+    expect(within(sheet).getByText(/Unable to find a label/)).toBeInTheDocument()
+    expect(
+      within(sheet).getByRole('textbox', { name: 'Instrução pro Developer' }),
+    ).toBeInTheDocument()
+    expect(
+      within(sheet).queryByRole('button', { name: 'Voltar pro Planner' }),
+    ).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('clicar na linha (ou Enter nela) abre o épico; o X fecha', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<EpicsSection view={splitView([lane('E1', 'running')])} />)
+    await user.click(screen.getByRole('row', { name: /E1 · Épico E1/ }))
+    expect(screen.getByRole('dialog', { name: 'Épico E1' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fechar' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    screen.getByRole('row', { name: /E1 · Épico E1/ }).focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('dialog', { name: 'Épico E1' })).toBeInTheDocument()
+  })
+
+  it('o ticket tem abas Developer, Tester e Merge; o review final tem Reviewer', async () => {
+    const user = userEvent.setup()
+    const review = lane('REV', 'running', { kind: 'review', title: 'Review final' })
+    renderWithClient(<EpicsSection view={splitView([lane('E1', 'running'), review])} />)
+    await user.click(screen.getByRole('row', { name: /E1 · Épico E1/ }))
+    let sheet = screen.getByRole('dialog')
+    expect(
+      within(sheet)
+        .getAllByRole('tab')
+        .map((t) => t.textContent),
+    ).toEqual(['Developer', 'Tester', 'Merge', 'Log'])
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('row', { name: /REV · Review final/ }))
+    sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByRole('tab', { name: 'Reviewer' })).toBeInTheDocument()
   })
 
   it('lote pronto: escolhe os próximos ou conclui', async () => {
@@ -189,9 +223,6 @@ describe('EpicsSection', () => {
       'awaiting_selection',
     )
     renderWithClient(<EpicsSection view={view} />)
-    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Grafo' }))
-    expect(screen.getByRole('group', { name: 'Próximos épicos' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'rodar E1 agora' })).toBeDisabled()
     await user.click(screen.getByRole('checkbox', { name: 'rodar E3 agora' }))
     await user.click(screen.getByRole('button', { name: 'Rodar 1 épico' }))

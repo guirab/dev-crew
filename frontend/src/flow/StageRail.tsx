@@ -14,7 +14,7 @@ interface StageRailProps {
   onSelect: (key: RailKey) => void
 }
 
-/** Trilho horizontal do pipeline: cada etapa é uma aba que mostra os detalhes no painel de foco. */
+/** Trilho compacto do pipeline, numa linha: cada etapa é uma aba que mostra os detalhes no painel de foco. */
 export function StageRail({ steps, edges, selected, onSelect }: StageRailProps) {
   return (
     <div role="tablist" aria-label="Etapas da tarefa" className={styles.rail}>
@@ -45,13 +45,6 @@ export function StageRail({ steps, edges, selected, onSelect }: StageRailProps) 
               {step.icon}
             </span>
             <span className={styles.label}>{step.title}</span>
-            {step.lanes && (
-              <span className={styles.lanes} aria-hidden="true">
-                {step.lanes.map((status, i) => (
-                  <i key={i} data-lane-status={status} />
-                ))}
-              </span>
-            )}
             {step.tag && <span className={styles.tag}>{step.tag}</span>}
           </button>
         </Fragment>

@@ -1,0 +1,129 @@
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.head th {
+  height: auto;
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--line);
+  font: 600 11px var(--mono);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.head:hover {
+  background: none;
+}
+
+.row {
+  cursor: pointer;
+}
+
+.row td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:hover {
+  background: rgb(255 255 255 / 4%);
+}
+
+.row[data-state='selected'] {
+  background: rgb(255 255 255 / 7%);
+}
+
+/* borda esquerda pela cor do status; a linha em si fica neutra */
+.first {
+  width: 1%;
+  border-left: 3px solid transparent;
+}
+
+.row[data-tone='attention'] .first {
+  border-left-color: var(--err);
+}
+
+.row[data-tone='running'] .first {
+  border-left-color: var(--green);
+}
+
+.row[data-tone='done'] .first {
+  border-left-color: rgb(141 255 192 / 40%);
+}
+
+.row[data-tone='done'] {
+  opacity: 0.72;
+}
+
+.row[data-tone='queued'] {
+  opacity: 0.6;
+}
+
+/* título + objetivo, uma linha cada; a célula absorve a largura que sobrar */
+.tt {
+  width: 100%;
+  max-width: 0;
+}
+
+.title,
+.goal {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  font-weight: 650;
+}
+
+.goal {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.stage {
+  display: block;
+  margin-top: 3px;
+  font: 11px var(--mono);
+  color: var(--dim);
+}
+
+.colTok,
+.colCost {
+  text-align: right;
+  font: 12.5px var(--mono);
+  color: var(--muted);
+}
+
+.colDeps {
+  font: 11.5px var(--mono);
+  color: var(--dim);
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.skel {
+  display: inline-block;
+  width: 72px;
+  height: 10px;
+  border-radius: 99px;
+}
+
+@media (max-width: 1100px) {
+  .colDeps,
+  .colCost {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .colTok,
+  .colPipe {
+    display: none;
+  }
+}

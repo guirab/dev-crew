@@ -48,19 +48,23 @@ export function FocusPanel({ view, step, progress }: FocusPanelProps) {
     body = <StageBody key={key} stageKey={key} view={view} stage={stage} />
   }
 
+  // épicos: a seção tem cabeçalho próprio e o que precisa de você vira Alert, não o painel inteiro aceso
+  const epics = key === 'epics'
   return (
     <section
       role="tabpanel"
       id={FOCUS_PANEL_ID}
       aria-labelledby={`step-${key}`}
-      className={cx(styles.panel, styles[step.status])}
+      className={cx(styles.panel, !epics && styles[step.status])}
       data-focus={key}
     >
-      <div className={styles.head}>
-        <h2 className={styles.title}>{step.title}</h2>
-        {step.tag && <span className={styles.tag}>{step.tag}</span>}
-        {description && <p className={styles.desc}>{description}</p>}
-      </div>
+      {!epics && (
+        <div className={styles.head}>
+          <h2 className={styles.title}>{step.title}</h2>
+          {step.tag && <span className={styles.tag}>{step.tag}</span>}
+          {description && <p className={styles.desc}>{description}</p>}
+        </div>
+      )}
       {body}
     </section>
   )

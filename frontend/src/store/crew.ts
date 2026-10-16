@@ -25,6 +25,8 @@ interface CrewState {
   screen: Screen
   /** Pedido pra abrir e mostrar um card (CTA da faixa Agora). `seq` muda a cada clique, mesmo no mesmo alvo. */
   focus: { target: FocusTarget; seq: number } | null
+  /** Épico aberto no painel lateral (Sheet); `null` fechado. */
+  openEpic: string | null
 
   applyView: (view: TaskView | null) => void
   /** Aplica um snapshot vindo do REST só se nenhum snapshot chegou desde `sinceVersion`. */
@@ -34,6 +36,7 @@ interface CrewState {
   setConnection: (connection: ConnectionState) => void
   setScreen: (screen: Screen) => void
   focusOn: (target: FocusTarget) => void
+  setOpenEpic: (id: string | null) => void
 }
 
 const initialState = {
@@ -44,6 +47,7 @@ const initialState = {
   progress: {},
   screen: 'new',
   focus: null,
+  openEpic: null,
 } satisfies Partial<CrewState>
 
 export const useCrewStore = create<CrewState>()((set) => ({
@@ -85,6 +89,10 @@ export const useCrewStore = create<CrewState>()((set) => ({
   focusOn: (target) => {
     set((s) => ({ focus: { target, seq: (s.focus?.seq ?? 0) + 1 } }))
   },
+
+  setOpenEpic: (openEpic) => {
+    set({ openEpic })
+  },
 }))
 
 /**
@@ -92,15 +100,17 @@ export const useCrewStore = create<CrewState>()((set) => ({
  * abre o fluxo; o primeiro snapshot (abrir/recarregar) e a reconexão com a mesma tarefa não mexem na tela.
  */
 function snapshot(
-  s: Pick<CrewState, 'view' | 'hydrated' | 'viewVersion' | 'screen'>,
+  s: Pick<CrewState, 'view' | 'hydrated' | 'viewVersion' | 'screen' | 'openEpic'>,
   view: TaskView | null,
-): Pick<CrewState, 'view' | 'viewVersion' | 'progress' | 'screen'> {
+): Pick<CrewState, 'view' | 'viewVersion' | 'progress' | 'screen' | 'openEpic'> {
   const started = s.hydrated && view !== null && view.task_id !== s.view?.task_id
   return {
     view,
     viewVersion: s.viewVersion + 1,
     progress: {},
     screen: started ? 'task' : s.screen,
+    // os ids dos épicos se repetem entre tarefas (E1, E2...)
+    openEpic: view?.task_id === s.view?.task_id ? s.openEpic : null,
   }
 }
 

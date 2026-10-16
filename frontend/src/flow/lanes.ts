@@ -1,6 +1,5 @@
 import type { StageStatus } from '../contracts/aliases'
 import type { EpicView, StageView, TaskView } from '../contracts/generated'
-import type { StageMeta } from './stages'
 
 type EpicStatus = EpicView['status']
 
@@ -8,7 +7,7 @@ export const EPIC_STATUS_LABEL: Record<EpicStatus, string> = {
   pending: 'pendente',
   waiting: 'na fila',
   preparing: 'preparando',
-  running: 'em execução',
+  running: 'rodando',
   escalated: 'precisa de você',
   limited: 'parado no limite',
   merging: 'juntando',
@@ -16,49 +15,91 @@ export const EPIC_STATUS_LABEL: Record<EpicStatus, string> = {
   failed: 'falhou',
 }
 
-/** Como o card da faixa se pinta (mesmas cores dos cards de estágio). */
-export const EPIC_CARD_STATUS: Record<EpicStatus, StageStatus> = {
-  pending: 'idle',
-  waiting: 'idle',
-  preparing: 'active',
-  running: 'active',
-  escalated: 'error',
-  limited: 'error',
-  merging: 'active',
-  merged: 'done',
-  failed: 'error',
-}
+/** Grupo de exibição de cada status: cor da borda, ordem da tabela e coluna do board. */
+export type EpicTone = 'attention' | 'running' | 'preparing' | 'queued' | 'done'
 
-export type BoardColumn = 'todo' | 'doing' | 'attention' | 'done'
-
-/** As colunas do board, na ordem em que aparecem. */
-export const BOARD_COLUMNS: readonly { id: BoardColumn; label: string }[] = [
-  { id: 'todo', label: 'A fazer' },
-  { id: 'doing', label: 'Em andamento' },
-  { id: 'attention', label: 'Precisa de você' },
-  { id: 'done', label: 'Concluído' },
-]
-
-/** Em que coluna do board cada status de faixa cai. */
-export const EPIC_BOARD_COLUMN: Record<EpicStatus, BoardColumn> = {
-  pending: 'todo',
-  waiting: 'todo',
-  preparing: 'doing',
-  running: 'doing',
-  merging: 'doing',
+export const EPIC_TONE: Record<EpicStatus, EpicTone> = {
   escalated: 'attention',
   limited: 'attention',
   failed: 'attention',
+  running: 'running',
+  merging: 'running',
+  preparing: 'preparing',
+  pending: 'queued',
+  waiting: 'queued',
   merged: 'done',
+}
+
+/** Como a etapa "Épicos" do trilho se pinta (mesmas cores dos estágios). */
+export const EPIC_CARD_STATUS: Record<EpicTone, StageStatus> = {
+  attention: 'error',
+  running: 'active',
+  preparing: 'active',
+  queued: 'idle',
+  done: 'done',
+}
+
+const TONE_ORDER: readonly EpicTone[] = ['attention', 'running', 'preparing', 'queued', 'done']
+
+/** Ordem da tabela: precisa de você, rodando, preparando, na fila, pronto. Empates mantêm `view.epics`. */
+export function sortLanes(lanes: readonly EpicView[]): EpicView[] {
+  const rank = (lane: EpicView) => TONE_ORDER.indexOf(EPIC_TONE[lane.status])
+  return [...lanes].sort((a, b) => rank(a) - rank(b))
+}
+
+/** Faixas paradas esperando uma decisão sua: viram Alert na seção e o CTA da faixa Agora. */
+export function lanesNeedingYou(lanes: readonly EpicView[]): EpicView[] {
+  return lanes.filter((lane) => lane.status === 'escalated' || lane.status === 'failed')
+}
+
+/** Faixas que ainda esperam `id` terminar. */
+export function dependentsOf(lanes: readonly EpicView[], id: string): EpicView[] {
+  return lanes.filter((lane) => lane.status !== 'merged' && lane.depends_on.includes(id))
+}
+
+/** O contador único da tela (faixa Agora): épicos juntados / épicos do plano. */
+export function epicProgress(lanes: readonly EpicView[]): { done: number; total: number } {
+  const epics = lanes.filter((lane) => lane.kind === 'epic')
+  return { done: epics.filter((lane) => lane.status === 'merged').length, total: epics.length }
+}
+
+export type BoardColumn = 'attention' | 'doing' | 'todo' | 'done'
+
+/** As colunas do board, na ordem em que aparecem. */
+export const BOARD_COLUMNS: readonly { id: BoardColumn; label: string }[] = [
+  { id: 'attention', label: 'Precisa de você' },
+  { id: 'doing', label: 'Rodando' },
+  { id: 'todo', label: 'Na fila' },
+  { id: 'done', label: 'Pronto' },
+]
+
+/** Em que coluna do board cada grupo cai. */
+export const TONE_COLUMN: Record<EpicTone, BoardColumn> = {
+  attention: 'attention',
+  running: 'doing',
+  preparing: 'doing',
+  queued: 'todo',
+  done: 'done',
+}
+
+/** "1 precisa de você · 3 rodando · 1 na fila · 1 pronto", sem o review final e sem grupo vazio. */
+export function epicsSummary(lanes: readonly EpicView[]): string {
+  const counted = lanes.filter((lane) => lane.kind !== 'review')
+  return BOARD_COLUMNS.map((column) => {
+    const n = counted.filter((lane) => TONE_COLUMN[EPIC_TONE[lane.status]] === column.id).length
+    return n > 0 ? `${String(n)} ${column.label.toLowerCase()}` : null
+  })
+    .filter((part) => part !== null)
+    .join(' · ')
 }
 
 /**
  * A etapa em que a faixa está agora (Developer, Tester, Merge; Reviewer no review final), só quando há
- * estágio ativo ou em erro. Faixas em A fazer e Concluído não têm etapa.
+ * estágio ativo ou em erro. Faixas na fila e prontas não têm etapa.
  */
 export function laneStage(lane: EpicView): string | null {
-  const column = EPIC_BOARD_COLUMN[lane.status]
-  if (column === 'todo' || column === 'done') return null
+  const tone = EPIC_TONE[lane.status]
+  if (tone === 'queued' || tone === 'done') return null
   for (const key of ['reviewer', 'tester', 'developer'] as const) {
     const status = lane.stages[key].status
     if (status !== 'active' && status !== 'error') continue
@@ -91,16 +132,11 @@ export function laneView(view: TaskView, lane: EpicView): TaskView {
   }
 }
 
-const MERGE_DESC = 'Commit e merge na branch da tarefa'
-
 /**
  * Num ticket (e na integração) o terceiro estágio não é o Reviewer (D68): os testes passaram, o dev-crew
  * commita e junta na branch da tarefa. O Reviewer roda uma vez só, na faixa "Review final".
  */
-export function mergeMeta(status: StageStatus): StageMeta {
-  const icon = status === 'done' ? '✓' : status === 'error' ? '!' : '⤵'
-  return { title: 'Merge', desc: MERGE_DESC, icon }
-}
+const MERGE_DESC = 'Commit e merge na branch da tarefa'
 
 export function mergeDescription(stage: StageView): string {
   return stage.now && stage.status !== 'idle' ? stage.now : MERGE_DESC

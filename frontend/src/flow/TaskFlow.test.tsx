@@ -70,8 +70,7 @@ describe('railSteps / autoFocus', () => {
     ])
     expect(rail[4]).toMatchObject({
       status: 'active',
-      tag: '1/2 prontos',
-      lanes: ['merged', 'running'],
+      tag: '1 rodando',
     })
   })
 
