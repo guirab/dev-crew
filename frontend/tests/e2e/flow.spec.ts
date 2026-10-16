@@ -216,6 +216,19 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     }
   })
 
+  test('celular: a pergunta da entrevista fica dentro da borda', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openFixture(page, 'interviewing')
+    const fields = await page.locator('fieldset').all()
+    expect(fields.length).toBeGreaterThan(0)
+    for (const field of fields) {
+      const box = await field.boundingBox()
+      const legend = await field.locator('legend').boundingBox()
+      // legenda padrão senta em cima da borda (topo igual ao do fieldset)
+      expect(legend?.y ?? 0).toBeGreaterThan(box?.y ?? 0)
+    }
+  })
+
   test('celular: Adicionar pasta cabe no diálogo', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
