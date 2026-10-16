@@ -185,7 +185,7 @@ export function NextBatch({ view }: { view: TaskView }) {
         >
           Terminar aqui
         </Button>
-        <span className={b.total}>{selectionTotal(chosen, view.estimate?.epics ?? [])}</span>
+        <span className={b.total}>{selectionTotal(chosen, view.estimate)}</span>
         <Button
           variant="primary"
           disabled={send.isPending || chosen.length === 0}

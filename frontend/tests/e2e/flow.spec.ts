@@ -199,4 +199,66 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     const card = await body(page, 'execution').boundingBox()
     expect(card?.width).toBeGreaterThan(390 - 2 * 16 - 2)
   })
+
+  test('celular: o card aberto não passa da largura da tela', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    for (const name of ['escalated', 'epics', 'next-batch', 'limited', 'failed']) {
+      if (name === 'failed') {
+        // tarefa terminada: sem aviso "ver tarefa", abre pela aba
+        await page.goto('/?fixture=failed')
+        await page.getByRole('tab', { name: 'Tarefa' }).click()
+      } else {
+        await openFixture(page, name)
+      }
+      await expect(page.locator('[data-node] > [role="region"]').first()).toBeVisible()
+      const width = await page.evaluate(() => document.documentElement.scrollWidth)
+      expect(width, name).toBeLessThanOrEqual(390)
+    }
+  })
+
+  test('celular: a pergunta da entrevista fica dentro da borda', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openFixture(page, 'interviewing')
+    const fields = await page.locator('fieldset').all()
+    expect(fields.length).toBeGreaterThan(0)
+    for (const field of fields) {
+      const box = await field.boundingBox()
+      const legend = await field.locator('legend').boundingBox()
+      // legenda padrão senta em cima da borda (topo igual ao do fieldset)
+      expect(legend?.y ?? 0).toBeGreaterThan(box?.y ?? 0)
+    }
+  })
+
+  test('celular: a barra de aprovação fecha o card, sem vão no fim', async ({ page }) => {
+    // um print fullPage congela a barra sticky na altura da janela e mostra o lugar dela vazio;
+    // rolando de verdade até o fim do card a barra assenta no lugar
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openFixture(page, 'awaiting_approval')
+    const card = body(page, 'plan')
+    await card.evaluate((el) => {
+      el.scrollIntoView({ block: 'end' })
+    })
+    const box = await card.boundingBox()
+    const bar = await card
+      .getByRole('button', { name: 'Aprovar plano' })
+      .locator('..')
+      .boundingBox()
+    const end = (box?.y ?? 0) + (box?.height ?? 0)
+    expect(end - ((bar?.y ?? 0) + (bar?.height ?? 0))).toBeLessThan(30)
+  })
+
+  test('celular: Adicionar pasta cabe no diálogo', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('combobox', { name: 'repositório' }).click()
+    await page.getByRole('option', { name: /Adicionar pasta/ }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('button', { name: 'Selecionar' }).first()).toBeVisible()
+    const box = await dialog.boundingBox()
+    const buttons = await dialog.getByRole('button', { name: 'Selecionar' }).all()
+    for (const button of buttons) {
+      const b = await button.boundingBox()
+      expect((b?.x ?? 0) + (b?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0))
+    }
+  })
 })

@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 import type { TaskView } from '../contracts/generated'
+import { EPIC_TONE, lanesNeedingYou } from '../flow/lanes'
 import { STAGE_META } from '../flow/stages'
+import { reviewLane } from '../flow/timeline'
 
 export const BASE_TITLE = 'Dev Crew'
 export const TITLE_MAX = 40
@@ -48,17 +50,36 @@ export function describe(view: TaskView): { state: string; favicon: FaviconKind 
         : working('interviewer')
     case 'awaiting_approval':
       return { state: `${NEEDS_YOU}: aprove o plano`, favicon: 'attention' }
-    case 'escalated':
+    case 'escalated': {
+      const esc = view.escalation
+      // com épicos, diz qual (como em `executing`)
+      const where =
+        lanesNeedingYou(view.epics)
+          .map((lane) => lane.id)
+          .join(', ') || esc?.epic_id
+      const stage = esc ? `: ${STAGE_META[esc.stage].title}` : ''
       return {
-        state: view.escalation
-          ? `${NEEDS_YOU}: escalada: ${STAGE_META[view.escalation.stage].title}`
-          : `${NEEDS_YOU}: escalada`,
+        state: `${NEEDS_YOU}: escalada${stage}${where ? ` em ${where}` : ''}`,
         favicon: 'attention',
       }
+    }
     case 'awaiting_selection':
       return { state: `${NEEDS_YOU}: escolha os próximos épicos`, favicon: 'attention' }
-    case 'executing':
-      return { state: 'Épicos em execução', favicon: 'working' }
+    case 'executing': {
+      // um épico escalado não tira a tarefa de `executing` enquanto outros rodam
+      const stuck = lanesNeedingYou(view.epics)
+      if (stuck.length > 0) {
+        return {
+          state: `${NEEDS_YOU}: escalada em ${stuck.map((lane) => lane.id).join(', ')}`,
+          favicon: 'attention',
+        }
+      }
+      // o review final roda como faixa REV com a fase ainda em `executing`
+      const review = reviewLane(view)
+      return review && EPIC_TONE[review.status] === 'running'
+        ? { state: 'Review final em andamento', favicon: 'working' }
+        : { state: 'Épicos em execução', favicon: 'working' }
+    }
     case 'limited':
       return { state: `${NEEDS_YOU}: limite de uso atingido`, favicon: 'error' }
     case 'planning':

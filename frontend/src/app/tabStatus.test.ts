@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { TaskView } from '../contracts/generated'
-import { fixture } from '../test/fixtures'
+import { epicLane, fixture } from '../test/fixtures'
 import { FAVICON_HREF, tabStatus, truncate, type FaviconKind } from './tabStatus'
 
 function view(
@@ -58,6 +58,17 @@ describe('tabStatus', () => {
     })
   })
 
+  it('escalated num épico diz qual', () => {
+    const escalation = { stage: 'tester' as const, reason: 'sem progresso', epic_id: 'E2' }
+    expect(tabStatus(view({ phase: 'escalated', escalation })).title).toBe(
+      '● Precisa de você: escalada: Tester em E2 · Exportar CSV · Dev Crew',
+    )
+    const epics = [epicLane('E1', 'merged'), epicLane('E2', 'escalated'), epicLane('E3', 'failed')]
+    expect(tabStatus(view({ phase: 'escalated', escalation, epics })).title).toBe(
+      '● Precisa de você: escalada: Tester em E2, E3 · Exportar CSV · Dev Crew',
+    )
+  })
+
   it('escalated sem detalhe da escalada ainda pede você', () => {
     expect(tabStatus(view({ phase: 'escalated' })).title).toBe(
       '● Precisa de você: escalada · Exportar CSV · Dev Crew',
@@ -73,6 +84,26 @@ describe('tabStatus', () => {
     expect(tabStatus(view({ phase }))).toEqual({
       title: `${agent} trabalhando · Exportar CSV · Dev Crew`,
       favicon: 'working',
+    })
+  })
+
+  it('executing: épicos em execução; com a faixa REV rodando, review final', () => {
+    const merged = epicLane('E1', 'merged')
+    expect(tabStatus(view({ phase: 'executing', epics: [merged] })).title).toBe(
+      'Épicos em execução · Exportar CSV · Dev Crew',
+    )
+    const review = epicLane('REV', 'running', { kind: 'review' })
+    expect(tabStatus(view({ phase: 'executing', epics: [merged, review] }))).toEqual({
+      title: 'Review final em andamento · Exportar CSV · Dev Crew',
+      favicon: 'working',
+    })
+  })
+
+  it('executing com um épico escalado e outro rodando pede você', () => {
+    const epics = [epicLane('E1', 'running'), epicLane('E2', 'escalated')]
+    expect(tabStatus(view({ phase: 'executing', epics }))).toEqual({
+      title: '● Precisa de você: escalada em E2 · Exportar CSV · Dev Crew',
+      favicon: 'attention',
     })
   })
 

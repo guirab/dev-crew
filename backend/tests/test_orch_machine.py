@@ -310,7 +310,7 @@ def test_third_consecutive_failure_escalates_tester() -> None:
     assert s.escalation.reason == "3 falhas consecutivas de teste"
     assert (
         s.stages["tester"].status == "error"
-        and s.stages["tester"].now == "Limite 3/3 atingido — expanda pra decidir"
+        and s.stages["tester"].now == "Limite 3/3 atingido — sua vez de decidir"
     )
     assert s.active_edge is None and s.current_job_id is None
     assert not d.has(DispatchJob)

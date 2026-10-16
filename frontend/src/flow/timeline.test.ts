@@ -59,6 +59,65 @@ describe('timelineNodes', () => {
     expect(tones(view).execution).toBe('run')
   })
 
+  it('Reviewer pediu ajuste: o nó diz que devolveu ao Developer (não fica cinza)', () => {
+    const base = fixture('developing')
+    const review: TaskView['review'] = {
+      type: 'review',
+      verdict: 'changes_requested',
+      comments: [],
+      commit_message: null,
+    }
+    const node = timelineNodes({ ...base, review }).find((n) => n.key === 'review')
+    expect(node).toMatchObject({ tone: 'done', summary: 'pediu ajuste · voltou pro Developer' })
+
+    // replanejar desaprova o plano: o pedido antigo não conta mais
+    const replanning: TaskView = {
+      ...base,
+      phase: 'planning',
+      review,
+      stages: { ...base.stages, approval: { status: 'idle', now: null, logs: [] } },
+    }
+    expect(tones(replanning).review).toBe('todo')
+
+    // review final de épicos: a faixa REV volta pro Developer da faixa
+    const split = splitView(base, {
+      epics: [epicLane('E1', 'merged'), epicLane('REV', 'running', { kind: 'review', review })],
+    })
+    expect(timelineNodes(split).find((n) => n.key === 'review')).toMatchObject({
+      name: 'Review final',
+      tone: 'done',
+      summary: 'pediu ajuste · voltou pro Developer',
+    })
+  })
+
+  it('duração do plano é a do Planner, sem o tempo esperando aprovação', () => {
+    const base = fixture('developing')
+    const at = (s: number) => new Date(Date.UTC(2026, 9, 16, 9, 0, s)).toISOString()
+    const view: TaskView = {
+      ...base,
+      stages: {
+        ...base.stages,
+        planner: {
+          status: 'done',
+          now: null,
+          logs: [
+            { ts: at(0), text: 'a' },
+            { ts: at(5), text: 'b' },
+          ],
+        },
+        approval: {
+          status: 'done',
+          now: null,
+          logs: [
+            { ts: at(5), text: 'c' },
+            { ts: at(419), text: 'd' },
+          ],
+        },
+      },
+    }
+    expect(timelineNodes(view).find((n) => n.key === 'plan')?.meta).toBe('5s')
+  })
+
   it('concluída: tudo pronto e o resultado abre sozinho', () => {
     const view = fixture('done')
     const nodes = timelineNodes(view)
@@ -76,6 +135,24 @@ describe('timelineNodes', () => {
       stages: { ...base.stages, developer: { status: 'error', now: 'npm ci', logs: [] } },
     }
     expect(tones(view)).toEqual({ interview: 'done', plan: 'done', execution: 'err' })
+  })
+
+  it('cancelada: o nó interrompido diz "cancelada", não o último log do Tester', () => {
+    const base = fixture('developing')
+    const view: TaskView = {
+      ...base,
+      phase: 'cancelled',
+      stages: {
+        ...base.stages,
+        developer: { status: 'error', now: 'Cancelada pelo usuário', logs: [] },
+        tester: { status: 'idle', now: 'FALHOU · 46/48 · tentativa 1/3', logs: [] },
+      },
+    }
+    expect(timelineNodes(view).at(-1)).toMatchObject({
+      key: 'execution',
+      tone: 'err',
+      summary: 'cancelada',
+    })
   })
 
   it('limite: o nó atual pausa', () => {

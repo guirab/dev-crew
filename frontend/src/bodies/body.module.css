@@ -119,6 +119,8 @@
   font: 12px var(--mono);
   color: var(--err);
   margin-top: 6px;
+  /* id de teste (caminho::nome) não tem espaço pra quebrar */
+  overflow-wrap: anywhere;
 }
 
 .error {
@@ -221,8 +223,11 @@
   gap: 6px;
 }
 
+/* float tira a legenda da borda: ela vira a primeira linha do card e quebra sem cruzar a borda */
 .question legend {
-  padding: 0 4px;
+  float: left;
+  width: 100%;
+  padding: 0;
   font-size: 13.5px;
 }
 

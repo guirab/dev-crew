@@ -7,7 +7,7 @@ import { fixture } from '../test/fixtures'
 import { renderWithClient } from '../test/render'
 import { ApprovalBody } from './ApprovalBody'
 import { EstimateBox } from './EstimateBox'
-import { selectedShare } from './PlanView'
+import { selectedShare, selectionTotal } from './EpicList'
 
 const epic = (id: string, deps: string[] = []): Epic => ({
   id,
@@ -123,5 +123,14 @@ describe('selectedShare', () => {
   it('fração do custo dos épicos marcados', () => {
     expect(selectedShare(estimate, new Set(['E1']))).toBeCloseTo(1 / 3)
     expect(selectedShare({ ...estimate, epics: [] }, new Set())).toBe(1)
+  })
+})
+
+describe('selectionTotal', () => {
+  it('todos marcados batem com o total do plano (que inclui a integração)', () => {
+    const withMerges = { ...estimate, usd: 3.3 }
+    expect(selectionTotal(['E1', 'E2', 'E3'], withMerges)).toMatch(/~\$3\.30$/)
+    expect(selectionTotal(['E1'], withMerges)).toMatch(/^1 épico · .* · ~\$1\.10$/)
+    expect(selectionTotal(['E1'], null)).toBe('1 épico')
   })
 })

@@ -730,7 +730,7 @@ export class ScenarioBackend implements MockBackend {
           epic_id: null,
         }
         s.phase = 'escalated'
-        s.now.tester = `Limite ${s.maxTest}/${s.maxTest} atingido — expanda pra decidir`
+        s.now.tester = `Limite ${s.maxTest}/${s.maxTest} atingido — sua vez de decidir`
         this.emit()
         return
       }

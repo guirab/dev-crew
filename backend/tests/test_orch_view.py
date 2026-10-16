@@ -140,6 +140,10 @@ def test_view_matches_fixture(name: str) -> None:
     assert (got.ended_at is None) == (expected.ended_at is None)
 
 
+# texts renamed after the freeze; contracts/fixtures keeps the old one (docs/contract-requests.md)
+RENAMED_NOW = {"Limite 3/3 atingido — expanda pra decidir": "Limite 3/3 atingido — sua vez de decidir"}
+
+
 @pytest.mark.parametrize("name", sorted(SEQUENCES))
 def test_stage_now_texts_follow_the_mockup(name: str) -> None:
     """The user-visible one-liners that are not agent progress are the same as in the fixtures."""
@@ -147,7 +151,8 @@ def test_stage_now_texts_follow_the_mockup(name: str) -> None:
     got = SEQUENCES[name]().s.to_view().stages.model_dump()
     for key in ("approval", "tester"):
         if expected[key]["status"] in ("done", "error", "waiting") and expected[key]["now"]:
-            assert got[key]["now"] == expected[key]["now"], key
+            want = RENAMED_NOW.get(expected[key]["now"], expected[key]["now"])
+            assert got[key]["now"] == want, key
     if expected["planner"]["status"] == "done":
         assert got["planner"]["now"] == "Plano pronto · 4 passos, 3 arquivos"
 

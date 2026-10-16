@@ -125,7 +125,8 @@ function planNode(view: TaskView): TimelineNode {
     icon: 'PL',
     name: approval.status === 'done' ? 'Plano aprovado' : 'Planner',
     summary,
-    meta: meta(logsOf(planner, approval)),
+    // só o trabalho do Planner: o log da aprovação contaria o tempo esperando você
+    meta: meta(planner.logs),
     tone,
   }
 }
@@ -191,8 +192,14 @@ function reviewNode(view: TaskView): TimelineNode {
       : STAGE_TONE[stage.status]
     : STAGE_TONE[stage.status]
   const review = lane ? lane.review : view.review
-  const summary =
-    tone === 'done' && review?.verdict === 'approved'
+  // pediu ajuste: o estágio volta a idle enquanto o Developer corrige (replanejar desaprova o plano)
+  const sentBack =
+    tone === 'todo' &&
+    review?.verdict === 'changes_requested' &&
+    view.stages.approval.status === 'done'
+  const summary = sentBack
+    ? 'pediu ajuste · voltou pro Developer'
+    : tone === 'done' && review?.verdict === 'approved'
       ? 'aprovado'
       : tone === 'todo'
         ? ''
@@ -203,7 +210,7 @@ function reviewNode(view: TaskView): TimelineNode {
     name: isSplit(view) ? 'Review final' : 'Reviewer',
     summary,
     meta: meta(stage.logs, lane?.cost_usd ?? 0),
-    tone,
+    tone: sentBack ? 'done' : tone,
   }
 }
 
@@ -252,9 +259,11 @@ export function timelineNodes(view: TaskView): TimelineNode[] {
     }
   }
   if (TERMINAL_FAIL.includes(view.phase)) {
+    // cancelada: o resumo do nó interrompido não repete o último log (ex.: falha antiga do Tester)
+    const cut = view.phase === 'cancelled' ? { summary: 'cancelada' } : {}
     return nodes
       .filter((node) => node.tone !== 'todo')
-      .map((node) => (node.tone === 'you' || node.tone === 'run' ? { ...node, tone: 'err' } : node))
+      .map((node) => (node.tone === 'done' ? node : { ...node, ...cut, tone: 'err' }))
   }
   if (view.phase === 'limited') {
     const current = nodes.find((node) => node.tone === 'run' || node.tone === 'you')

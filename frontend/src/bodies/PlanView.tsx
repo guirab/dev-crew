@@ -1,22 +1,11 @@
 import type { ReactNode } from 'react'
 import type { Estimate, Plan } from '../contracts/generated'
-import { EpicList } from './EpicList'
+import { EpicList, selectedShare } from './EpicList'
 import type { EpicSelection } from './EpicList'
 import { EstimateBox } from './EstimateBox'
 import b from './body.module.css'
 
 const CHANGE_LABEL = { A: 'adicionado', M: 'modificado', D: 'removido' } as const
-
-/** Fração da estimativa que cabe aos épicos marcados (1 = plano inteiro). */
-export function selectedShare(estimate: Estimate, selected: ReadonlySet<string>): number {
-  if (estimate.epics.length === 0) return 1
-  const total = estimate.epics.reduce((sum, e) => sum + e.usd, 0)
-  if (total <= 0) return 1
-  const chosen = estimate.epics
-    .filter((e) => selected.has(e.epic_id))
-    .reduce((s, e) => s + e.usd, 0)
-  return chosen / total
-}
 
 /** Seção recolhida (fechada por padrão), com `<details>` nativo pra não perder o estado ao atualizar. */
 function Fold({ title, children }: { title: string; children: ReactNode }) {

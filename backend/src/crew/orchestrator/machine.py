@@ -1421,7 +1421,7 @@ def _tester_result(
             "test_limit",
             "tester",
             f"{n} falhas consecutivas de teste",
-            now=f"Limite {mx}/{mx} atingido — expanda pra decidir",
+            now=f"Limite {mx}/{mx} atingido — sua vez de decidir",
             p=p,
         )
         return _commit(s)
@@ -1482,7 +1482,7 @@ def _reviewer_result(
             "review_limit",
             "reviewer",
             f"{n} rodadas de review sem aprovação",
-            now=f"Limite {mx}/{mx} atingido — expanda pra decidir",
+            now=f"Limite {mx}/{mx} atingido — sua vez de decidir",
             p=p,
         )
         return _commit(s)
