@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSendCommand } from '../api/commands'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
 import type { TaskView } from '../contracts/generated'
 import { cx } from '../lib/cx'
 import { formatDuration, formatTokens, formatUsd } from '../lib/format'
@@ -55,8 +56,23 @@ export function NowBar({ view }: { view: TaskView }) {
         <div>
           <dt>{estimate > 0 ? 'custo / estimativa' : 'custo'}</dt>
           <dd>
-            {formatUsd(view.cost_usd)}
-            {estimate > 0 && <span className={styles.dim}> / ~{formatUsd(estimate)}</span>}
+            {estimate > 0 ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* foco por teclado é o que abre o tooltip */}
+                  {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+                  <span tabIndex={0}>
+                    {formatUsd(view.cost_usd)}
+                    <span className={styles.dim}> / ~{formatUsd(estimate)}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {`${String(Math.round((view.cost_usd / estimate) * 100))}% da estimativa já gasto`}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              formatUsd(view.cost_usd)
+            )}
           </dd>
           {estimate > 0 && (
             <span className={styles.budget} aria-hidden="true">

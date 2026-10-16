@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useSendCommand } from '../api/commands'
 import { formatTokens, formatUsd } from '../lib/format'
 import { Button } from '../ui/Button'
-import { Field } from '../ui/Field'
+import { Label } from '../ui/Label'
 import { ActivityLog } from './ActivityLog'
 import { CommandErrorMessage } from './CommandErrorMessage'
 import { selectionTotal } from './EpicList'
@@ -12,6 +12,7 @@ import type { BodyProps } from './types'
 import b from './body.module.css'
 
 export function ApprovalBody({ view, stage }: BodyProps) {
+  const adjustmentId = useId()
   const [adjustment, setAdjustment] = useState('')
   // null = ainda não mexeu: todos os épicos marcados
   const [picked, setPicked] = useState<ReadonlySet<string> | null>(null)
@@ -45,18 +46,17 @@ export function ApprovalBody({ view, stage }: BodyProps) {
         selection={split ? { selected, onToggle: toggle } : undefined}
       />
       <div className={b.sec}>
-        <Field label="ajuste pro Planner (opcional)">
-          {(id) => (
-            <textarea
-              id={id}
-              value={adjustment}
-              placeholder="Ex.: não mexer no módulo de auth"
-              onChange={(e) => {
-                setAdjustment(e.target.value)
-              }}
-            />
-          )}
-        </Field>
+        <div className={b.field}>
+          <Label htmlFor={adjustmentId}>ajuste pro Planner (opcional)</Label>
+          <textarea
+            id={adjustmentId}
+            value={adjustment}
+            placeholder="Ex.: não mexer no módulo de auth"
+            onChange={(e) => {
+              setAdjustment(e.target.value)
+            }}
+          />
+        </div>
       </div>
       <div className={b.actionbar}>
         <span className={b.total}>

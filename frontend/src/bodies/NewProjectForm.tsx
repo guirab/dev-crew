@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSendCommand } from '../api/commands'
 import { reposQuery } from '../api/queries'
 import { Button } from '../ui/Button'
-import { Field } from '../ui/Field'
+import { Input } from '../ui/Input'
+import { Label } from '../ui/Label'
 import { cx } from '../lib/cx'
 import { NAME_RE } from '../lib/repoName'
 import { CommandErrorMessage } from './CommandErrorMessage'
@@ -14,6 +15,7 @@ import b from './body.module.css'
  * escolhe a stack e os comandos, e o plano começa pela fundação (E0).
  */
 export function NewProjectForm({ onStarted }: { onStarted: () => void }) {
+  const uid = useId()
   const [name, setName] = useState('')
   const [parentDir, setParentDir] = useState('')
   const [title, setTitle] = useState('')
@@ -27,58 +29,56 @@ export function NewProjectForm({ onStarted }: { onStarted: () => void }) {
   return (
     <>
       <div className={b.pair}>
-        <Field label="nome do projeto · vira a pasta">
-          {(id) => (
-            <input
-              id={id}
-              value={name}
-              placeholder="agenda-consultas"
-              aria-invalid={badName}
-              onChange={(e) => {
-                setName(e.target.value)
-              }}
-            />
-          )}
-        </Field>
-        <Field label="onde criar · vazio = Documentos">
-          {(id) => (
-            <input
-              id={id}
-              value={parentDir}
-              placeholder="C:\Users\voce\Documents"
-              onChange={(e) => {
-                setParentDir(e.target.value)
-              }}
-            />
-          )}
-        </Field>
+        <div className={b.field}>
+          <Label htmlFor={`${uid}-name`}>nome do projeto · vira a pasta</Label>
+          <Input
+            id={`${uid}-name`}
+            value={name}
+            placeholder="agenda-consultas"
+            aria-invalid={badName}
+            onChange={(e) => {
+              setName(e.target.value)
+            }}
+          />
+        </div>
+        <div className={b.field}>
+          <Label htmlFor={`${uid}-parent`}>onde criar · vazio = Documentos</Label>
+          <Input
+            id={`${uid}-parent`}
+            value={parentDir}
+            placeholder="C:\Users\voce\Documents"
+            onChange={(e) => {
+              setParentDir(e.target.value)
+            }}
+          />
+        </div>
       </div>
       {badName && (
         <p className={b.muted}>Use letras, números, ponto, hífen ou _ (sem espaços, até 64).</p>
       )}
-      <Field label="o que construir">
-        {(id) => (
-          <input
-            id={id}
-            value={title}
-            placeholder="Agenda de consultas com lembretes"
-            onChange={(e) => {
-              setTitle(e.target.value)
-            }}
-          />
-        )}
-      </Field>
-      <Field label="descrição · stack preferida, telas, regras (o Entrevistador pergunta o resto)">
-        {(id) => (
-          <textarea
-            id={id}
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value)
-            }}
-          />
-        )}
-      </Field>
+      <div className={b.field}>
+        <Label htmlFor={`${uid}-title`}>o que construir</Label>
+        <Input
+          id={`${uid}-title`}
+          value={title}
+          placeholder="Agenda de consultas com lembretes"
+          onChange={(e) => {
+            setTitle(e.target.value)
+          }}
+        />
+      </div>
+      <div className={b.field}>
+        <Label htmlFor={`${uid}-description`}>
+          descrição · stack preferida, telas, regras (o Entrevistador pergunta o resto)
+        </Label>
+        <textarea
+          id={`${uid}-description`}
+          value={description}
+          onChange={(e) => {
+            setDescription(e.target.value)
+          }}
+        />
+      </div>
       <p className={b.muted}>
         Cria a pasta com git e um primeiro commit. O plano define stack e comandos e começa pela
         fundação (E0).

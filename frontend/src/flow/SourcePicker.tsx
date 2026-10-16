@@ -3,6 +3,7 @@ import { useRepoChoice } from '../bodies/RepoSelect'
 import { AddRepoForm } from '../bodies/AddRepoForm'
 import { ManualForm } from '../bodies/ManualForm'
 import { NewProjectForm } from '../bodies/NewProjectForm'
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import { cx } from '../lib/cx'
 import { StageCard } from './StageCard'
 import { ADD_REPO_META, NEW_PROJECT_META, STAGE_META } from './stages'
@@ -60,24 +61,35 @@ export function SourcePicker() {
           status="pick"
           description={ADD_REPO_META.desc}
           open={open === 'repo'}
-          panelId={panelId}
           onToggle={() => {
             toggle('repo')
           }}
         />
       </div>
       {!open && <p className={styles.hint}>escolha a origem da tarefa ↑</p>}
-      {open && (
+      {open && open !== 'repo' && (
         <section id={panelId} className={styles.panel} aria-label={SOURCE_LABEL[open]}>
           {open === 'project' ? (
             <NewProjectForm onStarted={close} />
-          ) : open === 'repo' ? (
-            <AddRepoForm onAdded={close} />
           ) : (
             <ManualForm repoChoice={repoChoice} onStarted={close} />
           )}
         </section>
       )}
+      <Dialog
+        open={open === 'repo'}
+        onOpenChange={(next) => {
+          if (!next) close()
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-h-[85vh] gap-3 overflow-y-auto border border-(--glass-border) bg-(--glass-bg) p-5 shadow-(--glass-shadow) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)] sm:max-w-2xl"
+        >
+          <DialogTitle>Adicionar repositório</DialogTitle>
+          <AddRepoForm onAdded={close} />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
