@@ -198,6 +198,20 @@ describe('EpicsSection', () => {
     expect(screen.getByRole('dialog', { name: 'Épico E1' })).toBeInTheDocument()
   })
 
+  it('no celular, cards na mesma ordem; o card abre o épico', async () => {
+    const user = userEvent.setup()
+    renderWithClient(
+      <EpicsSection
+        view={splitView([lane('E1', 'merged'), escalatedE2(), lane('E3', 'running')])}
+      />,
+    )
+    const cards = within(screen.getByRole('list', { name: 'Épicos' })).getAllByRole('button')
+    expect(cards.map((c) => c.getAttribute('data-lane'))).toEqual(['E2', 'E3', 'E1'])
+    expect(cards[0]).toHaveAttribute('data-tone', 'attention')
+    await user.click(screen.getByRole('button', { name: 'E3 · Épico E3' }))
+    expect(screen.getByRole('dialog', { name: 'Épico E3' })).toBeInTheDocument()
+  })
+
   it('o ticket tem abas Developer, Tester e Merge; o review final tem Reviewer', async () => {
     const user = userEvent.setup()
     const review = lane('REV', 'running', { kind: 'review', title: 'Review final' })
