@@ -137,6 +137,24 @@ describe('timelineNodes', () => {
     expect(tones(view)).toEqual({ interview: 'done', plan: 'done', execution: 'err' })
   })
 
+  it('cancelada: o nó interrompido diz "cancelada", não o último log do Tester', () => {
+    const base = fixture('developing')
+    const view: TaskView = {
+      ...base,
+      phase: 'cancelled',
+      stages: {
+        ...base.stages,
+        developer: { status: 'error', now: 'Cancelada pelo usuário', logs: [] },
+        tester: { status: 'idle', now: 'FALHOU · 46/48 · tentativa 1/3', logs: [] },
+      },
+    }
+    expect(timelineNodes(view).at(-1)).toMatchObject({
+      key: 'execution',
+      tone: 'err',
+      summary: 'cancelada',
+    })
+  })
+
   it('limite: o nó atual pausa', () => {
     const view: TaskView = { ...fixture('developing'), phase: 'limited' }
     expect(timelineNodes(view)[2]).toMatchObject({

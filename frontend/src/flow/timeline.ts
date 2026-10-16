@@ -259,9 +259,11 @@ export function timelineNodes(view: TaskView): TimelineNode[] {
     }
   }
   if (TERMINAL_FAIL.includes(view.phase)) {
+    // cancelada: o resumo do nó interrompido não repete o último log (ex.: falha antiga do Tester)
+    const cut = view.phase === 'cancelled' ? { summary: 'cancelada' } : {}
     return nodes
       .filter((node) => node.tone !== 'todo')
-      .map((node) => (node.tone === 'you' || node.tone === 'run' ? { ...node, tone: 'err' } : node))
+      .map((node) => (node.tone === 'done' ? node : { ...node, ...cut, tone: 'err' }))
   }
   if (view.phase === 'limited') {
     const current = nodes.find((node) => node.tone === 'run' || node.tone === 'you')
