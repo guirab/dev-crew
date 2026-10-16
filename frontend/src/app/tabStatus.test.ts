@@ -88,6 +88,14 @@ describe('tabStatus', () => {
     })
   })
 
+  it('executing com um épico escalado e outro rodando pede você', () => {
+    const epics = [epicLane('E1', 'running'), epicLane('E2', 'escalated')]
+    expect(tabStatus(view({ phase: 'executing', epics }))).toEqual({
+      title: '● Precisa de você: escalada em E2 · Exportar CSV · Dev Crew',
+      favicon: 'attention',
+    })
+  })
+
   it.each([
     ['done', '✓ Concluída', 'done'],
     ['failed', '✗ Falhou', 'error'],

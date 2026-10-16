@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { StageKey, TaskPhase } from '../contracts/aliases'
 import type { TaskView } from '../contracts/generated'
-import { EPIC_TONE } from '../flow/lanes'
+import { EPIC_TONE, lanesNeedingYou } from '../flow/lanes'
 import { STAGE_META } from '../flow/stages'
 import { reviewLane } from '../flow/timeline'
 
@@ -60,6 +60,14 @@ export function describe(view: TaskView): { state: string; favicon: FaviconKind 
     case 'awaiting_selection':
       return { state: `${NEEDS_YOU}: escolha os próximos épicos`, favicon: 'attention' }
     case 'executing': {
+      // um épico escalado não tira a tarefa de `executing` enquanto outros rodam
+      const stuck = lanesNeedingYou(view.epics)
+      if (stuck.length > 0) {
+        return {
+          state: `${NEEDS_YOU}: escalada em ${stuck.map((lane) => lane.id).join(', ')}`,
+          favicon: 'attention',
+        }
+      }
       // o review final roda como faixa REV com a fase ainda em `executing`
       const review = reviewLane(view)
       return review && EPIC_TONE[review.status] === 'running'
