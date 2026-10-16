@@ -125,7 +125,8 @@ function planNode(view: TaskView): TimelineNode {
     icon: 'PL',
     name: approval.status === 'done' ? 'Plano aprovado' : 'Planner',
     summary,
-    meta: meta(logsOf(planner, approval)),
+    // só o trabalho do Planner: o log da aprovação contaria o tempo esperando você
+    meta: meta(planner.logs),
     tone,
   }
 }

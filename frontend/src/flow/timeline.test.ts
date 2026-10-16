@@ -90,6 +90,34 @@ describe('timelineNodes', () => {
     })
   })
 
+  it('duração do plano é a do Planner, sem o tempo esperando aprovação', () => {
+    const base = fixture('developing')
+    const at = (s: number) => new Date(Date.UTC(2026, 9, 16, 9, 0, s)).toISOString()
+    const view: TaskView = {
+      ...base,
+      stages: {
+        ...base.stages,
+        planner: {
+          status: 'done',
+          now: null,
+          logs: [
+            { ts: at(0), text: 'a' },
+            { ts: at(5), text: 'b' },
+          ],
+        },
+        approval: {
+          status: 'done',
+          now: null,
+          logs: [
+            { ts: at(5), text: 'c' },
+            { ts: at(419), text: 'd' },
+          ],
+        },
+      },
+    }
+    expect(timelineNodes(view).find((n) => n.key === 'plan')?.meta).toBe('5s')
+  })
+
   it('concluída: tudo pronto e o resultado abre sozinho', () => {
     const view = fixture('done')
     const nodes = timelineNodes(view)
