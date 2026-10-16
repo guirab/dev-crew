@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useSendCommand } from '../api/commands'
 import { Button } from '../ui/Button'
-import { Field } from '../ui/Field'
+import { Input } from '../ui/Input'
+import { Label } from '../ui/Label'
 import { CommandErrorMessage } from './CommandErrorMessage'
 import { RepoSelect } from './RepoSelect'
 import type { RepoChoice } from './RepoSelect'
@@ -14,6 +15,7 @@ interface ManualFormProps {
 
 /** Tarefa descrita à mão. Pode ser vaga: o Entrevistador pergunta o resto. */
 export function ManualForm({ repoChoice, onStarted }: ManualFormProps) {
+  const uid = useId()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const send = useSendCommand()
@@ -22,29 +24,29 @@ export function ManualForm({ repoChoice, onStarted }: ManualFormProps) {
 
   return (
     <>
-      <Field label="título">
-        {(id) => (
-          <input
-            id={id}
-            value={title}
-            placeholder="Exportar pedidos filtrados em CSV"
-            onChange={(e) => {
-              setTitle(e.target.value)
-            }}
-          />
-        )}
-      </Field>
-      <Field label="descrição · pode ser vaga, o Entrevistador pergunta o resto">
-        {(id) => (
-          <textarea
-            id={id}
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value)
-            }}
-          />
-        )}
-      </Field>
+      <div className={b.field}>
+        <Label htmlFor={`${uid}-title`}>título</Label>
+        <Input
+          id={`${uid}-title`}
+          value={title}
+          placeholder="Exportar pedidos filtrados em CSV"
+          onChange={(e) => {
+            setTitle(e.target.value)
+          }}
+        />
+      </div>
+      <div className={b.field}>
+        <Label htmlFor={`${uid}-description`}>
+          descrição · pode ser vaga, o Entrevistador pergunta o resto
+        </Label>
+        <textarea
+          id={`${uid}-description`}
+          value={description}
+          onChange={(e) => {
+            setDescription(e.target.value)
+          }}
+        />
+      </div>
       <div className={b.row}>
         <RepoSelect choice={repoChoice} />
         <Button

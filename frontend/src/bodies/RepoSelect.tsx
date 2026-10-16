@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRepos } from '../api/queries'
 import {
   Select,
@@ -7,7 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select'
-import { Field } from '../ui/Field'
+import { cx } from '../lib/cx'
+import { Label } from '../ui/Label'
+import b from './body.module.css'
 
 /** Repo escolhido pelo usuário; sem escolha, o primeiro da lista do gateway. */
 export function useRepoChoice() {
@@ -21,6 +23,7 @@ export function useRepoChoice() {
 export type RepoChoice = ReturnType<typeof useRepoChoice>
 
 export function RepoSelect({ choice }: { choice: RepoChoice }) {
+  const id = useId()
   const { repo, setRepo, repos } = choice
   const hasRepos = !!repos.data && repos.data.length > 0
   const placeholder = repos.isPending
@@ -29,24 +32,23 @@ export function RepoSelect({ choice }: { choice: RepoChoice }) {
       ? 'erro ao listar repositórios'
       : 'nenhum repositório'
   return (
-    <Field label="repositório" inline>
-      {(id) => (
-        <Select value={repo ?? undefined} onValueChange={setRepo} disabled={!hasRepos}>
-          <SelectTrigger
-            id={id}
-            className="min-w-48 border-(--line-2) bg-(--glass-bg) text-(--text) backdrop-blur-(--glass-blur)"
-          >
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent className="border border-(--line-2) bg-(--glass-bg) text-(--text) backdrop-blur-(--glass-blur)">
-            {repos.data?.map((r) => (
-              <SelectItem key={r.name} value={r.name}>
-                {r.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-    </Field>
+    <div className={cx(b.field, b.fieldInline)}>
+      <Label htmlFor={id}>repositório</Label>
+      <Select value={repo ?? undefined} onValueChange={setRepo} disabled={!hasRepos}>
+        <SelectTrigger
+          id={id}
+          className="min-w-48 border-(--line-2) bg-(--glass-bg) text-(--text) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)]"
+        >
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent className="border border-(--line-2) bg-(--glass-bg) text-(--text) [-webkit-backdrop-filter:var(--glass-blur)] [backdrop-filter:var(--glass-blur)]">
+          {repos.data?.map((r) => (
+            <SelectItem key={r.name} value={r.name}>
+              {r.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   )
 }

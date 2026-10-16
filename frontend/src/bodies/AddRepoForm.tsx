@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSendCommand } from '../api/commands'
 import { folderProbeQuery, foldersKey, folderProbeKey, reposQuery } from '../api/queries'
@@ -6,7 +6,8 @@ import type { AddRepo } from '../contracts/generated'
 import { NAME_RE } from '../lib/repoName'
 import { cx } from '../lib/cx'
 import { Button } from '../ui/Button'
-import { Field } from '../ui/Field'
+import { Input } from '../ui/Input'
+import { Label } from '../ui/Label'
 import { CommandErrorMessage } from './CommandErrorMessage'
 import { FolderBrowser } from './FolderBrowser'
 import b from './body.module.css'
@@ -22,6 +23,7 @@ const splitList = (text: string): string[] =>
  * confirma nome e branch base e informa os comandos. As regras de verdade ficam no backend.
  */
 export function AddRepoForm({ onAdded }: { onAdded: () => void }) {
+  const uid = useId()
   const [selected, setSelected] = useState<string | null>(null)
   const [nameEdit, setNameEdit] = useState<string | null>(null)
   const [branchEdit, setBranchEdit] = useState<string | null>(null)
@@ -96,96 +98,91 @@ export function AddRepoForm({ onAdded }: { onAdded: () => void }) {
             <p className={b.muted}>Este repositório git ainda não tem nenhum commit.</p>
           )}
           <div className={b.pair}>
-            <Field label="nome do repositório">
-              {(id) => (
-                <input
-                  id={id}
-                  value={nameEdit ?? probed?.name ?? ''}
-                  aria-invalid={badName}
-                  onChange={(e) => {
-                    setNameEdit(e.target.value)
-                  }}
-                />
-              )}
-            </Field>
-            <Field label="branch base">
-              {(id) => (
-                <input
-                  id={id}
-                  value={branchEdit ?? probed?.branch ?? 'main'}
-                  onChange={(e) => {
-                    setBranchEdit(e.target.value)
-                  }}
-                />
-              )}
-            </Field>
+            <div className={b.field}>
+              <Label htmlFor={`${uid}-name`}>nome do repositório</Label>
+              <Input
+                id={`${uid}-name`}
+                value={nameEdit ?? probed?.name ?? ''}
+                aria-invalid={badName}
+                onChange={(e) => {
+                  setNameEdit(e.target.value)
+                }}
+              />
+            </div>
+            <div className={b.field}>
+              <Label htmlFor={`${uid}-branch`}>branch base</Label>
+              <Input
+                id={`${uid}-branch`}
+                value={branchEdit ?? probed?.branch ?? 'main'}
+                onChange={(e) => {
+                  setBranchEdit(e.target.value)
+                }}
+              />
+            </div>
           </div>
           {badName && (
             <p className={b.muted}>Use letras, números, ponto, hífen ou _ (sem espaços, até 64).</p>
           )}
-          <Field label="comando de teste · obrigatório">
-            {(id) => (
-              <input
-                id={id}
-                value={testCmd}
-                placeholder="uv run pytest -q"
-                onChange={(e) => {
-                  setTestCmd(e.target.value)
-                }}
-              />
-            )}
-          </Field>
-          <div className={b.pair}>
-            <Field label="comando de lint · opcional">
-              {(id) => (
-                <input
-                  id={id}
-                  value={lintCmd}
-                  placeholder="uv run ruff check ."
-                  onChange={(e) => {
-                    setLintCmd(e.target.value)
-                  }}
-                />
-              )}
-            </Field>
-            <Field label="comando de setup · opcional">
-              {(id) => (
-                <input
-                  id={id}
-                  value={setupCmd}
-                  placeholder="npm ci"
-                  onChange={(e) => {
-                    setSetupCmd(e.target.value)
-                  }}
-                />
-              )}
-            </Field>
+          <div className={b.field}>
+            <Label htmlFor={`${uid}-test`}>comando de teste · obrigatório</Label>
+            <Input
+              id={`${uid}-test`}
+              value={testCmd}
+              placeholder="uv run pytest -q"
+              onChange={(e) => {
+                setTestCmd(e.target.value)
+              }}
+            />
           </div>
           <div className={b.pair}>
-            <Field label="imagem do sandbox · opcional">
-              {(id) => (
-                <input
-                  id={id}
-                  value={sandboxImage}
-                  placeholder="node:22"
-                  onChange={(e) => {
-                    setSandboxImage(e.target.value)
-                  }}
-                />
-              )}
-            </Field>
-            <Field label="pastas de dependências · opcional, separadas por vírgula">
-              {(id) => (
-                <input
-                  id={id}
-                  value={depsDirs}
-                  placeholder="node_modules, .venv"
-                  onChange={(e) => {
-                    setDepsDirs(e.target.value)
-                  }}
-                />
-              )}
-            </Field>
+            <div className={b.field}>
+              <Label htmlFor={`${uid}-lint`}>comando de lint · opcional</Label>
+              <Input
+                id={`${uid}-lint`}
+                value={lintCmd}
+                placeholder="uv run ruff check ."
+                onChange={(e) => {
+                  setLintCmd(e.target.value)
+                }}
+              />
+            </div>
+            <div className={b.field}>
+              <Label htmlFor={`${uid}-setup`}>comando de setup · opcional</Label>
+              <Input
+                id={`${uid}-setup`}
+                value={setupCmd}
+                placeholder="npm ci"
+                onChange={(e) => {
+                  setSetupCmd(e.target.value)
+                }}
+              />
+            </div>
+          </div>
+          <div className={b.pair}>
+            <div className={b.field}>
+              <Label htmlFor={`${uid}-image`}>imagem do sandbox · opcional</Label>
+              <Input
+                id={`${uid}-image`}
+                value={sandboxImage}
+                placeholder="node:22"
+                onChange={(e) => {
+                  setSandboxImage(e.target.value)
+                }}
+              />
+            </div>
+            <div className={b.field}>
+              <Label htmlFor={`${uid}-deps`}>
+                pastas de dependências · opcional, separadas por vírgula
+              </Label>
+              <Input
+                id={`${uid}-deps`}
+                value={depsDirs}
+                placeholder="node_modules, .venv"
+                onChange={(e) => {
+                  setDepsDirs(e.target.value)
+                }}
+              />
+            </div>
           </div>
           <div className={cx(b.row, b.end)}>
             <Button

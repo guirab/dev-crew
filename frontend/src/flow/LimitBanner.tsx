@@ -15,12 +15,7 @@ export function LimitBanner({ limit }: { limit: UsageLimit }) {
   const reset = limit.resets_at ? formatResetTime(limit.resets_at) : ''
 
   return (
-    <Alert
-      variant="destructive"
-      className={styles.banner}
-      role="alert"
-      aria-label="Limite de uso atingido"
-    >
+    <Alert className={styles.banner} role="alert" aria-label="Limite de uso atingido">
       <AlertTitle role="heading" aria-level={3} className={styles.title}>
         {limit.message}
       </AlertTitle>
