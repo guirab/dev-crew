@@ -276,7 +276,7 @@ FIXTURES: dict[str, TaskView] = {
             planner=PL_DONE,
             approval=sv("done", "Plano aprovado"),
             developer=sv("done", "Rodada 3 salva no repo local · sem commit"),
-            tester=sv("error", "Limite 3/3 atingido — expanda pra decidir"),
+            tester=sv("error", "Limite 3/3 atingido — sua vez de decidir"),
         ),
         edges={"ma-iv": "on", "iv-pl": "on", "pl-ap": "on", "ap-dv": "on", "dv-ts": "on", "ts-dv": "on"},
         active_edge=None,

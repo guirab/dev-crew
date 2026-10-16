@@ -15,6 +15,12 @@ Formato:
 
 ---
 
+## 2026-10-16 · UI v6 · Texto do limite de tentativas na fixture `view.escalated.json` — pendente
+- O quê: `contracts/fixtures/view.escalated.json` (`stages.tester.now`) ainda diz "Limite 3/3 atingido — expanda pra decidir", texto da UI antiga (não há mais o que expandir). O orquestrador, o cenário mock e `backend/scripts/make_fixtures.py` já dizem "Limite N/N atingido — sua vez de decidir".
+- Por quê: o modo `?fixture=escalated` mostra o texto velho; `make_fixtures.py` e a fixture estão fora de sincronia.
+- Proposta (código): rodar `uv run python scripts/make_fixtures.py` (só esse campo muda) e tirar `RENAMED_NOW` de `backend/tests/test_orch_view.py`.
+- Workaround atual: `RENAMED_NOW` em `test_orch_view.py` traduz o texto velho da fixture pro novo na comparação.
+
 ## 2026-10-16 · UI v6 · Tela Alterações durante a execução e por épico — pendente
 - O quê: a tela Alterações do `mockup/v6-linha-do-tempo.html` (D78) mostra a árvore de arquivos + diff a qualquer momento da tarefa, com filtro por épico. Hoje `FileDiff` e `GET /api/tasks/{id}/diff?path=` só cobrem os arquivos do `FinalReport` (fase `done`).
 - Por quê: com o "rodada por rodada" fora da tela, o diff vira o único jeito de ver o que os agentes estão fazendo.
