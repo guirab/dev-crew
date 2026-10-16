@@ -1,0 +1,257 @@
+/* Linha do tempo da tarefa (mockup/v6-linha-do-tempo.html): nó = ícone na linha + cabeçalho + card aberto. */
+.tl {
+  --ok-bg:
+    linear-gradient(135deg, rgb(43 238 134 / 16%), rgb(255 255 255 / 3%) 70%), rgb(10 12 14 / 40%);
+
+  position: relative;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 0 40px;
+  list-style: none;
+}
+
+.tl::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.node {
+  position: relative;
+  min-width: 0;
+}
+
+.ic {
+  position: absolute;
+  left: -40px;
+  top: 1px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-2);
+  background: #101315;
+  color: var(--muted);
+  font: 700 10.5px var(--mono);
+}
+
+.done > .ic {
+  border-color: var(--green-2);
+  color: var(--green);
+}
+
+.you > .ic {
+  border-color: var(--warn);
+  color: var(--warn);
+  box-shadow: 0 0 0 4px var(--warn-soft);
+}
+
+.pause > .ic {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.run > .ic {
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 0 0 4px var(--green-soft);
+}
+
+.err > .ic {
+  border-color: var(--err);
+  color: var(--err);
+  box-shadow: 0 0 0 4px var(--err-soft);
+}
+
+.todo > .ic {
+  border-style: dashed;
+  color: var(--dim);
+}
+
+/* cabeçalho do nó: nome · resumo · duração e custo · chevron */
+.nh {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% + 12px);
+  min-height: 32px;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.nh:hover {
+  background: var(--surface);
+}
+
+.todo .nh {
+  cursor: default;
+  color: var(--dim);
+}
+
+.n {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.s {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.todo .s {
+  color: var(--dim);
+}
+
+.run .s {
+  color: var(--green);
+}
+
+.sp {
+  flex: 1;
+}
+
+.m {
+  font: 12px var(--mono);
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.chev {
+  width: 14px;
+  color: var(--dim);
+  text-align: center;
+  transition: transform 0.15s;
+}
+
+.open > .nh .chev {
+  transform: rotate(90deg);
+}
+
+/* card aberto (vidro), tingido pelo estado */
+.nb {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* os corpos de bodies/ usam margem própria entre seções; o grid já espaça */
+.nb > * {
+  margin-top: 0;
+}
+
+.nb.wait {
+  background: var(--glass-wait-bg);
+  border-color: rgb(244 181 68 / 35%);
+}
+
+.nb.ok {
+  background: var(--ok-bg);
+  border-color: rgb(43 238 134 / 30%);
+}
+
+.nb.err {
+  background: var(--glass-err-bg);
+  border-color: rgb(255 138 130 / 35%);
+}
+
+.nb p {
+  margin: 0;
+}
+
+.cause {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.acts .sp {
+  min-width: 8px;
+}
+
+.term {
+  margin: 0;
+  overflow-x: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 45%);
+  color: var(--muted);
+  font: 12.5px/1.6 var(--mono);
+  white-space: pre-wrap;
+}
+
+.cmd {
+  color: var(--fg);
+}
+
+.fail {
+  color: var(--err);
+}
+
+/* largura estreita: some o resumo, o card sai do recuo e ocupa a largura toda */
+@container page (max-width: 620px) {
+  .tl {
+    padding-left: 34px;
+  }
+
+  .tl::before {
+    left: 11px;
+  }
+
+  .ic {
+    left: -34px;
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+
+  .s {
+    display: none;
+  }
+
+  .nb {
+    margin-left: -34px;
+    padding: 14px;
+  }
+
+  .acts > button {
+    flex: 1 1 auto;
+  }
+}

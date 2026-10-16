@@ -4,11 +4,10 @@ import type { Page } from '@playwright/test'
 // `speed=8`: o cenário mock roda 8x mais rápido (o fluxo todo leva ~2s).
 const FAST = 'speed=8'
 
-const card = (page: Page, key: string) => page.locator(`[data-stage="${key}"]`)
-/** O que se clica: a aba do trilho (tela da tarefa) ou o header do card de origem (nova tarefa). */
-const header = (page: Page, key: string) =>
-  page.locator(`[data-stage="${key}"][role="tab"], [data-stage="${key}"] > button`).first()
-const panel = (page: Page) => page.locator('#focus-panel')
+/** Nó da linha do tempo, o cabeçalho clicável e o card aberto. */
+const node = (page: Page, key: string) => page.locator(`[data-node="${key}"]`)
+const header = (page: Page, key: string) => page.locator(`[data-node="${key}"] > button`)
+const body = (page: Page, key: string) => page.locator(`[data-node="${key}"] > [role="region"]`)
 
 /** O app sempre abre em "Nova tarefa"; a tarefa da fixture fica atrás do aviso "ver tarefa". */
 async function openFixture(page: Page, name: string) {
@@ -16,18 +15,19 @@ async function openFixture(page: Page, name: string) {
   await page.getByRole('button', { name: 'ver tarefa' }).click()
 }
 
-async function startTask(page: Page) {
-  await header(page, 'manual').click()
-  await page.getByLabel('título').fill('Filtro por intervalo de datas no relatório de vendas')
-  await page.getByRole('button', { name: 'Iniciar' }).click()
+async function startTask(
+  page: Page,
+  title = 'Filtro por intervalo de datas no relatório de vendas',
+) {
+  await page.getByLabel('título').fill(title)
+  await page.getByRole('button', { name: 'Começar' }).click()
   await expect(page.getByText('T-107')).toBeVisible()
 }
 
-/** Inicia e aceita as recomendações das 2 rodadas da entrevista do cenário mock. */
+/** Começa e aceita as recomendações das 2 rodadas da entrevista do cenário mock. */
 async function startTaskToPlan(page: Page) {
   await startTask(page)
-  await expect(card(page, 'interviewer')).toHaveAttribute('data-status', 'waiting')
-  await header(page, 'interviewer').click()
+  await expect(node(page, 'interview')).toHaveAttribute('data-tone', 'you')
   await page.getByRole('heading', { name: '2 perguntas nesta rodada' }).waitFor()
   await page.getByRole('button', { name: 'Aceitar todas as recomendações' }).click()
   await page.getByRole('heading', { name: '1 pergunta nesta rodada' }).waitFor()
@@ -39,54 +39,49 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     page,
   }) => {
     await page.goto(`/?${FAST}`)
-
-    // estado inicial: só os cards de origem
-    await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
-    await expect(page.getByText('escolha a origem da tarefa ↑')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'O que a equipe vai fazer?' })).toBeVisible()
 
     await startTaskToPlan(page)
-    await expect(card(page, 'manual')).toHaveAttribute('data-status', 'done')
     await expect(page.getByRole('button', { name: 'cancelar tarefa' })).toBeVisible()
 
-    // aprovação: espera o plano; o foco vai sozinho pra ela
-    await expect(card(page, 'approval')).toHaveAttribute('data-status', 'waiting')
-    await expect(header(page, 'approval')).toHaveAttribute('aria-selected', 'true')
-    await expect(panel(page).getByText('Critérios de aceite', { exact: true })).toBeVisible() // <summary> do plano
+    // aprovação: o nó do Planner abre sozinho na sua vez
+    await expect(node(page, 'plan')).toHaveAttribute('data-tone', 'you')
+    await expect(body(page, 'plan').getByText('Critérios de aceite', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Aprovar plano' }).click()
 
     // loop completo até concluir
-    await expect(card(page, 'done')).toHaveAttribute('data-status', 'done', { timeout: 30_000 })
-    await expect(card(page, 'developer')).toContainText('rodada 3')
+    await expect(node(page, 'result')).toHaveAttribute('data-tone', 'done', { timeout: 30_000 })
 
-    // Tester guarda a 1ª execução que falhou; Reviewer, o comentário resolvido
-    await header(page, 'tester').click()
-    await expect(panel(page)).toContainText('PASSOU · 48/48')
-    await expect(panel(page).getByText('FALHOU', { exact: true })).toBeVisible()
-    await header(page, 'reviewer').click()
-    await expect(panel(page)).toContainText('APROVADO')
-    await expect(panel(page).getByText('RESOLVIDO').first()).toBeVisible()
+    // a Execução guarda a 1ª execução que falhou; o Reviewer, o comentário resolvido
+    await header(page, 'execution').click()
+    await expect(body(page, 'execution')).toContainText('48/48')
+    await expect(body(page, 'execution').getByText('FALHOU', { exact: true })).toBeVisible()
+    await header(page, 'review').click()
+    await expect(body(page, 'review')).toContainText('APROVADO')
+    await expect(body(page, 'review').getByText('RESOLVIDO').first()).toBeVisible()
 
-    // relatório final + copiar mensagem de commit
-    await header(page, 'done').click()
+    // resultado + copiar mensagem de commit
     await expect(page.getByText('Mensagem de commit sugerida')).toBeVisible()
     await page.getByRole('button', { name: 'Copiar mensagem' }).click()
     await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible()
     const clipboard = await page.evaluate(() => navigator.clipboard.readText())
     expect(clipboard).toMatch(/^feat: filtro por intervalo/)
 
-    // Nova tarefa → volta ao menu de origem
-    await page.getByRole('tab', { name: 'Nova tarefa' }).click()
-    await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
+    // Alterações estilo git
+    await page.getByRole('button', { name: /^Alterações/ }).click()
+    await expect(page.getByRole('heading', { name: 'Alterações' })).toBeVisible()
+    await expect(page.getByRole('table', { name: /^Diff de / })).toBeVisible()
+
+    // + Nova → volta à nova tarefa
+    await page.getByRole('button', { name: '+ Nova' }).click()
+    await expect(page.getByLabel('título')).toBeVisible()
   })
 
-  test('Manual: entrevista em 2 rodadas até o plano', async ({ page }) => {
+  test('entrevista em 2 rodadas até o plano', async ({ page }) => {
     await page.goto(`/?${FAST}`)
-    await header(page, 'manual').click()
-    await page.getByLabel('título').fill('Exportar pedidos filtrados em CSV')
-    await page.getByRole('button', { name: 'Iniciar' }).click()
+    await startTask(page, 'Exportar pedidos filtrados em CSV')
 
-    await expect(card(page, 'interviewer')).toHaveAttribute('data-status', 'waiting')
-    await header(page, 'interviewer').click()
+    await expect(node(page, 'interview')).toHaveAttribute('data-tone', 'you')
     // rodada 1: aceita a 1ª, responde a 2ª com texto próprio
     const criteria = page.getByRole('group', { name: /Critérios de aceite/ })
     await criteria.getByRole('radio', { name: 'Outra resposta' }).check()
@@ -97,23 +92,18 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await restrictions.getByRole('radio', { name: /Pode adicionar dependências/ }).check()
     await page.getByRole('button', { name: 'Enviar respostas' }).click()
 
-    await expect(card(page, 'approval')).toHaveAttribute('data-status', 'waiting', {
-      timeout: 15_000,
-    })
-    await expect(card(page, 'interviewer')).toHaveAttribute('data-status', 'done')
-    await expect(header(page, 'interviewer')).toHaveAttribute('aria-selected', 'false')
+    await expect(node(page, 'plan')).toHaveAttribute('data-tone', 'you', { timeout: 15_000 })
+    await expect(node(page, 'interview')).toHaveAttribute('data-tone', 'done')
+    await expect(body(page, 'interview')).toHaveCount(0)
   })
 
   test('escalada (?escalate=1): instruir o Developer retoma e conclui', async ({ page }) => {
     await page.goto(`/?${FAST}&escalate=1`)
     await startTaskToPlan(page)
-    await expect(card(page, 'approval')).toHaveAttribute('data-status', 'waiting')
-    await header(page, 'approval').click()
+    await expect(node(page, 'plan')).toHaveAttribute('data-tone', 'you')
     await page.getByRole('button', { name: 'Aprovar plano' }).click()
 
-    await expect(panel(page)).toContainText('Limite 3/3 atingido', { timeout: 30_000 })
-    await expect(card(page, 'tester')).toHaveAttribute('data-status', 'error')
-    await expect(header(page, 'tester')).toHaveAttribute('aria-selected', 'true') // foco no que precisa de você
+    await expect(node(page, 'execution')).toHaveAttribute('data-tone', 'you', { timeout: 30_000 })
     await expect(page.getByText('Loop estourou — o que fazer?')).toBeVisible()
     for (const name of ['+2 tentativas', 'Voltar pro Planner', 'Cancelar tarefa']) {
       await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
@@ -121,19 +111,33 @@ test.describe('modo mock (MSW) — fluxo completo', () => {
     await page.getByLabel('Instrução pro Developer').fill('usar fake timers')
     await page.getByRole('button', { name: 'Enviar instrução' }).click()
 
-    await expect(card(page, 'done')).toHaveAttribute('data-status', 'done', { timeout: 30_000 })
+    await expect(node(page, 'result')).toHaveAttribute('data-tone', 'done', { timeout: 30_000 })
   })
 
-  test('cancelar tarefa pede confirmação e libera "Nova tarefa"', async ({ page }) => {
+  test('épicos: o escalado abre dentro da Execução, agrupado por quem age', async ({ page }) => {
+    await page.goto(`/?${FAST}`)
+    await startTask(page, 'Exportar pedidos em CSV com épicos')
+    for (let i = 0; i < 2; i += 1) {
+      await page.getByRole('button', { name: 'Aceitar todas as recomendações' }).click()
+    }
+    await page.getByRole('button', { name: /^Aprovar e rodar/ }).click()
+
+    const execution = body(page, 'execution')
+    await expect(execution.getByRole('region', { name: 'precisa de você' })).toContainText('E2')
+    await expect(execution.getByLabel('Última saída do Tester')).toBeVisible()
+    await expect(execution.getByRole('region', { name: 'rodando' })).toContainText('trabalhando')
+  })
+
+  test('cancelar tarefa pede confirmação e libera a nova tarefa', async ({ page }) => {
     page.on('dialog', (dialog) => {
       void dialog.accept()
     })
     await page.goto(`/?${FAST}`)
     await startTask(page)
     await page.getByRole('button', { name: 'cancelar tarefa' }).click()
-    await expect(page.getByRole('region', { name: 'Agora' })).toContainText('Cancelada')
-    await page.getByRole('tab', { name: 'Nova tarefa' }).click()
-    await expect(card(page, 'manual')).toHaveAttribute('data-status', 'pick')
+    await expect(page).toHaveTitle(/Cancelada/)
+    await page.getByRole('button', { name: '+ Nova' }).click()
+    await expect(page.getByLabel('título')).toBeVisible()
   })
 })
 
@@ -145,7 +149,9 @@ test.describe('modo mock — histórico', () => {
 
     const past = page.getByRole('region', { name: 'Tarefa T-104' })
     await past.getByTitle('src/export/csv.ts').click()
-    await expect(past.getByLabel('Diff de src/export/csv.ts')).toContainText('+export const total')
+    await expect(past.getByRole('table', { name: 'Diff de src/export/csv.ts' })).toContainText(
+      '+export const total',
+    )
 
     await past.getByRole('button', { name: '← Histórico' }).click()
     await expect(page.getByRole('list', { name: 'Histórico de tarefas' })).toBeVisible()
@@ -157,10 +163,19 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     page,
   }) => {
     await openFixture(page, 'escalated')
-    await expect(card(page, 'tester')).toHaveAttribute('data-status', 'error')
-    await header(page, 'tester').click()
+    await expect(node(page, 'execution')).toHaveAttribute('data-tone', 'you')
     await page.getByRole('button', { name: '+2 tentativas' }).click()
     await expect(page.getByRole('alert')).toContainText('Modo fixture: somente leitura.')
+  })
+
+  test('?fixture=next-batch, limited e failed desenham o nó que pede você', async ({ page }) => {
+    await openFixture(page, 'next-batch')
+    await expect(node(page, 'next')).toHaveAttribute('data-tone', 'you')
+    await openFixture(page, 'limited')
+    await expect(body(page, 'execution').getByRole('button', { name: 'Retomar' })).toBeVisible()
+    await page.goto('/?fixture=failed')
+    await page.getByRole('tab', { name: 'Tarefa' }).click()
+    await expect(node(page, 'execution')).toHaveAttribute('data-tone', 'err')
   })
 
   test('fixture inexistente mostra o erro na tela (e lista as disponíveis)', async ({ page }) => {
@@ -172,25 +187,16 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
 
   test('queda do WS mostra "reconectando…" e some quando reconecta', async ({ page }) => {
     await page.goto(`/?${FAST}`)
-    await expect(card(page, 'manual')).toBeVisible()
+    await expect(page.getByLabel('título')).toBeVisible()
     await page.getByRole('button', { name: 'derrubar ws' }).click()
     await expect(page.getByRole('status')).toHaveText('reconectando…')
     await expect(page.getByRole('status')).toBeHidden({ timeout: 10_000 })
   })
 
-  test('/dev/gallery mostra todos os status do StageCard', async ({ page }) => {
-    await page.goto('/dev/gallery')
-    for (const status of ['pick', 'idle', 'active', 'waiting', 'done', 'error', 'skipped']) {
-      await expect(page.locator(`[data-status="${status}"]`).first()).toBeVisible()
-    }
-  })
-
-  test('reduced motion: sem animação nos conectores ativos', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-    await openFixture(page, 'developing')
-    const active = page.locator('[data-connector][data-state="active"]').first()
-    await expect(active).toBeVisible()
-    const animation = await active.evaluate((el) => getComputedStyle(el).animationName)
-    expect(animation).toBe('none')
+  test('celular: o card aberto ocupa a largura toda', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openFixture(page, 'escalated')
+    const card = await body(page, 'execution').boundingBox()
+    expect(card?.width).toBeGreaterThan(390 - 2 * 16 - 2)
   })
 })

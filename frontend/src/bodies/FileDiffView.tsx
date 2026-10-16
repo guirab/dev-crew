@@ -1,67 +1,61 @@
 import { useQuery } from '@tanstack/react-query'
 import { fileDiffQuery } from '../api/queries'
+import { diffRows } from '../changes/diff'
+import type { FinalFile } from '../contracts/generated'
+import { cx } from '../lib/cx'
 import styles from './FileDiffView.module.css'
 
-/** Linhas do patch a partir do primeiro hunk (o cabeçalho do git só repete o caminho). */
-function hunkLines(patch: string): string[] {
-  const lines = patch.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n')
-  const first = lines.findIndex((line) => line.startsWith('@@'))
-  return first === -1 ? [] : lines.slice(first)
-}
+const SIGN = { hunk: '', add: '+', del: '−', ctx: ' ' } as const
 
-function lineClass(line: string): string | undefined {
-  if (line.startsWith('@@')) return styles.hunk
-  if (line.startsWith('+')) return styles.add
-  if (line.startsWith('-')) return styles.del
-  return undefined
-}
-
-/** Patch de um arquivo do resultado, buscado ao abrir. */
-export function FileDiffView({ taskId, path, id }: { taskId: string; path: string; id: string }) {
+function Patch({ taskId, path }: { taskId: string; path: string }) {
   const { data, isPending, isError, error } = useQuery(fileDiffQuery(taskId, path))
 
-  if (isPending) {
-    return (
-      <p id={id} className={styles.note}>
-        carregando diff…
-      </p>
-    )
-  }
+  if (isPending) return <p className={styles.note}>carregando diff…</p>
   if (isError) {
     return (
-      <p id={id} role="alert" className={styles.error}>
+      <p role="alert" className={styles.error}>
         {error.message}
       </p>
     )
   }
-  if (data.binary) {
-    return (
-      <p id={id} className={styles.note}>
-        Arquivo binário: sem diff de texto.
-      </p>
-    )
-  }
-  const lines = hunkLines(data.patch)
-  if (lines.length === 0) {
-    return (
-      <p id={id} className={styles.note}>
-        Sem alterações de texto.
-      </p>
-    )
-  }
+  if (data.binary) return <p className={styles.note}>Arquivo binário: sem diff de texto.</p>
+  const rows = diffRows(data.patch)
+  if (rows.length === 0) return <p className={styles.note}>Sem alterações de texto.</p>
   return (
-    <div id={id} className={styles.wrap}>
-      <pre className={styles.patch} aria-label={`Diff de ${path}`}>
+    <>
+      <div className={styles.body} role="table" aria-label={`Diff de ${path}`}>
         {/* linhas do patch não têm id; a lista é estática por arquivo */}
-        {lines.map((line, i) => (
-          <span key={i} className={lineClass(line)}>
-            {line}
-          </span>
+        {rows.map((row, i) => (
+          <div key={i} role="row" className={cx(styles.dl, styles[row.kind])}>
+            <span role="cell">{row.old ?? ''}</span>
+            <span role="cell">{row.new ?? ''}</span>
+            <code role="cell">
+              {SIGN[row.kind]}
+              {row.text}
+            </code>
+          </div>
         ))}
-      </pre>
+      </div>
       {data.truncated && (
         <p className={styles.note}>Diff cortado: arquivo grande demais pra mostrar inteiro.</p>
       )}
-    </div>
+    </>
+  )
+}
+
+/** Diff de um arquivo do resultado estilo git: cabeçalho com status e contagem, linhas numeradas. */
+export function FileDiffView({ taskId, file }: { taskId: string; file: FinalFile }) {
+  return (
+    <section className={styles.view} aria-label={file.path}>
+      <div className={styles.head}>
+        <span className={cx(styles.st, styles[file.status])}>{file.status}</span>
+        <span className={styles.path}>{file.path}</span>
+        <span className={styles.count}>
+          <span className={styles.plus}>+{file.added}</span>{' '}
+          <span className={styles.minus}>−{file.removed}</span>
+        </span>
+      </div>
+      <Patch key={file.path} taskId={taskId} path={file.path} />
+    </section>
   )
 }

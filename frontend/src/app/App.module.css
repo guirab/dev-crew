@@ -1,7 +1,9 @@
+/* uma coluna; o container `page` decide o layout estreito (celular ou janela pequena) */
 .wrap {
-  max-width: 700px;
+  container: page / inline-size;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 16px 56px 140px;
+  padding: 16px 20px 140px;
 }
 
 .status {
@@ -11,10 +13,9 @@
   color: var(--muted);
 }
 
-/* tela da tarefa: trilho + painel de foco + feed precisam de largura */
+/* Alterações: árvore + diff precisam de largura */
 .wide {
-  max-width: 1680px;
-  padding: 16px 24px 140px;
+  max-width: 1240px;
 }
 
 @media (max-width: 640px) {

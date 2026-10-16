@@ -1,0 +1,91 @@
+.heading {
+  margin: 26px 0 28px;
+}
+
+.trow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sp {
+  flex: 1;
+}
+
+.sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mono {
+  font: 12px var(--mono);
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.add {
+  color: var(--green);
+}
+
+.rem {
+  color: var(--err);
+}
+
+.count {
+  font: 11.5px var(--mono);
+}
+
+.chg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: rgb(255 255 255 / 6%);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chg:hover {
+  background: rgb(255 255 255 / 11%);
+}
+
+/* destrutivo: discreto e longe das ações do nó */
+.cancel {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.cancel:hover {
+  color: var(--err);
+}
+
+@container page (max-width: 620px) {
+  .title {
+    font-size: 19px;
+  }
+}

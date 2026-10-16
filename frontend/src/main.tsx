@@ -2,16 +2,12 @@ import './styles/tailwind.css'
 import './styles/tokens.css'
 import './styles/global.css'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { lazy, StrictMode, Suspense } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createQueryClient } from './api/queryClient'
 import { App } from './app/App'
 import { CrewConnection } from './app/CrewConnection'
 import { TooltipProvider } from './components/ui/tooltip'
-
-// Só em dev: `import.meta.env.DEV` é constante em build, então o chunk não vai pra produção.
-const Gallery = import.meta.env.DEV ? lazy(() => import('./dev/Gallery')) : null
-const showGallery = Gallery !== null && window.location.pathname === '/dev/gallery'
 
 async function bootstrap(): Promise<void> {
   const root = document.getElementById('root')
@@ -36,16 +32,10 @@ async function bootstrap(): Promise<void> {
   createRoot(root).render(
     <StrictMode>
       <TooltipProvider>
-        {Gallery && showGallery ? (
-          <Suspense fallback={null}>
-            <Gallery />
-          </Suspense>
-        ) : (
-          <QueryClientProvider client={queryClient}>
-            <CrewConnection />
-            <App />
-          </QueryClientProvider>
-        )}
+        <QueryClientProvider client={queryClient}>
+          <CrewConnection />
+          <App />
+        </QueryClientProvider>
       </TooltipProvider>
     </StrictMode>,
   )

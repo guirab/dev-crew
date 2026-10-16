@@ -8,7 +8,7 @@ import styles from './LimitBanner.module.css'
 
 /**
  * A assinatura bateu o limite de uso (D50): o trabalho parou e só volta quando o usuário mandar.
- * O dev-crew não espera nem tenta de novo sozinho.
+ * O dev-crew não espera nem tenta de novo sozinho. Mora no nó pausado da linha do tempo.
  */
 export function LimitBanner({ limit }: { limit: UsageLimit }) {
   const send = useSendCommand()
@@ -24,17 +24,10 @@ export function LimitBanner({ limit }: { limit: UsageLimit }) {
           ? `O trabalho parou. A cota volta ${reset}; depois disso, retome daqui.`
           : 'O trabalho parou. Retome quando a cota da assinatura voltar.'}
       </AlertDescription>
+      {/* destrutivo à esquerda, longe do principal */}
       <div className={styles.row}>
         <Button
-          variant="primary"
-          disabled={send.isPending}
-          onClick={() => {
-            send.mutate({ type: 'resume_after_limit' })
-          }}
-        >
-          Retomar
-        </Button>
-        <Button
+          variant="link"
           disabled={send.isPending}
           onClick={() => {
             if (window.confirm('Cancelar a tarefa atual? As alterações locais ficam no repo.')) {
@@ -43,6 +36,16 @@ export function LimitBanner({ limit }: { limit: UsageLimit }) {
           }}
         >
           Cancelar tarefa
+        </Button>
+        <span className={styles.sp} />
+        <Button
+          variant="primary"
+          disabled={send.isPending}
+          onClick={() => {
+            send.mutate({ type: 'resume_after_limit' })
+          }}
+        >
+          Retomar
         </Button>
       </div>
       <CommandErrorMessage error={send.error} />

@@ -124,3 +124,11 @@
   min-width: 0;
   margin-bottom: 14px;
 }
+
+.changes {
+  margin: 22px 0 10px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
