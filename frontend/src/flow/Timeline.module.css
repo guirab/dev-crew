@@ -147,6 +147,8 @@ button.nh:hover {
 /* card aberto (vidro), tingido pelo estado */
 .nb {
   display: grid;
+  /* coluna `auto` cresce até o min-content (código ou log longo) e o conteúdo sai do card */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   min-width: 0;
   margin-top: 6px;

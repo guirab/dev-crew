@@ -229,6 +229,17 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     }
   })
 
+  test('código essencial com linha longa rola dentro do card do plano', async ({ page }) => {
+    await page.goto(`/?${FAST}`)
+    await startTaskToPlan(page)
+    const card = body(page, 'plan')
+    const code = card.locator('pre')
+    await expect(code).toContainText('SELECT * FROM sales')
+    const box = await card.boundingBox()
+    const pre = await code.boundingBox()
+    expect((pre?.x ?? 0) + (pre?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0))
+  })
+
   test('celular: a barra de aprovação fecha o card, sem vão no fim', async ({ page }) => {
     // um print fullPage congela a barra sticky na altura da janela e mostra o lugar dela vazio;
     // rolando de verdade até o fim do card a barra assenta no lugar

@@ -648,7 +648,11 @@ export class ScenarioBackend implements MockBackend {
             epics: [],
           }),
       project_setup: null,
-      essential_code: null,
+      // linha longa de propósito: o card do plano tem que rolar o código, não esticar
+      essential_code: [
+        '// filtro inclusivo nas duas pontas (UTC)',
+        "const rows = await db.query('SELECT * FROM sales WHERE created_at >= $1 AND created_at < $2 ORDER BY created_at', [from, addDays(to, 1)])",
+      ].join('\n'),
     }
     this.finish(
       'planner',
