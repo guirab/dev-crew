@@ -1439,6 +1439,13 @@
           ],
           "default": null
         },
+        "new_dependencies": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "essential_code": {
           "anyOf": [
             {
@@ -1457,6 +1464,7 @@
         "essential_code",
         "execution",
         "files",
+        "new_dependencies",
         "project_setup",
         "risks",
         "split_rationale",

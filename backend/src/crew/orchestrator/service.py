@@ -600,7 +600,16 @@ class OrchestratorService:
     async def _run_setup(self, effect: RunSetup) -> None:
         error: str | None = None
         try:
-            await run_host_setup(Path(effect.path), effect.command)
+            if effect.command is not None:  # new project: the Planner's command, on the host
+                await run_host_setup(Path(effect.path), effect.command)
+            else:  # existing repo: its own setup_cmd, in the lane's container when it has one
+                repo = self.cfg.repo(effect.repo)
+                key = sandbox.workspace_key(effect.task_id, effect.epic_id)
+                name = sandbox.container_name(key, repo.name)
+                if repo.sandbox_image and sandbox.docker_available():
+                    await sandbox.setup(name, repo.setup_cmd, force=True)
+                elif repo.setup_cmd:
+                    await run_host_setup(Path(effect.path), repo.setup_cmd)
         except Exception as e:
             log.warning("setup_failed", task_id=effect.task_id, epic=effect.epic_id, error=str(e))
             error = str(e)

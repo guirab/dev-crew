@@ -66,6 +66,7 @@
     "split_rationale": "",
     "epics": [],
     "project_setup": null,
+    "new_dependencies": [],
     "essential_code": null
   },
   "feedback": null,

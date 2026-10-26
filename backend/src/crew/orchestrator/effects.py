@@ -71,15 +71,18 @@ class CreateEpicWorkspace:
 
 @dataclass(frozen=True)
 class RunSetup:
-    """New project (D58): install the dependencies in a pipe's worktree before its first Tester.
+    """Install the dependencies in a pipe's worktree before its Tester: a new project's first one (D58), or
+    any pipe whose Developer changed a dependency manifest.
 
-    Answers ``SetupFinished``. ``epic_id`` is the lane, ``None`` the task itself.
+    Answers ``SetupFinished``. ``epic_id`` is the lane, ``None`` the task itself. ``command`` ``None``: the
+    repo's own ``setup_cmd``, in its sandbox container when it has one.
     """
 
     task_id: str
     epic_id: str | None
     path: str
-    command: str
+    command: str | None
+    repo: str = ""
 
 
 @dataclass(frozen=True)

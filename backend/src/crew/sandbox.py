@@ -164,10 +164,10 @@ async def create(
     return name
 
 
-async def setup(name: str, command: str | None) -> None:
-    """Run the repo setup with network (once), then cut the network for good."""
+async def setup(name: str, command: str | None, *, force: bool = False) -> None:
+    """Run the repo setup with network (once, or again with ``force``), then cut the network for good."""
     done = await _docker("exec", name, "test", "-f", SETUP_MARKER)
-    if command and done.returncode != 0:
+    if command and (force or done.returncode != 0):
         await _docker("network", "connect", "bridge", name)  # no-op error when already connected
         res = await _docker(
             "exec", "-w", WORKDIR, name, "bash", "-lc", f"{command} && touch {SETUP_MARKER}",

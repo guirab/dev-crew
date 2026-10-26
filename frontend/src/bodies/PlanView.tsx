@@ -58,6 +58,16 @@ export function PlanView({
           </ul>
         </div>
       )}
+      {plan.new_dependencies.length > 0 && (
+        <div className={b.sec}>
+          <h4>Bibliotecas novas (aprovar o plano autoriza a instalação)</h4>
+          <ul>
+            {plan.new_dependencies.map((dep, i) => (
+              <li key={`${i}|${dep}`}>{dep}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {plan.project_setup && (
         <div className={b.sec}>
           <h4>Projeto novo</h4>

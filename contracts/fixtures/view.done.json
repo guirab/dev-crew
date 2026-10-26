@@ -134,7 +134,9 @@
     "execution": "single",
     "split_rationale": "",
     "epics": [],
-    "project_setup": null
+    "project_setup": null,
+    "new_dependencies": [],
+    "essential_code": null
   },
   "dev_rounds": [
     {

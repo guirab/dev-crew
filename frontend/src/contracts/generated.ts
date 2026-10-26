@@ -310,6 +310,7 @@ export interface Plan {
   split_rationale: string;
   epics: Epic[];
   project_setup: ProjectSetup | null;
+  new_dependencies: string[];
   essential_code: string | null;
 }
 /**

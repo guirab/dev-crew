@@ -79,6 +79,8 @@ def render(
     lines += ["## Critérios de aceite", "", *_bullets(plan.acceptance_criteria), ""]
     if plan.risks:
         lines += ["## Riscos", "", *_bullets(plan.risks), ""]
+    if plan.new_dependencies:
+        lines += ["## Bibliotecas novas", "", *_bullets(plan.new_dependencies), ""]
     lines += ["## Estratégia de testes", "", plan.test_strategy, ""]
     if plan.essential_code:
         lines += ["## Código essencial", "", "```", plan.essential_code.strip("\n"), "```", ""]

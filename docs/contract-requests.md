@@ -178,3 +178,7 @@ Nenhum contrato foi alterado. Itens abaixo são decisões que o Stream A / sess�
 ### 6. Rótulo "+2 tentativas"
 - O quê: o botão da escalada diz "+2 tentativas" (texto do mockup), mas o valor real é decisão do orquestrador (`more_attempts` não carrega número).
 - Proposta: se o incremento for configurável, expor em `Escalation` (ex.: `extra_attempts: int`) pro front rotular sem hardcode.
+
+### 7. `Plan.new_dependencies` — ✅ feito em 2026-10-26 (D79)
+- O quê: campo opcional `new_dependencies: list[str] = []` ("nome: motivo"). Aprovar o plano autoriza o dev-crew a instalar quando o Developer declarar o pacote no manifesto.
+- Compatível: o default `[]` mantém planos e fixtures antigos válidos. Tipos TS regenerados; o card do plano lista as bibliotecas.

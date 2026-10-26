@@ -95,6 +95,13 @@ describe('ApprovalBody', () => {
     expect(details).not.toHaveAttribute('open')
   })
 
+  it('bibliotecas novas aparecem com o aviso de que aprovar autoriza a instalação', () => {
+    const plan = withPlan({ new_dependencies: ['zod: validar o payload'] })
+    renderWithClient(<ApprovalBody view={{ ...view, plan }} stage={view.stages.approval} />)
+    expect(screen.getByText('zod: validar o payload')).toBeInTheDocument()
+    expect(screen.getByText(/aprovar o plano autoriza a instalação/)).toBeInTheDocument()
+  })
+
   it('essential_code aparece num <pre> quando existe', () => {
     const plan = withPlan({ essential_code: 'def f() -> int: ...' })
     const { container } = renderWithClient(

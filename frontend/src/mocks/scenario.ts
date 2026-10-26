@@ -648,6 +648,7 @@ export class ScenarioBackend implements MockBackend {
             epics: [],
           }),
       project_setup: null,
+      new_dependencies: [],
       // linha longa de propósito: o card do plano tem que rolar o código, não esticar
       essential_code: [
         '// filtro inclusivo nas duas pontas (UTC)',

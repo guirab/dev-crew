@@ -89,6 +89,9 @@ def _plan_section(plan: Plan, epic_id: str | None = None) -> str:
     lines += ["Critérios de aceite:", _bullets(plan.acceptance_criteria)]
     if plan.risks:
         lines += ["Riscos:", _bullets(plan.risks)]
+    if plan.new_dependencies:
+        lines += ["Bibliotecas novas aprovadas (declare no manifesto, o dev-crew instala):"]
+        lines += [_bullets(plan.new_dependencies)]
     lines += ["Estratégia de teste:", plan.test_strategy]
     return "\n".join(lines)
 

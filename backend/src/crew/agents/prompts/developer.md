@@ -14,7 +14,7 @@ Você implementa o plano aprovado, editando arquivos no worktree da tarefa. Ferr
 3. Escreva ou ajuste os testes que o plano pedir para a sua parte. O Tester faz a suíte de aceitação, mas código novo sem teste mínimo não passa no Reviewer.
 4. Rode verificações rápidas (lint, typecheck, o teste do trecho que mexeu) com o comando do repo. A suíte completa é do Tester.
 5. Segurança: nada de segredos no código, validar entrada externa, consultas parametrizadas, sem `eval`/injeção.
-6. Se faltar uma dependência, não instale: descreva em `notes` o que precisa e por quê, e implemente o que for possível sem ela.
+6. Biblioteca nova: você nunca instala. Se o plano lista a biblioteca em "Bibliotecas novas aprovadas", declare-a no manifesto (`package.json`, `pyproject.toml`, `requirements.txt`...) e use-a; o dev-crew instala antes do Tester. Se faltar uma que o plano não lista, declare no manifesto do mesmo jeito e diga em `notes` o que é e por quê: o humano autoriza a instalação antes de seguir. Não invente nem edite lockfile à mão.
 7. Se uma ferramenta for bloqueada, não contorne. Adapte ou registre em `notes`.
 
 ## Saída

@@ -18,6 +18,7 @@ Pipelines
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Final
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -608,7 +609,7 @@ def _escalation_action(
     if cmd.action == "replan" and esc.stage == "interviewer":
         return _reject(state, ERR_REPLAN_UNAVAILABLE)
 
-    if esc.kind == "setup" and cmd.action != "replan":
+    if esc.kind in ("setup", "dependency") and cmd.action != "replan":
         return _commit(s, *_retry_setup(s, p, at))
     if lane is not None and esc.kind in ("workspace", "merge"):
         return _commit(s, *_retry_lane_io(s, lane, at))
@@ -1119,9 +1120,8 @@ def _epic_workspace_effect(s: TaskState, epic_id: str) -> CreateEpicWorkspace:
 def _setup_effect(s: TaskState, p: Pipe) -> RunSetup:
     lane = _lane(p)
     path = lane.workspace_path if lane is not None else s.workspace_path
-    command = _deps_cmd(s)
-    assert path is not None and command is not None
-    return RunSetup(s.task_id, lane.id if lane is not None else None, path, command)
+    assert path is not None
+    return RunSetup(s.task_id, lane.id if lane is not None else None, path, _deps_cmd(s), s.repo.name)
 
 
 def _run_setup(s: TaskState, p: Pipe, at: datetime) -> list[Effect]:
@@ -1129,7 +1129,7 @@ def _run_setup(s: TaskState, p: Pipe, at: datetime) -> list[Effect]:
     effect = _setup_effect(s, p)
     p.deps_setup = "running"
     _go(p, "dv-ts", "tester")
-    _set(p, "tester", "active", f"Instalando dependências: {effect.command}"[:160], at)
+    _set(p, "tester", "active", f"Instalando dependências: {effect.command or 'setup do repo'}"[:160], at)
     lane = _lane(p)
     if lane is not None:
         lane.status = "running"
@@ -1140,9 +1140,13 @@ def _run_setup(s: TaskState, p: Pipe, at: datetime) -> list[Effect]:
 
 
 def _retry_setup(s: TaskState, p: Pipe, at: datetime) -> list[Effect]:
-    p.escalation = None
-    p.stages["tester"].status = "idle"
-    _log(p, "tester", "Tentando instalar as dependências de novo", at)
+    esc, p.escalation = p.escalation, None
+    if esc is not None and esc.kind == "dependency":  # the Developer had finished: only the install was held
+        _set(p, "developer", "done", "Dependências autorizadas", at)
+        _log(p, "tester", "Instalando as dependências autorizadas", at)
+    else:
+        p.stages["tester"].status = "idle"
+        _log(p, "tester", "Tentando instalar as dependências de novo", at)
     return _run_setup(s, p, at)
 
 
@@ -1379,6 +1383,33 @@ def _planner_result(s: TaskState, plan: Plan, at: datetime) -> tuple[TaskState |
     return _commit(s)
 
 
+# Files that declare a repo's dependencies: the Developer editing one means a new install is needed.
+_MANIFEST_NAMES = frozenset(
+    {
+        "package.json", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml",
+        "pyproject.toml", "uv.lock", "poetry.lock", "Pipfile", "Pipfile.lock",
+        "go.mod", "go.sum", "Cargo.toml", "Cargo.lock", "Gemfile", "Gemfile.lock", "composer.json",
+    }
+)  # fmt: skip
+_REQUIREMENTS_RE = re.compile(r"^requirements[\w.-]*\.txt$")
+
+
+def _manifests_changed(dev: DevResult) -> list[str]:
+    """Dependency manifests the Developer touched (not removed), as reported in ``files_changed``."""
+    found: list[str] = []
+    for f in dev.files_changed:
+        name = f.path.replace("\\", "/").rsplit("/", 1)[-1]
+        if f.change != "D" and (name in _MANIFEST_NAMES or _REQUIREMENTS_RE.fullmatch(name)):
+            found.append(f.path)
+    return found
+
+
+def _dependencies_approved(s: TaskState) -> bool:
+    """A plan that lists ``new_dependencies`` (or a new project) lets dev-crew install once approved."""
+    plan = s.plan
+    return s.repo.new_project or (plan is not None and bool(plan.new_dependencies))
+
+
 def _developer_result(
     s: TaskState, p: Pipe, dev: DevResult, at: datetime
 ) -> tuple[TaskState | None, list[Effect]]:
@@ -1391,6 +1422,17 @@ def _developer_result(
     _set(p, "developer", "done", f"Rodada {p.dev_round} salva {where}", at)
     if p.deps_setup == "pending" and _deps_cmd(s):
         return _commit(s, *_run_setup(s, p, at))
+    manifests = _manifests_changed(dev)
+    if manifests:
+        if _dependencies_approved(s):
+            return _commit(s, *_run_setup(s, p, at))
+        reason = (
+            f"O Developer alterou {', '.join(manifests)}, mas o plano aprovado não lista bibliotecas novas. "
+            'Pra autorizar a instalação (feita pelo dev-crew, não pelo agente), use "+2 tentativas"; '
+            'pra recusar, use "Replanejar".'
+        )
+        _escalate(s, at, "dependency", "developer", reason, now="Dependência nova sem aprovação", p=p)
+        return _commit(s)
     now = "Escrevendo testes" if not p.test_runs else "Rodando a suíte de novo"
     effects = _advance(s, at, "tester", edge="dv-ts", now=now, p=p)
     return _commit(s, *effects)

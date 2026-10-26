@@ -48,7 +48,9 @@ from ..contracts.common import STAGES, TERMINAL_PHASES
 
 MAX_STAGE_LOGS = 50
 
-EscalationKind = Literal["test_limit", "review_limit", "agent_failed", "workspace", "merge", "setup"]
+EscalationKind = Literal[
+    "test_limit", "review_limit", "agent_failed", "workspace", "merge", "setup", "dependency"
+]
 DepsSetup = Literal["pending", "running", "done"]
 """New project (D58): dependencies installed by dev-crew before a pipe's first Tester."""
 Boot = Literal["create_workspace", "build_report"]

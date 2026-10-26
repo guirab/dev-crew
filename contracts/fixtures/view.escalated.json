@@ -46,7 +46,7 @@
     },
     "tester": {
       "status": "error",
-      "now": "Limite 3/3 atingido — expanda pra decidir",
+      "now": "Limite 3/3 atingido — sua vez de decidir",
       "logs": []
     },
     "reviewer": {
@@ -131,7 +131,9 @@
     "execution": "single",
     "split_rationale": "",
     "epics": [],
-    "project_setup": null
+    "project_setup": null,
+    "new_dependencies": [],
+    "essential_code": null
   },
   "dev_rounds": [
     {
