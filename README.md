@@ -1,18 +1,37 @@
 # dev-crew
 
-Equipe de desenvolvimento multi-agente local. Você descreve uma tarefa e os agentes Entrevistador, Planner, Developer, Tester e Reviewer planejam, implementam, testam e revisam com loop de correção, conversando via NATS JetStream.
+dev-crew is a multi-agent development team that runs on your own machine. You describe a task, and the Interviewer, Planner, Developer, Tester and Reviewer agents plan, implement, test and review it in a fix loop, talking to each other over NATS JetStream.
 
-- Tarefa pequena: uma execução só. As alterações ficam locais (sem commit) com uma mensagem de commit sugerida.
-- Tarefa de feature ou projeto inteiro: o Planner corta em **tickets** pequenos (épicos, no método `to-tickets` do Matt Pocock) com dependências, o plano mostra a estimativa de custo (tokens, US$ equivalente, % da sessão de 5 h e da semana) e você escolhe quais rodar agora. Épicos sem dependência entre si rodam **em paralelo**, cada um no seu worktree. O dev-crew faz **um commit por épico** e junta tudo na branch `crew/<task>` (sem push).
-- **Projeto novo** do zero: o card "Novo projeto" cria a pasta com git, e o Planner escolhe a stack e os comandos, começando pela fundação (E0).
+- Small task: a single run. The changes stay local (no commit), with a suggested commit message.
+- Feature or whole project: the Planner splits it into small tickets (epics, following Matt Pocock's `to-tickets` method) with dependencies. The plan shows a cost estimate (tokens, USD equivalent, % of the 5-hour session and of the weekly limit) and you choose which ones to run now. Epics that don't depend on each other run in parallel, each in its own worktree. dev-crew makes one commit per epic and merges everything into the `crew/<task>` branch (no push).
+- New project from scratch: the "Novo projeto" (New project) card creates the folder with git, and the Planner picks the stack and the commands, starting with the foundation (E0).
 
-- Plano e contexto: vault Obsidian em `C:/Users/guilh/Documents/Vaults/dev-crew-vault` (ver `.obsidian-vault`)
-- Convenções: `CLAUDE.md`
-- Referência visual: `mockup/index.html`
+The UI is in Brazilian Portuguese; UI labels below are quoted as they appear, with a translation.
 
-## Setup do zero (Windows 11)
+- Plan and context: a private Obsidian vault (path in `.obsidian-vault`)
+- Conventions: `CLAUDE.md`
+- Visual reference: `mockup/v6-linha-do-tempo.html`
 
-Pré-requisitos:
+## How it works
+
+```
+React UI ─REST/WS─▶ FastAPI gateway (127.0.0.1:8787) ─▶ NATS JetStream ◀─▶ Orchestrator (state machine + SQLite)
+                                                             ▲▼
+                              Agent SDK workers: interviewer · planner · developer · tester · reviewer (cwd = worktree)
+                                                             │ tool mcp__crew__run (docker exec)
+                                                     Docker sandbox per task (repo's sandbox_image)
+```
+
+- The orchestrator is a pure state machine, `decide(state, event) -> (state, effects)`, so the flow never depends on what an LLM decides.
+- Agents are stateless: everything they need comes in the job. Structured output goes through a `submit_*` tool and is validated with Pydantic.
+- Agents never commit, push, install dependencies, access the network or write outside their worktree; guards in `agents/guards.py` enforce this. dev-crew itself installs the dependencies the approved plan lists.
+- The Tester's pass/fail comes from the exit codes of `test_cmd` and `lint_cmd`, which the worker runs again after the agent finishes.
+
+Stack: Python 3.12 (uv, Pydantic v2, nats-py, Claude Agent SDK, FastAPI, SQLite) · React 19 + TypeScript + Vite · NATS 2.15 · Docker.
+
+## Setup from scratch (Windows 11)
+
+Prerequisites:
 
 ```bash
 winget install Git.Git
@@ -30,15 +49,15 @@ winget install OpenJS.NodeJS.LTS
 winget install Docker.DockerDesktop
 ```
 
-- Docker Desktop roda o NATS (`infra/docker-compose.yml`) e o sandbox dos agentes. Precisa do WSL2 (`wsl --install --no-distribution` + reboot).
-- O `nats-server.exe` do winget não serve: o Smart App Control bloqueia binário sem assinatura.
-- Agentes reais usam o Claude Code CLI (`claude.exe` nativo) logado na assinatura:
+- Docker Desktop runs NATS (`infra/docker-compose.yml`) and the agents' sandbox. It needs WSL2 (`wsl --install --no-distribution` + reboot).
+- The winget `nats-server.exe` won't work: Smart App Control blocks unsigned binaries.
+- Real agents use the Claude Code CLI (native `claude.exe`) logged in with your subscription:
 
 ```bash
 claude auth login
 ```
 
-Dependências:
+Dependencies:
 
 ```bash
 cd backend && uv sync
@@ -48,7 +67,7 @@ cd backend && uv sync
 cd frontend && npm install
 ```
 
-UI servida pelo gateway (lê `frontend/dist`):
+UI served by the gateway (reads `frontend/dist`):
 
 ```bash
 cd frontend && npm run build
@@ -56,73 +75,73 @@ cd frontend && npm run build
 
 Config:
 
-- `crew.toml.example` → `~/.dev-crew/crew.toml` (busca: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Cadastre os repos em `[[repos]]` com `test_cmd`, `lint_cmd` e, opcionalmente, `setup_cmd`, `sandbox_image` e `deps_dirs`.
-- `.env.example` → `backend/.env`. Deixe `ANTHROPIC_API_KEY` vazio: preenchido, os agentes cobram na API em vez da assinatura.
+- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`.
+- `.env.example` → `backend/.env`. Leave `ANTHROPIC_API_KEY` empty: if it is set, the agents bill the API instead of the subscription.
 
-Checagem (config, git, Git Bash, CLI, login, NATS, Docker, repos):
+Health check (config, git, Git Bash, CLI, login, NATS, Docker, repos):
 
 ```bash
 cd backend && uv run python -m crew.cli doctor
 ```
 
-## App desktop
+## Desktop app
 
-Cria o atalho "Dev Crew" no menu Iniciar (`--desktop` também na Área de Trabalho):
+This command creates the "Dev Crew" shortcut in the Start menu (`--desktop` also puts one on the Desktop):
 
 ```bash
 cd backend && uv run python -m crew.cli install-app
 ```
 
-Clicar no atalho abre o Docker Desktop se precisar, sobe o NATS e o crew escondidos (agentes reais) e abre a UI numa janela própria do Edge. O ícone perto do relógio mostra o estado (amarelo iniciando, verde pronto, vermelho erro) e tem **Abrir Dev Crew**, **Ver logs** e **Encerrar**. Fechar a janela não para o crew: só o **Encerrar** para. O **Encerrar** desfaz só o que aquela abertura fez: para o container do NATS se foi o app que o subiu, e fecha o Docker Desktop (`docker desktop stop`) se foi o app que o abriu. Docker que já estava aberto antes continua aberto. Clicar no atalho de novo com o app aberto só abre outra janela.
+Clicking the shortcut opens Docker Desktop if needed, starts NATS and the crew in the background (real agents) and opens the UI in its own Edge window. The icon in the system tray shows the state (yellow starting, green ready, red error) and has **Abrir Dev Crew** (Open), **Ver logs** (View logs) and **Encerrar** (Quit). Closing the window doesn't stop the crew: only **Encerrar** does. **Encerrar** only undoes what that launch did: it stops the NATS container if the app started it, and closes Docker Desktop (`docker desktop stop`) if the app opened it. A Docker that was already open stays open. Clicking the shortcut again while the app is running just opens another window.
 
-- O atalho roda o `pythonw.exe` do venv (assinado pela PSF, passa no Smart App Control) com `-m crew.cli app`.
-- Logs em `~/.dev-crew/logs/` (`app.log` do launcher, `backend.log` e `crew.log` do crew).
-- `crew app --fake-agents` (zero tokens) e `--no-window` (só sobe, sem janela) existem para testes e automação.
-- Se um `dev-up.ps1` já estiver rodando na mesma porta, o app só abre a janela e não o encerra.
+- The shortcut runs the venv's `pythonw.exe` (signed by the PSF, so it passes Smart App Control) with `-m crew.cli app`.
+- Logs in `~/.dev-crew/logs/` (`app.log` from the launcher, `backend.log` and `crew.log` from the crew).
+- `crew app --fake-agents` (zero tokens) and `--no-window` (starts without a window) exist for testing and automation.
+- If a `dev-up.ps1` is already running on the same port, the app only opens the window and doesn't shut it down.
 
-## Rodar no terminal
+## Running from the terminal
 
-Tudo num terminal (abre o Docker Desktop se precisar, sobe o NATS, cria os streams e roda `crew up`):
+`dev-up.ps1` runs everything in one terminal. It opens Docker Desktop if needed, starts NATS, creates the streams and runs `crew up`:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
 ```
 
-- sem flags: agentes **fake** (zero tokens). Abra `http://127.0.0.1:8787`.
-- `-Real`: agentes reais via assinatura (consome a cota do plano). Não há teto de custo nem de tempo (D51); se o limite da assinatura bater, a tarefa para e a tela mostra quando volta, com o botão **Retomar**.
-- `-Escalate`: fakes forçam a escalada no Tester · `-Speed 3`: velocidade dos fakes.
+- No flags: fake agents (zero tokens). Open `http://127.0.0.1:8787`.
+- `-Real`: real agents on your subscription (uses your plan's quota). There is no cost or time cap; if you hit the subscription limit, the task pauses and the screen shows when it comes back, with a **Retomar** (Resume) button.
+- `-Escalate`: fakes force an escalation in the Tester · `-Speed 3`: fake agent speed.
 
-Worktrees das tarefas: `~/.dev-crew/worktrees/<repo>/<task>`, branch `crew/<task>`. Revise, commite com a mensagem sugerida e depois:
+Task worktrees: `~/.dev-crew/worktrees/<repo>/<task>`, branch `crew/<task>`. Review, commit with the suggested message, then:
 
 ```bash
 cd backend && uv run python -m crew.cli cleanup <task>
 ```
 
-A CLI roda como `python -m crew.cli` porque o Smart App Control bloqueia o `crew.exe` que o uv gera.
+The CLI runs as `python -m crew.cli` because Smart App Control blocks the `crew.exe` that uv generates.
 
-## Épicos em paralelo
+## Parallel epics
 
-- O Planner decide se divide (mudança pequena e coesa fica numa execução só) e justifica no plano. Épicos paralelos nunca editam o mesmo arquivo; quem precisa do mesmo arquivo vira dependência.
-- Na aprovação você marca os épicos que rodam agora; os dependentes entram junto. Quando o lote termina, o card de aprovação oferece os próximos ou **Concluir agora** (o que ficou de fora fica registrado como pendente).
-- Cada épico (ticket): worktree `crew/<task>-E1`, Developer → Tester com o loop de correção. Testes passando (o dev-crew confere o exit code de `test_cmd` e `lint_cmd`), o dev-crew commita e faz merge na branch da tarefa. Conflito de merge vira uma faixa de integração (`M-E2`) que resolve e testa antes de concluir o merge.
-- Fim do lote ou **Concluir agora**: a faixa **Review final** roda o Reviewer uma vez sobre a branch inteira (passadas Spec e Standards); o que ele pedir passa por Developer → Tester e sai num commit `fix: ajustes do review final`.
-- O plano fica salvo no projeto em `docs/plano/<task>.md`, atualizado no fim de cada lote.
-- `[parallel] workers_per_agent` (padrão 3) limita quantos épicos têm um agente trabalhando ao mesmo tempo. Na assinatura Pro, paralelo esgota a sessão de 5 h mais rápido: confira a estimativa antes de aprovar.
-- Um agente parado 30 min sem nenhuma atividade (e sem comando rodando) escala sozinho (D52).
+- The Planner decides whether to split (a small, cohesive change stays a single run) and explains why in the plan. Parallel epics never edit the same file; epics that need the same file become dependencies.
+- On approval you pick the epics to run now; their dependencies come along. When the batch finishes, the approval card offers the next ones or **Concluir agora** (Finish now), and dev-crew records whatever you left out as pending.
+- Each epic (ticket): worktree `crew/<task>-E1`, Developer → Tester with the fix loop. Once tests pass (dev-crew checks the exit codes of `test_cmd` and `lint_cmd`), dev-crew commits and merges into the task branch. A merge conflict becomes an integration lane (`M-E2`) that resolves and tests it before the merge completes.
+- End of batch or **Concluir agora**: the **Review final** lane runs the Reviewer once over the whole branch (Spec and Standards passes); whatever it asks for goes through Developer → Tester and lands in a `fix: ajustes do review final` commit.
+- The plan is saved in the project at `docs/plano/<task>.md` and updated at the end of each batch.
+- `[parallel] workers_per_agent` (default 3) caps how many epics have an agent working at the same time. On the Pro plan, parallel runs drain the 5-hour session faster: check the estimate before approving.
+- An agent idle for 30 min with no activity (and no command running) escalates on its own.
 
-## Projeto novo
+## New project
 
-- Card **Novo projeto**: nome (vira a pasta) e onde criar (vazio = `[workspace] projects_dir`, padrão Documentos). O dev-crew cria a pasta, faz `git init` com README e `.gitignore` e o primeiro commit.
-- O projeto fica registrado em `~/.dev-crew/repos.toml` (gerido pelo dev-crew, somado aos `[[repos]]` do `crew.toml`).
-- O Planner preenche `project_setup` (stack, `setup_cmd`, `test_cmd`, `lint_cmd`, `sandbox_image`). Aprovado o plano, os comandos vão pro registro.
-- A primeira tarefa roda na sua máquina, sem container: o `setup_cmd` roda em cada worktree logo antes do primeiro Tester, depois que o E0 escreveu os manifestos. Da próxima tarefa em diante vale o `sandbox_image`.
+- **Novo projeto** card: name (becomes the folder) and where to create it (empty = `[workspace] projects_dir`, default Documents). dev-crew creates the folder, runs `git init` with a README and `.gitignore`, and makes the first commit.
+- The project is registered in `~/.dev-crew/repos.toml` (managed by dev-crew, added to the `[[repos]]` from `crew.toml`).
+- The Planner fills in `project_setup` (stack, `setup_cmd`, `test_cmd`, `lint_cmd`, `sandbox_image`). Once the plan is approved, the commands go into the registry.
+- The first task runs on your machine, without a container: `setup_cmd` runs in each worktree right before the first Tester, after E0 has written the manifests. From the next task on, `sandbox_image` applies.
 
-## Comandos
+## Commands
 
-| Onde | Comando |
+| Where | Command |
 |---|---|
 | backend | `uv run pytest` · `uv run ruff check .` · `uv run mypy src` |
-| backend | `uv run python -m crew.cli streams init` · `uv run python -m crew.cli gen-schema` · `uv run python -m crew.cli skills sync --ref <sha>` (skills do Matt Pocock nos prompts) |
+| backend | `uv run python -m crew.cli streams init` · `uv run python -m crew.cli gen-schema` · `uv run python -m crew.cli skills sync --ref <sha>` (Matt Pocock's skills in the prompts) |
 | frontend | `npm run gen:types` · `npm run typecheck` · `npm run lint` · `npm test` · `npm run build` |
-| frontend | `npm run dev:mock` (UI sem backend, MSW) · `npm run test:e2e` |
+| frontend | `npm run dev:mock` (UI without backend, MSW) · `npm run test:e2e` |
 | infra | `docker compose -f infra/docker-compose.yml up -d` / `down` |
