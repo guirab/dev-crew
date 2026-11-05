@@ -4,7 +4,8 @@ import { formatClock, formatDuration, formatUsd } from '../lib/format'
 import { EPIC_TONE } from './lanes'
 
 /** Os nós da linha do tempo da tarefa, na ordem em que aparecem. */
-export type NodeKey = 'task' | 'interview' | 'plan' | 'execution' | 'next' | 'review' | 'result'
+export type NodeKey =
+  'task' | 'interview' | 'standards' | 'plan' | 'execution' | 'next' | 'review' | 'result'
 
 /** done = passou · you = sua vez · run = trabalhando · todo = ainda não chegou · err = falhou · pause = limite. */
 export type NodeTone = 'done' | 'you' | 'run' | 'todo' | 'err' | 'pause'
@@ -103,6 +104,33 @@ function interviewNode(view: TaskView): TimelineNode {
     summary,
     meta: meta(stage.logs),
     tone,
+  }
+}
+
+/** Padrões (D82): roda junto com a entrevista; falha não para a tarefa (o Planner segue sem a base). */
+function standardsNode(view: TaskView): TimelineNode {
+  const stage = view.stages.standards
+  const result = view.standards
+  const base = { key: 'standards' as const, icon: 'PD', name: 'Padrões', meta: meta(stage.logs) }
+  switch (stage.status) {
+    case 'active':
+      return { ...base, tone: 'run', summary: stage.now ?? 'Analisando o repositório' }
+    case 'done':
+      if (result?.status === 'existing')
+        return { ...base, tone: 'done', summary: result.summary, meta: '' }
+      return {
+        ...base,
+        tone: 'done',
+        summary: result
+          ? `${plural(result.files.length, 'arquivo', 'arquivos')} · ${plural(result.decisions.length, 'decisão', 'decisões')}`
+          : (stage.now ?? ''),
+      }
+    case 'error':
+      return { ...base, tone: 'err', summary: 'seguindo sem a base' }
+    case 'skipped':
+      return { ...base, tone: 'todo', summary: 'Pulado: projeto novo' }
+    default:
+      return { ...base, tone: STAGE_TONE[stage.status], summary: 'analisa o repositório' }
   }
 }
 
@@ -235,7 +263,12 @@ function resultNode(view: TaskView): TimelineNode {
 export function timelineNodes(view: TaskView): TimelineNode[] {
   const nodes: TimelineNode[] = []
   if (view.stages.approval.status !== 'done') nodes.push(taskNode(view))
-  nodes.push(interviewNode(view), planNode(view))
+  nodes.push(interviewNode(view))
+  // tarefa de antes da etapa (D82) carrega com ela em idle: some depois que o Planner começou
+  if (view.stages.standards.status !== 'idle' || view.stages.planner.status === 'idle') {
+    nodes.push(standardsNode(view))
+  }
+  nodes.push(planNode(view))
   nodes.push(isSplit(view) ? epicsExecution(view) : singleExecution(view))
   if (view.phase === 'awaiting_selection') {
     nodes.push({ key: 'next', icon: '⎇', name: 'Próximo lote', summary: '', meta: '', tone: 'you' })
@@ -252,10 +285,11 @@ export function timelineNodes(view: TaskView): TimelineNode[] {
   const esc = view.escalation
   const escalated = esc && !esc.epic_id ? STAGE_NODE[esc.stage] : null
   if (!TERMINAL_FAIL.includes(view.phase)) {
-    // tarefa viva: estágio em erro é uma volta do loop (trabalhando) ou a escalada (sua vez)
+    // tarefa viva: estágio em erro é uma volta do loop (trabalhando) ou a escalada (sua vez);
+    // Padrões em erro é final e fica vermelho (a tarefa segue sem a base)
     for (const node of nodes) {
       if (node.key === escalated) node.tone = 'you'
-      else if (node.tone === 'err') node.tone = 'run'
+      else if (node.tone === 'err' && node.key !== 'standards') node.tone = 'run'
     }
   }
   if (TERMINAL_FAIL.includes(view.phase)) {
@@ -284,6 +318,7 @@ export function failedStage(view: TaskView, key: NodeKey): StageView | null {
   const keys: Record<NodeKey, readonly StageKey[]> = {
     task: ['manual'],
     interview: ['interviewer'],
+    standards: ['standards'],
     plan: ['planner', 'approval'],
     execution: ['developer', 'tester'],
     next: [],

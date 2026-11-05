@@ -5,6 +5,7 @@ import type { StageKey } from '../contracts/aliases'
 export const STAGE_META: Record<StageKey, { title: string }> = {
   manual: { title: 'Manual' },
   interviewer: { title: 'Entrevistador' },
+  standards: { title: 'Padrões' },
   planner: { title: 'Planner' },
   approval: { title: 'Aprovação do plano' },
   developer: { title: 'Developer' },

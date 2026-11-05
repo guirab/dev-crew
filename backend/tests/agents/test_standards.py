@@ -126,3 +126,34 @@ def test_system_prompt_has_the_section_only_with_standards(tmp_path: Path) -> No
     assert "## Padrões do projeto" in opts.system_prompt["append"]  # type: ignore[index]
     plain = build_options(spec, job, AgentRuntimeSettings(model="m"), POSIX_WS, submit, resumed=False)
     assert "## Padrões do projeto" not in plain.system_prompt["append"]  # type: ignore[index]
+
+
+def test_the_base_is_resolved_per_job_so_one_created_mid_task_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D82: no snapshot at startup: the vault is found by convention on every job."""
+    monkeypatch.setenv("CREW_VAULTS_ROOT", str(tmp_path / "vaults"))
+    repo = tmp_path / "code" / "sample-repo"
+    repo.mkdir(parents=True)
+    paths = {"sample-repo": repo}
+    assert (
+        standards.dir_for("sample-repo", paths, {}) == tmp_path / "vaults" / "sample-repo-vault" / "standards"
+    )
+    assert standards.load(standards.dir_for("sample-repo", paths, {}), "developer") == ""
+    _write(tmp_path / "vaults" / "sample-repo-vault" / "standards" / "Conventions.md", CONVENTIONS)
+    assert "regression test" in standards.load(standards.dir_for("sample-repo", paths, {}), "developer")
+    assert standards.dir_for("sample-repo", paths, {"sample-repo": tmp_path / "x"}) == tmp_path / "x"
+
+
+def test_a_repo_added_after_startup_is_read_from_the_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from crew import projects
+    from crew.config import RepoCfg
+
+    monkeypatch.setenv("CREW_HOME", str(tmp_path / "home"))
+    assert standards.dir_for("late", {}, {}) is None
+    projects.register(
+        RepoCfg(name="late", path=tmp_path / "late", test_cmd="t", standards_dir=tmp_path / "s")
+    )
+    assert standards.dir_for("late", {}, {}) == tmp_path / "s"

@@ -255,3 +255,17 @@ async def test_cli_up_process_serves_the_gateway_with_fakes(nats_url: str, tmp_p
     finally:
         proc.kill()
         proc.wait(timeout=10)
+
+
+def test_fake_agents_keep_the_standards_base_out_of_real_vaults(tmp_path: Path) -> None:
+    """D82: with --fake-agents every vault lives under CREW_HOME/fake-vaults (no link file, no override)."""
+    from crew.config import crew_home
+    from crew.stack import FAKE_VAULTS, build_orchestrator
+
+    cfg = make_config(tmp_path)
+    fake, store = build_orchestrator(None, cfg, StackOptions(fake_agents=True, db=tmp_path / "a.db"))  # type: ignore[arg-type]
+    store.close()
+    assert fake.vault_root == crew_home() / FAKE_VAULTS
+    real, store = build_orchestrator(None, cfg, StackOptions(db=tmp_path / "b.db"))
+    store.close()
+    assert real.vault_root is None

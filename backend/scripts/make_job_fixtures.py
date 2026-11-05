@@ -82,6 +82,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     jobs = [
         make_job(1, "interviewer", spec=VAGUE_SPEC),
+        make_job(6, "standards"),
         make_job(2, "planner"),
         make_job(3, "developer", plan=PLAN),
         make_job(4, "tester", plan=PLAN),

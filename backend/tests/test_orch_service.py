@@ -135,7 +135,11 @@ async def test_adjust_plan_then_completes(rig: Rig) -> None:
     assert "planning" in rig.phases()[2:], "adjust loops back through planning"
     # the job the planner got for the adjustment carried the user text and the previous plan
     jobs = rig.store.jobs("T-1")
-    assert [j.agent for j in jobs if j.agent != "interviewer"][:3] == ["planner", "planner", "developer"]
+    assert [j.agent for j in jobs if j.agent not in ("interviewer", "standards")][:3] == [
+        "planner",
+        "planner",
+        "developer",
+    ]
     assert all(j.status == "done" for j in jobs)
 
 
@@ -231,7 +235,12 @@ async def test_malformed_command_gets_a_clear_error_reply(rig: Rig) -> None:
 
 async def test_stale_and_foreign_results_are_ignored(rig: Rig) -> None:
     await rig.ok(START_MANUAL)
-    q = await rig.wait_for(lambda v: v.interview is not None and bool(v.interview.pending))
+    # the standards job (D82) runs beside the interview: wait for both to settle
+    q = await rig.wait_for(
+        lambda v: (
+            v.interview is not None and bool(v.interview.pending) and v.stages.standards.status == "done"
+        )
+    )
     before = len(rig.views)
     evt = c.AgentResultEvt(agent="planner", job_id=uuid4(), output=dev(), cost_usd=99.0)
     await rig.bus.publish_event("T-1", "result", evt, source="planner")

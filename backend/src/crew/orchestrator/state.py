@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..contracts import (
     AgentName,
@@ -37,6 +37,7 @@ from ..contracts import (
     Stages,
     StageStatus,
     StageView,
+    StandardsResult,
     TaskPhase,
     TaskSpec,
     TaskSummary,
@@ -200,6 +201,12 @@ class TaskState(BaseModel):
     edges: dict[EdgeKey, EdgeStatus] = Field(default_factory=dict)
     active_edge: EdgeKey | None = None
 
+    @field_validator("stages")
+    @classmethod
+    def _every_stage(cls, v: dict[StageKey, StageState]) -> dict[StageKey, StageState]:
+        # a task saved before a stage existed (``standards``, D82) still loads, in STAGES order
+        return {k: v.get(k) or StageState() for k in STAGES}
+
     dev_round: int = 0
     test_attempt: int = 0
     review_round: int = 0
@@ -208,6 +215,11 @@ class TaskState(BaseModel):
     pending_questions: list[InterviewQuestion] = Field(default_factory=list)
     interview_round: int = 0
     decisions: list[str] = Field(default_factory=list)
+
+    # standards stage (D82): its job runs beside the main pipeline (own slot, not current_job_id)
+    standards: StandardsResult | None = None
+    standards_dir: str | None = None  # the repo's folder in the vault's base (None: not checked)
+    standards_job_id: UUID | None = None
 
     plan: Plan | None = None
     estimate: Estimate | None = None
@@ -319,6 +331,7 @@ class TaskState(BaseModel):
                 max_review_rounds=self.limits.max_review_rounds,
             ),
             interview=interview,
+            standards=self.standards,
             plan=self.plan,
             dev_rounds=list(self.dev_rounds),
             test_runs=list(self.test_runs),

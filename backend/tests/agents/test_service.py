@@ -31,6 +31,7 @@ from crew.contracts import (
     InterviewResult,
     Plan,
     ReviewResult,
+    StandardsResult,
     TestResult,
 )
 
@@ -40,6 +41,7 @@ pytestmark = pytest.mark.nats
 
 OUTPUT_TYPES: dict[AgentName, type] = {
     "interviewer": InterviewResult,
+    "standards": StandardsResult,
     "planner": Plan,
     "developer": DevResult,
     "tester": TestResult,

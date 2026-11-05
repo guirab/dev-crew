@@ -24,6 +24,7 @@ from crew.contracts import (
     Plan,
     PlanFile,
     ReviewResult,
+    StandardsResult,
     TestResult,
 )
 
@@ -342,7 +343,7 @@ def test_commit_subject_is_capped_at_72_chars_on_a_word_boundary() -> None:
 
 
 # ---------------------------------------------------------------------------------- generic
-@pytest.mark.parametrize("agent", ["interviewer", "planner", "developer", "tester", "reviewer"])
+@pytest.mark.parametrize("agent", ["interviewer", "standards", "planner", "developer", "tester", "reviewer"])
 async def test_every_fake_output_passes_the_real_semantic_check_and_reports_cost(agent: str) -> None:
     rec = Recorder()
     outcome = await runner(rec).run(make_job(agent), rec.emit)  # type: ignore[arg-type]
@@ -369,6 +370,15 @@ async def test_zero_or_negative_speed_does_not_divide_by_zero() -> None:
     rec = Recorder()
     await runner(rec, speed=0).run(make_job("planner"), rec.emit)
     assert all(s > 1e3 for s in rec.sleeps)  # effectively "paused", never an exception
+
+
+async def test_fake_standards_writes_a_base_like_the_real_agent(tmp_path: Path) -> None:
+    """D82: the files land in .crew/standards-out/, where the orchestrator picks them up."""
+    rec = Recorder()
+    out = (await runner(rec).run(make_job("standards", workspace=tmp_path), rec.emit)).output
+    assert isinstance(out, StandardsResult) and out.status == "created"
+    written = sorted(p.name for p in (tmp_path / ".crew" / "standards-out").iterdir())
+    assert written == sorted(out.files) == ["Before You Develop.md", "Conventions.md", "Glossary.md"]
 
 
 def test_fake_job_type_is_the_contract_job() -> None:

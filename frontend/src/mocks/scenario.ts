@@ -5,7 +5,7 @@
  *
  * Fluxo: manual → (entrevista, 3 perguntas) → plano → aprovação (ou ajuste) → developer →
  * tester (1º run falha) → developer → tester ok → reviewer (1º review pede mudanças) → developer →
- * tester ok → reviewer aprova → concluída. `forceEscalate` faz o Tester falhar sempre (escalada).
+ * tester ok → reviewer aprova → concluída. Os Padrões rodam junto com a entrevista e o plano espera os dois. `forceEscalate` faz o Tester falhar sempre (escalada).
  * Com "épicos" no título (como no fake do backend) o plano sai dividido e a aprovação abre a tela
  * de épicos já rodando em paralelo, com um escalado (`mocks/epics.ts`).
  */
@@ -23,6 +23,7 @@ import type {
   RepoInfo,
   ReviewResult,
   StageView,
+  StandardsResult,
   StartTask,
   TaskSummary,
   TaskView,
@@ -48,6 +49,7 @@ type Listener = (msg: WsMessage) => void
 const STAGE_KEYS: readonly StageKey[] = [
   'manual',
   'interviewer',
+  'standards',
   'planner',
   'approval',
   'developer',
@@ -119,6 +121,9 @@ interface TaskState {
   review: ReviewResult | null
   plan: Plan | null
   interview: InterviewState | null
+  standards: StandardsResult | null
+  /** Resolve quando os Padrões terminam (o Planner espera). */
+  standardsRun: Promise<void>
   escalation: Escalation | null
   final: FinalReport | null
   /** Faixas do plano dividido; vazio na execução única. */
@@ -131,6 +136,7 @@ function perStage<T>(make: (key: StageKey) => T): Record<StageKey, T> {
   return {
     manual: make('manual'),
     interviewer: make('interviewer'),
+    standards: make('standards'),
     planner: make('planner'),
     approval: make('approval'),
     developer: make('developer'),
@@ -215,6 +221,7 @@ export class ScenarioBackend implements MockBackend {
       stages: {
         manual: stage('manual'),
         interviewer: stage('interviewer'),
+        standards: stage('standards'),
         planner: stage('planner'),
         approval: stage('approval'),
         developer: stage('developer'),
@@ -238,6 +245,7 @@ export class ScenarioBackend implements MockBackend {
             decisions: s.interview.decisions,
           }
         : null,
+      standards: s.standards,
       plan: s.plan,
       dev_rounds: s.rounds,
       test_runs: s.runs,
@@ -344,6 +352,8 @@ export class ScenarioBackend implements MockBackend {
       review: null,
       plan: null,
       interview: null,
+      standards: null,
+      standardsRun: Promise.resolve(),
       escalation: null,
       final: null,
       lanes: [],
@@ -357,6 +367,8 @@ export class ScenarioBackend implements MockBackend {
     this.nextQuestion(s.interview)
     s.now.interviewer = 'Aguardando sua resposta — expanda pra responder'
     this.go('ma-iv', 'interviewer', 'waiting')
+    s.standardsRun = this.runStandards()
+    this.run(() => s.standardsRun)
     return this.accepted()
   }
 
@@ -393,6 +405,7 @@ export class ScenarioBackend implements MockBackend {
     if (!this.nextQuestion(interview)) {
       this.run(async () => {
         this.finish('interviewer', `Spec fechada · ${interview.decisions.length} decisões`)
+        await s.standardsRun
         await this.wait(700)
         this.go('iv-pl', 'planner')
         await this.runPlanner()
@@ -527,7 +540,10 @@ export class ScenarioBackend implements MockBackend {
     for (const listener of this.listeners) listener({ type: 'view', data: view })
   }
 
-  private progress(agent: 'planner' | 'developer' | 'tester' | 'reviewer', text: string): void {
+  private progress(
+    agent: 'standards' | 'planner' | 'developer' | 'tester' | 'reviewer',
+    text: string,
+  ): void {
     const s = this.s
     if (!s) return
     for (const listener of this.listeners) {
@@ -566,7 +582,7 @@ export class ScenarioBackend implements MockBackend {
   }
 
   private async step(
-    key: 'planner' | 'developer' | 'tester' | 'reviewer',
+    key: 'standards' | 'planner' | 'developer' | 'tester' | 'reviewer',
     text: string,
     ms: number,
     ticks: readonly string[] = [],
@@ -596,6 +612,34 @@ export class ScenarioBackend implements MockBackend {
     s.st[key] = status
     s.phase = PHASE_OF[key] ?? s.phase
     this.emit()
+  }
+
+  /** Padrões em paralelo com a entrevista: o `step` não muda a fase (fica em `interviewing`). */
+  private async runStandards(): Promise<void> {
+    await this.step('standards', 'Analisando o repositório', 1500, [
+      'Read package.json',
+      'Grep "describe(" em tests/',
+    ])
+    await this.step('standards', 'Escrevendo a base de padrões', 1500)
+    const s = this.requireState()
+    s.standards = {
+      type: 'standards',
+      status: 'created',
+      summary: `Base de padrões criada para ${s.repo}: convenções, glossário e uma ADR.`,
+      files: [
+        'Before You Develop.md',
+        'Conventions.md',
+        'Glossary.md',
+        'decisions/ADR-0001-testes-de-integracao.md',
+      ],
+      decisions: [
+        'Idioma dos docs: pt-BR (README e commits do repo em português).',
+        'Testes: integração no endpoint além de unit (tests/ já tem casos com banco).',
+        'Datas: sempre UTC no banco (todas as colunas created_at são timestamptz).',
+      ],
+      notes: null,
+    }
+    this.finish('standards', 'Base criada · 4 arquivos, 3 decisões')
   }
 
   private async runPlanner(feedback?: string): Promise<void> {

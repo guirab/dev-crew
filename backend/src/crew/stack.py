@@ -19,7 +19,7 @@ from typing import Any
 import structlog
 
 from .bus import Bus
-from .config import CrewConfig, Secrets, db_path
+from .config import CrewConfig, Secrets, crew_home, db_path
 from .contracts import AGENTS, AgentName
 from .gateway.app import DEFAULT_DIST, Gateway
 from .orchestrator.devfakes import FakeCrew
@@ -33,6 +33,7 @@ log = structlog.get_logger(__name__)
 LANE_AGENTS: tuple[AgentName, ...] = ("developer", "tester", "reviewer")
 
 SERVICE_NAMES = ("orchestrator", "gateway")
+FAKE_VAULTS = "fake-vaults"  # under CREW_HOME: where --fake-agents writes the standards bases
 BACKOFF_S = (1.0, 2.0, 5.0, 10.0)
 STABLE_AFTER_S = 60.0
 
@@ -144,6 +145,7 @@ def agent_factories(
                 fake=opts.fake_agents,
                 fake_speed=opts.fake_speed,
                 fake_escalate=opts.fake_escalate,
+                repo_paths={r.name: r.path for r in cfg.repos},
                 standards_dirs={r.name: r.standards_dir for r in cfg.repos if r.standards_dir},
             )
             await runtime.run_agent(bus, agent, settings=settings, stop=stop)
@@ -166,7 +168,10 @@ def agent_factories(
 def build_orchestrator(bus: Bus, cfg: CrewConfig, opts: StackOptions) -> tuple[OrchestratorService, Store]:
     store = Store(opts.db or db_path())
     workspace = WorkspaceManager(cfg.workspace.root, cfg.workspace.mode)
-    return OrchestratorService(bus, cfg, store, workspace, usage=UsageReader()), store
+    # D82: a fake standards base must never land in (or count as) the user's real vault
+    vault_root = crew_home() / FAKE_VAULTS if opts.fake_agents else None
+    svc = OrchestratorService(bus, cfg, store, workspace, usage=UsageReader(), vault_root=vault_root)
+    return svc, store
 
 
 # ====================================================================== run

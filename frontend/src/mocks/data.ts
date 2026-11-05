@@ -130,6 +130,7 @@ function pastView(task: TaskSummary): TaskView {
     stages: {
       manual: stage('done'),
       interviewer: stage('skipped'),
+      standards: stage('done'),
       planner: stage('done'),
       approval: stage('done'),
       developer: stage(ok ? 'done' : 'error'),
@@ -147,6 +148,14 @@ function pastView(task: TaskSummary): TaskView {
       max_review_rounds: 2,
     },
     interview: null,
+    standards: {
+      type: 'standards',
+      status: 'existing',
+      summary: `Usando a base existente (standards/${task.repo})`,
+      files: [],
+      decisions: [],
+      notes: null,
+    },
     plan: null,
     dev_rounds: [],
     test_runs: [],

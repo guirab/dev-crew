@@ -23,6 +23,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 const STAGE_KEYS: readonly StageKey[] = [
   'manual',
   'interviewer',
+  'standards',
   'planner',
   'approval',
   'developer',

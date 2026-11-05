@@ -130,7 +130,22 @@ class ReviewResult(Contract):
     commit_message: str | None = None
 
 
+class StandardsResult(Contract):
+    """The project standards base (D82): written by the agent, or found already in the vault.
+
+    The agent always submits ``created``; the orchestrator builds ``existing`` itself, without a job.
+    A new project (D58) has no result: its stage is ``skipped``.
+    """
+
+    type: Literal["standards"] = "standards"
+    status: Literal["created", "existing"] = "created"
+    summary: str  # pt-BR, 1-2 sentences; for ``existing``: "Usando a base existente (<caminho>)"
+    files: list[str] = []  # paths relative to the ``standards/`` folder
+    decisions: list[str] = []  # questions the skill would ask the user, answered by dev-crew with evidence
+    notes: str | None = None
+
+
 AgentOutput = Annotated[
-    InterviewResult | Plan | DevResult | TestResult | ReviewResult,
+    InterviewResult | StandardsResult | Plan | DevResult | TestResult | ReviewResult,
     Field(discriminator="type"),
 ]

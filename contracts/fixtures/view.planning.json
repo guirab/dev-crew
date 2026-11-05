@@ -20,6 +20,11 @@
         }
       ]
     },
+    "standards": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
     "planner": {
       "status": "active",
       "now": "Explorando repo (Grep/Read nos módulos afetados)",
@@ -88,6 +93,7 @@
       "Fora de escopo: Exportar o relatório fica pra depois."
     ]
   },
+  "standards": null,
   "plan": null,
   "dev_rounds": [],
   "test_runs": [],

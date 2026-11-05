@@ -22,7 +22,7 @@ LANE_POOL = 3
 async def epic_rig(nats_url: str, tmp_path: Path) -> Rig:
     rig = await start_rig(nats_url, tmp_path, agents=False)
     settings = AgentRuntimeSettings(model="fake", fake=True, fake_speed=5000)
-    for agent in ("interviewer", "planner", "developer", "tester", "reviewer"):
+    for agent in c.AGENTS:
         copies = LANE_POOL if agent in ("developer", "tester", "reviewer") else 1
         for i in range(copies):
             rig.spawn(

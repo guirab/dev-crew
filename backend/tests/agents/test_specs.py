@@ -51,13 +51,20 @@ def test_every_agent_has_a_spec_with_the_table_values() -> None:
             "tests_only",
         ),
         "reviewer": ("claude-opus-5-5", ("Read", "Glob", "Grep", "Bash"), "readonly", "none"),
+        "standards": (
+            "claude-opus-5-5",
+            ("Read", "Glob", "Grep", "Write", "Edit", "Bash"),
+            "readonly",
+            "standards_out",
+        ),
     }
+    assert set(table) == set(AGENTS)
     for agent, (model, tools, bash, write) in table.items():
         spec = SPECS[agent]  # type: ignore[index]
         assert spec.default_model == model
         assert set(spec.tools) == set(tools)
         assert (spec.bash, spec.write, spec.max_turns) == (bash, write, None)
-        assert spec.resume_across_rounds is True
+        assert spec.resume_across_rounds is (agent != "standards")  # one job per task, nothing to resume
         assert spec.name == agent
 
 
@@ -71,13 +78,14 @@ def test_permission_modes_never_bypass() -> None:
 
 def test_submit_names_are_unique_and_prefixed() -> None:
     names = [s.submit_name for s in SPECS.values()]
-    assert len(set(names)) == 5
+    assert len(set(names)) == len(SPECS)
     assert all(n.startswith("submit_") for n in names)
 
 
 def test_only_the_tester_writes_tests_only() -> None:
     assert [a for a, s in SPECS.items() if s.write == "tests_only"] == ["tester"]
     assert [a for a, s in SPECS.items() if s.write == "workspace"] == ["developer"]
+    assert [a for a, s in SPECS.items() if s.write == "standards_out"] == ["standards"]
 
 
 def test_test_globs_prefer_repo_config() -> None:

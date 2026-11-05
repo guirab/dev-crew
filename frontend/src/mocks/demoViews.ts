@@ -1,6 +1,7 @@
 /**
  * Estados derivados das fixtures do contrato, pra desenhar as telas que o cenário vivo não alcança
- * (`?fixture=<nome>`): épicos, próximo lote, limite de uso e falha.
+ * (`?fixture=<nome>`): épicos, próximo lote, limite de uso, falha e os Padrões com base existente
+ * ou em erro.
  */
 import type { EpicView, StageView, TaskView } from '../contracts/generated'
 import { demoEpicPlan, demoLanes } from './epics'
@@ -47,6 +48,16 @@ function nextBatch(view: TaskView): TaskView {
   return { ...base, phase: 'awaiting_selection', epics }
 }
 
+/** Entrevista esperando você com os Padrões já resolvidos (`standards` e o estágio). */
+async function withStandards(
+  load: Load,
+  stage: StageView,
+  standards: TaskView['standards'],
+): Promise<TaskView> {
+  const view = await load('interviewing')
+  return { ...view, standards, stages: { ...view.stages, standards: stage } }
+}
+
 export const DEMO_VIEWS: Readonly<Record<string, (load: Load) => Promise<TaskView>>> = {
   epics: async (load) => epicsView(await load('developing')),
   'next-batch': async (load) => nextBatch(await load('developing')),
@@ -62,6 +73,32 @@ export const DEMO_VIEWS: Readonly<Record<string, (load: Load) => Promise<TaskVie
       },
     }
   },
+  'standards-existing': (load) =>
+    withStandards(
+      load,
+      { status: 'done', now: 'Usando a base existente (standards/sample-repo)', logs: [] },
+      {
+        type: 'standards',
+        status: 'existing',
+        summary: 'Usando a base existente (standards/sample-repo)',
+        files: [],
+        decisions: [],
+        notes: null,
+      },
+    ),
+  'standards-error': (load) =>
+    withStandards(
+      load,
+      {
+        status: 'error',
+        now: 'O agente de padrões saiu sem enviar o resultado',
+        logs: [
+          { ts: new Date(Date.now() - 95_000).toISOString(), text: 'Analisando o repositório' },
+          { ts: new Date().toISOString(), text: 'O agente de padrões saiu sem enviar o resultado' },
+        ],
+      },
+      null,
+    ),
   failed: async (load) => {
     const view = await load('developing')
     const developer = view.stages.developer

@@ -189,6 +189,7 @@
         "agent": {
           "enum": [
             "interviewer",
+            "standards",
             "planner",
             "developer",
             "tester",
@@ -667,7 +668,9 @@
               "ts-rv",
               "rv-dn",
               "ts-dv",
-              "rv-dv"
+              "rv-dv",
+              "ma-st",
+              "st-pl"
             ]
           },
           "type": "object"
@@ -684,7 +687,9 @@
                 "ts-rv",
                 "rv-dn",
                 "ts-dv",
-                "rv-dv"
+                "rv-dv",
+                "ma-st",
+                "st-pl"
               ],
               "type": "string"
             },
@@ -1754,6 +1759,9 @@
         "interviewer": {
           "$ref": "#/$defs/StageView"
         },
+        "standards": {
+          "$ref": "#/$defs/StageView"
+        },
         "planner": {
           "$ref": "#/$defs/StageView"
         },
@@ -1776,6 +1784,7 @@
       "required": [
         "manual",
         "interviewer",
+        "standards",
         "planner",
         "approval",
         "developer",
@@ -1784,6 +1793,63 @@
         "done"
       ],
       "title": "Stages",
+      "type": "object"
+    },
+    "StandardsResult": {
+      "additionalProperties": false,
+      "description": "The project standards base (D82): written by the agent, or found already in the vault.\n\nThe agent always submits ``created``; the orchestrator builds ``existing`` itself, without a job.\nA new project (D58) has no result: its stage is ``skipped``.",
+      "properties": {
+        "type": {
+          "const": "standards",
+          "default": "standards",
+          "type": "string"
+        },
+        "status": {
+          "default": "created",
+          "enum": [
+            "created",
+            "existing"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "files": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "decisions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "decisions",
+        "files",
+        "notes",
+        "status",
+        "summary",
+        "type"
+      ],
+      "title": "StandardsResult",
       "type": "object"
     },
     "StartTask": {
@@ -1972,7 +2038,9 @@
               "ts-rv",
               "rv-dn",
               "ts-dv",
-              "rv-dv"
+              "rv-dv",
+              "ma-st",
+              "st-pl"
             ]
           },
           "type": "object"
@@ -1989,7 +2057,9 @@
                 "ts-rv",
                 "rv-dn",
                 "ts-dv",
-                "rv-dv"
+                "rv-dv",
+                "ma-st",
+                "st-pl"
               ],
               "type": "string"
             },
@@ -2006,6 +2076,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/InterviewView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "standards": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StandardsResult"
             },
             {
               "type": "null"
@@ -2136,6 +2217,7 @@
         "active_edge",
         "counters",
         "interview",
+        "standards",
         "plan",
         "dev_rounds",
         "test_runs",

@@ -52,6 +52,7 @@ from .outputs import (
     ProjectSetup,
     ReviewComment,
     ReviewResult,
+    StandardsResult,
     TestFailure,
     TestResult,
 )
@@ -142,6 +143,7 @@ __all__ = [
     "StageStatus",
     "StageView",
     "Stages",
+    "StandardsResult",
     "StartTask",
     "TaskPhase",
     "TaskSpec",

@@ -14,6 +14,8 @@ from pathlib import Path
 
 import structlog
 
+from .. import vaults
+
 log = structlog.get_logger(__name__)
 
 MAX_CHARS = 24_000
@@ -21,14 +23,45 @@ BEFORE = "Before You Develop.md"
 CONVENTIONS = "Conventions.md"
 GLOSSARY = "Glossary.md"
 FULL_AGENTS = frozenset({"planner", "developer", "reviewer"})
+READERS = FULL_AGENTS | {"tester"}  # the Tester only gets the testing sections
 RETIRED = ("superseded", "deprecated")
 
 Meta = dict[str, str | list[str]]
 
 
+def vault_for(repo: str, repo_paths: dict[str, Path], overrides: dict[str, Path]) -> vaults.VaultInfo | None:
+    """The repo's vault, resolved now (D82): a base created earlier in this task counts.
+
+    A repo registered after the worker started (added from the UI) is read from the registry.
+    """
+    path, override = repo_paths.get(repo), overrides.get(repo)
+    if path is None and override is None:
+        from .. import projects  # lazy: only for repos the worker did not know at startup
+
+        found = next((r for r in projects.load_registered() if r.name == repo), None)
+        if found is None:
+            return None
+        path, override = found.path, found.standards_dir
+    if path is None:
+        assert override is not None
+        return vaults.from_override(override, repo)
+    return vaults.resolve(path, override)
+
+
+def dir_for(repo: str, repo_paths: dict[str, Path], overrides: dict[str, Path]) -> Path | None:
+    """The repo's folder in the base (``None``: unknown repo)."""
+    info = vault_for(repo, repo_paths, overrides)
+    return info.standards_dir if info is not None else None
+
+
+def has_base(dir: Path) -> bool:
+    """There are base files at ``dir`` (what ``load`` would read)."""
+    return _files(dir) is not None
+
+
 def load(dir: Path | None, agent: str) -> str:
     """The base as Markdown for ``agent``, or ``""``. Never raises: a broken base must not fail the job."""
-    if agent not in FULL_AGENTS and agent != "tester":
+    if agent not in READERS:
         return ""
     if dir is None:
         log.debug("standards_missing", agent=agent, reason="not_configured")

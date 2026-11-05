@@ -32,6 +32,14 @@ def _isolate_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_vaults(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory) -> None:
+    # D82: the standards stage creates vaults; tests must never write into ~/Documents/Vaults or ~/.dev-crew
+    # one of each per test: a base created by one test must not count as "existing" in the next
+    monkeypatch.setenv("CREW_VAULTS_ROOT", str(tmp_path_factory.mktemp("vaults")))
+    monkeypatch.setenv("CREW_HOME", str(tmp_path_factory.mktemp("crew-home")))
+
+
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))

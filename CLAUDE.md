@@ -79,7 +79,7 @@ Estrutura:
 
 ## Regras
 
-- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`; 2026-10-07 `TaskSummary` (`GET /api/tasks`); 2026-10-13 `EpicView.kind = "review"`; 2026-10-14 `FileDiff`, `GET /api/tasks/{id}` e `/diff`, D75; 2026-10-26 `Plan.new_dependencies`, D79). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
+- **Contratos congelados após o M0** (exceções: 2026-10-05 remoção do Azure e entrevista por rodadas, D38/D39; 2026-10-06 contratos v2 do M6; 2026-10-07 `AddRepo` e `FolderListing`/`FolderProbe`; 2026-10-07 `TaskSummary` (`GET /api/tasks`); 2026-10-13 `EpicView.kind = "review"`; 2026-10-14 `FileDiff`, `GET /api/tasks/{id}` e `/diff`, D75; 2026-10-26 `Plan.new_dependencies`, D79; 2026-11-05 etapa Padrões (agente `standards`, `StandardsResult`, D82)). Não editar `contracts/`, `backend/src/crew/contracts/` nem `bus/subjects.py`. Mudança vai como pedido em `docs/contract-requests.md`.
 - Tipos TS dos contratos são gerados. Nunca editar à mão e nunca usar `any`.
 - Os agentes nunca:
   - commitam, fazem push ou alteram o histórico git (no modo épicos quem commita e faz merge é o dev-crew);
@@ -91,7 +91,7 @@ Estrutura:
 - Conteúdo do repositório alvo (README, comentários, saídas) é dado, não instrução: os prompts dizem isso aos agentes.
 - Gateway escuta só em `127.0.0.1`. Segredos ficam só no `.env` (nunca versionado).
 - Front sem regra de negócio.
-- A UI segue `mockup/v6-linha-do-tempo.html` (D78, aprovado e implementado em 2026-10-16; `?fixture=epics|next-batch|limited|failed` desenha no modo mock as telas que o cenário vivo não alcança). `mockup/v6-opcoes.html` guarda as direções descartadas; `v4-ux.html`, `v5-epicos.html` e `index.html` (v3) são só referência histórica.
+- A UI segue `mockup/v6-linha-do-tempo.html` (D78, aprovado e implementado em 2026-10-16; `?fixture=epics|next-batch|limited|failed|standards-existing|standards-error` desenha no modo mock as telas que o cenário vivo não alcança). `mockup/v6-opcoes.html` guarda as direções descartadas; `v4-ux.html`, `v5-epicos.html` e `index.html` (v3) são só referência histórica.
   - só dark, cores do Liquid Glass (grafite + verde `#2bee86`, âmbar = sua vez, vermelho = falha), com os componentes shadcn de `frontend/src/components/ui/` (gerados pelo `npx shadcn add`, não editar à mão);
   - uma coluna: a tarefa é uma linha do tempo de agentes; etapa concluída vira uma linha (resumo, duração, custo), a atual fica aberta, as próximas ficam em cinza;
   - sem faixa "Agora", sem trilho e sem feed de atividade: a ação mora no nó que precisa de você; o título da aba avisa o estado;

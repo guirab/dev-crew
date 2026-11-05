@@ -69,6 +69,7 @@ class LimitsCfg(_Section):
 
 class ModelsCfg(_Section):
     interviewer: str = "claude-sonnet-5-5"
+    standards: str = "claude-opus-5-5"
     planner: str = "claude-opus-5-5"
     developer: str = "claude-sonnet-5-5"
     tester: str = "claude-sonnet-5-5"

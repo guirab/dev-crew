@@ -17,13 +17,15 @@ from ..contracts import (
     InterviewResult,
     Plan,
     ReviewResult,
+    StandardsResult,
     TestResult,
 )
 
 BashMode = Literal["none", "readonly", "full"]
 """``none``: no Bash. ``readonly``: allowlisted read-only commands. ``full``: denylist policy."""
 
-WriteMode = Literal["none", "workspace", "tests_only"]
+WriteMode = Literal["none", "workspace", "tests_only", "standards_out"]
+"""``standards_out``: only under ``.crew/standards-out/`` of the worktree (the standards agent, D82)."""
 
 PermissionMode = Literal["default", "acceptEdits"]
 
@@ -98,6 +100,10 @@ def check_interview(r: InterviewResult) -> str | None:
     return None
 
 
+def check_standards(r: StandardsResult) -> str | None:
+    return None if r.summary.strip() else "summary não pode ser vazio."
+
+
 def check_plan(r: Plan) -> str | None:
     return None if r.acceptance_criteria else "acceptance_criteria não pode ser vazio."
 
@@ -148,6 +154,11 @@ def finalize_interview(r: InterviewResult, job: AgentJob) -> InterviewResult:
     return r.model_copy(update={"spec": spec})
 
 
+def finalize_standards(r: StandardsResult, job: AgentJob) -> StandardsResult:
+    # ``existing`` is the orchestrator's call (base already in the vault), never the agent's
+    return r if r.status == "created" else r.model_copy(update={"status": "created"})
+
+
 def finalize_dev(r: DevResult, job: AgentJob) -> DevResult:
     return r.model_copy(update={"round": job.attempt})
 
@@ -172,6 +183,21 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         default_model="claude-sonnet-5-5",
         check=check_interview,
         finalize=finalize_interview,
+    ),
+    # D82: reads the repo and the vault copy, writes the base only under .crew/standards-out/
+    "standards": AgentSpec(
+        name="standards",
+        output=StandardsResult,
+        submit_name="submit_standards",
+        tools=(*_READ, "Write", "Edit", "Bash"),
+        bash="readonly",
+        write="standards_out",
+        max_turns=None,
+        resume_across_rounds=False,
+        permission_mode="acceptEdits",
+        default_model="claude-opus-5-5",
+        check=check_standards,
+        finalize=finalize_standards,
     ),
     "planner": AgentSpec(
         name="planner",

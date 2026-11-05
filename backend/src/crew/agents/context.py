@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import AgentJob, Epic, Feedback, InterviewTurn, Plan, TaskSpec
+from ..vaults import STANDARDS_OUT, VAULT_COPY, VaultInfo
 from .skills import skills_text
 from .specs import AgentSpec, effective_test_globs
 
@@ -159,7 +160,26 @@ def _resume_answer_section(history: list[InterviewTurn]) -> str:
     return "\n".join(lines)
 
 
-def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
+def _standards_rules(job: AgentJob, vault: VaultInfo | None) -> list[str]:
+    repo = vault.repo if vault is not None else job.repo.name
+    project = vault.project if vault is not None else repo
+    if vault is not None and vault.layout == "workspace":
+        layout = (
+            f"workspace (projeto com vários repos): o que é de `{repo}` vai em "
+            f"`{STANDARDS_OUT}/{repo}/`; Glossary, Conventions e decisions do projeto em `{STANDARDS_OUT}/`"
+        )
+    else:
+        layout = f"single-repo: tudo direto em `{STANDARDS_OUT}/`, sem pasta `<REPO>/`"
+    copy = f"`{VAULT_COPY}/`" + (
+        "" if vault is None or vault.exists else " (vazia: o vault ainda não existe)"
+    )
+    return [
+        f"- `<REPO>` = `{repo}` · `<PROJECT>` = `{project}` · layout {layout}.",
+        f"- Vault (cópia só leitura): {copy}. Saída: `{STANDARDS_OUT}/`.",
+    ]
+
+
+def _rules_section(job: AgentJob, spec: AgentSpec[Any], vault: VaultInfo | None = None) -> str:
     lines = [
         "## Regras do job",
         f"- Rodada {job.attempt} deste agente na tarefa {job.task_id}.",
@@ -207,6 +227,8 @@ def _rules_section(job: AgentJob, spec: AgentSpec[Any]) -> str:
                 f"- Perguntas já respondidas: {len(job.interview_history)}. "
                 "Pare só quando não restar decisão em aberto na árvore."
             )
+        case "standards":
+            lines += _standards_rules(job, vault)
         case _:
             pass
     return "\n".join(lines)
@@ -217,8 +239,13 @@ def has_new_information(job: AgentJob) -> bool:
     return job.feedback is not None or (job.agent == "interviewer" and bool(job.interview_history))
 
 
-def build_prompt(job: AgentJob, spec: AgentSpec[Any], *, resumed: bool) -> str:
-    """User prompt for one job. ``resumed``: the session already holds task and plan."""
+def build_prompt(
+    job: AgentJob, spec: AgentSpec[Any], *, resumed: bool, vault: VaultInfo | None = None
+) -> str:
+    """User prompt for one job. ``resumed``: the session already holds task and plan.
+
+    ``vault``: the standards job's target (layout, ``<REPO>``), resolved by the worker on the host.
+    """
     sections: list[str] = []
     if resumed:
         if job.feedback is not None:
@@ -231,5 +258,5 @@ def build_prompt(job: AgentJob, spec: AgentSpec[Any], *, resumed: bool) -> str:
             sections.append(_plan_section(job.plan, job.epic_id))
         if job.feedback is not None:
             sections.append(feedback_section(job.feedback))
-    sections.append(_rules_section(job, spec))
+    sections.append(_rules_section(job, spec, vault))
     return "\n\n".join(sections) + "\n"

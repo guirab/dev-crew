@@ -192,6 +192,44 @@ describe('TaskTimeline', () => {
     expect(isNodeOpen('interview')).toBe(true)
   })
 
+  it('Padrões: concluído expande com arquivos e decisões; em erro abre com o motivo, sem ação', async () => {
+    const user = userEvent.setup()
+    const base = fixture('interviewing')
+    const created: TaskView = {
+      ...base,
+      stages: { ...base.stages, standards: { status: 'done', now: null, logs: [] } },
+      standards: {
+        type: 'standards',
+        status: 'created',
+        summary: 'Base criada para sample-repo.',
+        files: ['Conventions.md'],
+        decisions: ['Idioma dos docs: pt-BR'],
+        notes: null,
+      },
+    }
+    const { rerender } = renderWithClient(<TaskTimeline view={created} />)
+    expect(isNodeOpen('standards')).toBe(false)
+    await user.click(nodeButton('standards'))
+    const body = nodeBody('standards')
+    expect(within(body).getByText('Conventions.md')).toBeInTheDocument()
+    expect(within(body).getByText('Decidido pelo dev-crew')).toBeInTheDocument()
+    expect(within(body).getByText('Idioma dos docs: pt-BR')).toBeInTheDocument()
+
+    const failed: TaskView = {
+      ...base,
+      stages: {
+        ...base.stages,
+        standards: { status: 'error', now: 'agente saiu sem resultado', logs: [] },
+      },
+    }
+    rerender(<TaskTimeline view={failed} />)
+    expect(node('standards')).toHaveAttribute('data-tone', 'err')
+    const err = nodeBody('standards')
+    expect(within(err).getByText('agente saiu sem resultado')).toBeInTheDocument()
+    expect(within(err).getByText('A tarefa segue sem a base de padrões.')).toBeInTheDocument()
+    expect(within(err).queryByRole('button')).not.toBeInTheDocument()
+  })
+
   it('concluída: "Ver alterações" abre a tela Alterações', async () => {
     const user = userEvent.setup()
     renderWithClient(<TaskTimeline view={fixture('done')} />)

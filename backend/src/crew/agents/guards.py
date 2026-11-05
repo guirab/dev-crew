@@ -21,6 +21,7 @@ from claude_agent_sdk import HookContext, HookInput, HookMatcher
 from claude_agent_sdk.types import HookEvent, PreToolUseHookSpecificOutput, SyncHookJSONOutput
 
 from ..contracts import AgentJob
+from ..vaults import STANDARDS_OUT
 from .pathjail import PathJail, expand_braces, is_unresolvable, matches_any_glob
 from .runtool import RUN_FULL_NAME, effective_tools
 from .shellparse import Cmd, ParsedShell, ShellParseError, Word, parse
@@ -68,6 +69,9 @@ R_SHELL_STDIN = "shell lendo comandos de stdin/pipe não é analisável; rode o 
 R_DYNAMIC = "caminho/comando dinâmico ($VAR, $(...), crase) não é permitido aqui; use valores literais."
 R_SENSITIVE = "arquivo ou diretório sensível (credenciais/segredos); não é necessário para a tarefa."
 R_ENV = "variável de ambiente sensível (segredo/token/chave) não pode ser lida."
+R_STANDARDS_OUT = (
+    f"este agente só escreve em {STANDARDS_OUT}/ (o repo e a cópia do vault são somente leitura)."
+)
 
 DENY_ALWAYS: dict[str, str] = {
     **dict.fromkeys(
@@ -590,6 +594,8 @@ class BashChecker:
             r.rel, self.policy.test_globs, ignore_case=self.ignore_case
         ):
             return deny(f"o Tester só altera arquivos de teste ({', '.join(self.policy.test_globs)}).")
+        if self.policy.write == "standards_out" and not _in_standards_out(r.rel, self.ignore_case):
+            return deny(R_STANDARDS_OUT)
         return ALLOW
 
     # ---- word normalization ----
@@ -966,7 +972,15 @@ def _check_write_path(policy: GuardPolicy, jail: PathJail, raw: str) -> Decision
             f"o Tester só altera arquivos de teste ({', '.join(policy.test_globs)}); "
             "se o código de produção precisa mudar, reporte como failure."
         )
+    if policy.write == "standards_out" and not _in_standards_out(r.rel, jail.flavor == "windows"):
+        return deny(R_STANDARDS_OUT)
     return ALLOW
+
+
+def _in_standards_out(rel: str, ignore_case: bool) -> bool:
+    """``rel`` (worktree-relative, POSIX) is a file under ``.crew/standards-out/``."""
+    prefix = STANDARDS_OUT + "/"
+    return rel.lower().startswith(prefix.lower()) if ignore_case else rel.startswith(prefix)
 
 
 def check_tool(policy: GuardPolicy, tool_name: str, tool_input: Mapping[str, Any]) -> Decision:

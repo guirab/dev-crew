@@ -148,12 +148,14 @@ def build_options(
     cli_path: str | None = None,
 ) -> ClaudeAgentOptions:
     """Options for one CLI session. Never ``bypassPermissions``; the target repo settings are ignored."""
+    base = ""
+    if job.agent in standards.READERS:
+        base_dir = standards.dir_for(job.repo.name, settings.repo_paths, settings.standards_dirs)
+        base = standards.load(base_dir, job.agent)
     prompt: SystemPromptPreset = {
         "type": "preset",
         "preset": "claude_code",
-        "append": system_prompt_text(
-            spec.name, standards.load(settings.standards_dirs.get(job.repo.name), job.agent)
-        ),
+        "append": system_prompt_text(spec.name, base),
     }
     tools = effective_tools(spec, job)
     mcp_tools = [submit.sdk_tool]
@@ -306,9 +308,14 @@ class SdkRunner:
         try:
             await _START_GATE.wait(self._start_gap_s)
             await client.connect()
+            vault = None
+            if job.agent == "standards":  # its job rules name the layout and <REPO> (D82)
+                vault = standards.vault_for(
+                    job.repo.name, self.settings.repo_paths, self.settings.standards_dirs
+                )
             await self._turn(
                 client,
-                build_prompt(job, spec, resumed=resumed),
+                build_prompt(job, spec, resumed=resumed, vault=vault),
                 workspace,
                 throttle,
                 state,

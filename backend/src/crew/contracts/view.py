@@ -6,7 +6,16 @@ from pydantic import AwareDatetime
 
 from .common import Contract, EdgeKey, EdgeStatus, FileChange, StageStatus, TaskPhase
 from .estimate import Estimate
-from .outputs import DevResult, EpicSize, InterviewQuestion, InterviewTurn, Plan, ReviewResult, TestResult
+from .outputs import (
+    DevResult,
+    EpicSize,
+    InterviewQuestion,
+    InterviewTurn,
+    Plan,
+    ReviewResult,
+    StandardsResult,
+    TestResult,
+)
 from .usage import UsageLimit
 
 
@@ -24,6 +33,7 @@ class StageView(Contract):
 class Stages(Contract):
     manual: StageView
     interviewer: StageView
+    standards: StageView  # D82: alongside the interview, before the Planner
     planner: StageView
     approval: StageView
     developer: StageView
@@ -134,6 +144,7 @@ class TaskView(Contract):
     active_edge: EdgeKey | None = None
     counters: Counters
     interview: InterviewView | None = None
+    standards: StandardsResult | None = None  # D82: set when the standards stage is done
     plan: Plan | None = None
     dev_rounds: list[DevResult] = []
     test_runs: list[TestResult] = []
