@@ -41,6 +41,7 @@ def test_each_agent_gets_exactly_its_tools() -> None:
         "developer": {"Read", "Glob", "Grep", "Write", "Edit", "Bash"},
         "tester": {"Read", "Glob", "Grep", "Write", "Edit", "Bash"},
         "reviewer": {"Read", "Glob", "Grep", "Bash"},
+        "standards": {"Read", "Glob", "Grep", "Write", "Edit", "Bash"},
     }
     for agent, tools in expected.items():
         pol = policy(agent, POSIX_WS)
@@ -125,6 +126,43 @@ def test_tester_denial_tells_to_report_as_failure() -> None:
     d = check_tool(policy("tester", POSIX_WS), "Write", {"file_path": "src/a.py"})
     assert not d.allowed
     assert "failure" in (d.reason or "")
+
+
+@FLAVORS
+@pytest.mark.parametrize("tool", ["Write", "Edit"])
+def test_standards_writes_only_its_out_folder(ws: str, tool: str) -> None:
+    """D82: the base goes to .crew/standards-out/; the repo and the vault copy stay read-only."""
+    pol = policy("standards", ws)
+    for ok in (".crew/standards-out/Glossary.md", ".crew/standards-out/api/Before You Develop.md"):
+        assert allowed(pol, tool, file_path=ok), ok
+        assert allowed(pol, tool, file_path=join(ws, ok)), ok
+    for bad in (
+        "src/a.py",
+        "README.md",
+        "Glossary.md",
+        ".crew/vault/standards/Glossary.md",
+        ".crew/standards-out",
+        ".crew/standards-outside/x.md",
+        ".crew/standards-out/../vault/x.md",
+        "../.crew/standards-out/x.md",
+        ".git/info/exclude",
+    ):
+        assert not allowed(pol, tool, file_path=bad), bad
+    d = check_tool(pol, tool, {"file_path": "src/a.py"})
+    assert "standards-out" in (d.reason or "")
+
+
+def test_standards_out_case_follows_the_path_flavor() -> None:
+    assert allowed(policy("standards", WINDOWS_WS), "Write", file_path=".CREW/Standards-Out/a.md")
+    assert not allowed(policy("standards", POSIX_WS), "Write", file_path=".CREW/Standards-Out/a.md")
+
+
+def test_standards_bash_stays_read_only() -> None:
+    pol = policy("standards", POSIX_WS)
+    assert allowed(pol, "Bash", command="git log --oneline -5")
+    assert allowed(pol, "Bash", command="git ls-files")
+    assert not allowed(pol, "Bash", command="echo x > .crew/standards-out/a.md")
+    assert not allowed(pol, "Bash", command="rm -rf .crew/vault")
 
 
 def test_tester_globs_are_configurable_per_repo() -> None:

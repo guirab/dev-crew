@@ -24,6 +24,10 @@ log = structlog.get_logger(__name__)
 VAULTS_ROOT_ENV = "CREW_VAULTS_ROOT"
 LINK_FILE = ".obsidian-vault"
 STANDARDS = "standards"
+# the standards job's folders inside the worktree (paths relative to it, POSIX)
+CREW_DIR = ".crew"
+VAULT_COPY = f"{CREW_DIR}/vault"  # read-only copy of the vault's notes
+STANDARDS_OUT = f"{CREW_DIR}/standards-out"  # the only place the agent writes
 DOCUMENTS = ("Documents", "Documentos")
 
 Layout = Literal["single", "workspace"]

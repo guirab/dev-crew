@@ -24,7 +24,8 @@ from ..contracts import (
 BashMode = Literal["none", "readonly", "full"]
 """``none``: no Bash. ``readonly``: allowlisted read-only commands. ``full``: denylist policy."""
 
-WriteMode = Literal["none", "workspace", "tests_only"]
+WriteMode = Literal["none", "workspace", "tests_only", "standards_out"]
+"""``standards_out``: only under ``.crew/standards-out/`` of the worktree (the standards agent, D82)."""
 
 PermissionMode = Literal["default", "acceptEdits"]
 
@@ -183,17 +184,17 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         check=check_interview,
         finalize=finalize_interview,
     ),
-    # TODO(standards): read-only stub; the agent must write only to a temporary folder of the worktree
+    # D82: reads the repo and the vault copy, writes the base only under .crew/standards-out/
     "standards": AgentSpec(
         name="standards",
         output=StandardsResult,
         submit_name="submit_standards",
-        tools=(*_READ, "Bash"),
+        tools=(*_READ, "Write", "Edit", "Bash"),
         bash="readonly",
-        write="none",
+        write="standards_out",
         max_turns=None,
         resume_across_rounds=False,
-        permission_mode="default",
+        permission_mode="acceptEdits",
         default_model="claude-opus-5-5",
         check=check_standards,
         finalize=finalize_standards,
