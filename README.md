@@ -1,6 +1,6 @@
 # dev-crew
 
-dev-crew is a multi-agent development team that runs on your own machine. You describe a task, and the Interviewer, Planner, Developer, Tester and Reviewer agents plan, implement, test and review it in a fix loop, talking to each other over NATS JetStream.
+dev-crew is a multi-agent development team that runs on your own machine. You describe a task, and the Interviewer, Standards, Planner, Developer, Tester and Reviewer agents plan, implement, test and review it in a fix loop, talking to each other over NATS JetStream.
 
 - Small task: a single run. The changes stay local (no commit), with a suggested commit message.
 - Feature or whole project: the Planner splits it into small tickets (epics, following Matt Pocock's `to-tickets` method) with dependencies. The plan shows a cost estimate (tokens, USD equivalent, % of the 5-hour session and of the weekly limit) and you choose which ones to run now. Epics that don't depend on each other run in parallel, each in its own worktree. dev-crew makes one commit per epic and merges everything into the `crew/<task>` branch (no push).
@@ -17,7 +17,7 @@ The UI is in Brazilian Portuguese; UI labels below are quoted as they appear, wi
 ```
 React UI ─REST/WS─▶ FastAPI gateway (127.0.0.1:8787) ─▶ NATS JetStream ◀─▶ Orchestrator (state machine + SQLite)
                                                              ▲▼
-                              Agent SDK workers: interviewer · planner · developer · tester · reviewer (cwd = worktree)
+                              Agent SDK workers: interviewer · standards · planner · developer · tester · reviewer (cwd = worktree)
                                                              │ tool mcp__crew__run (docker exec)
                                                      Docker sandbox per task (repo's sandbox_image)
 ```
@@ -75,7 +75,7 @@ cd frontend && npm run build
 
 Config:
 
-- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`. `lint_cmd` runs in `bash -lc`, so it can chain the typecheck (`lint_cmd = "npm run lint && npm run typecheck"`): the Tester's `ok` comes from the exit code (D70). `standards_dir` points to the repo's folder in the vault's standards base (skill `project-standards`: `<vault>/standards`, or `<vault>/standards/<REPO>` in a workspace); the worker reads it on every job and appends it to the Planner, Developer and Reviewer system prompts (the Tester gets only the testing sections of `Conventions.md`). It also works in `~/.dev-crew/repos.toml`, the only key you may edit there by hand.
+- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`. `lint_cmd` runs in `bash -lc`, so it can chain the typecheck (`lint_cmd = "npm run lint && npm run typecheck"`): the Tester's `ok` comes from the exit code (D70). `standards_dir` is optional: it pins the repo's folder in the vault's standards base (see [Standards base](#standards-base)). It also works in `~/.dev-crew/repos.toml`, the only key you may edit there by hand.
 - `.env.example` → `backend/.env`. Leave `ANTHROPIC_API_KEY` empty: if it is set, the agents bill the API instead of the subscription.
 
 Health check (config, git, Git Bash, CLI, login, NATS, Docker, repos):
@@ -128,6 +128,16 @@ The CLI runs as `python -m crew.cli` because Smart App Control blocks the `crew.
 - The plan is saved in the project at `docs/plano/<task>.md` and updated at the end of each batch.
 - `[parallel] workers_per_agent` (default 3) caps how many epics have an agent working at the same time. On the Pro plan, parallel runs drain the 5-hour session faster: check the estimate before approving.
 - An agent idle for 30 min with no activity (and no command running) escalates on its own.
+
+## Standards base
+
+Every agent after the interview follows the repo's standards base (glossary, conventions, ADRs, `Before You Develop`), the one the `project-standards` skill writes in the project's Obsidian vault: `<vault>/standards/` (single repo) or `<vault>/standards/<REPO>/` plus shared files one level up (workspace: a folder holding several git repos). The repo itself never gets a doc file from dev-crew.
+
+- Where the vault is, resolved on every job: `standards_dir` of the repo, a `.obsidian-vault` file (repo root, then the workspace folder), `~/Documents/Vaults/<PROJECT>-vault`, `~/Documents/Vaults/<PROJECT>` (case-insensitive; `Documentos` and `vaults` work too). Repos loose in `~/Documents` are single-repo projects.
+- **Padrões** stage: when an existing repo has no base yet, the `standards` agent (Opus) runs the skill alongside the interview, without asking you anything (it decides with evidence and lists its decisions in the stage). It reads the repo and a read-only copy of the vault's notes (`<worktree>/.crew/vault/`) and writes only to `<worktree>/.crew/standards-out/`; dev-crew then copies the valid files into the vault (creating it, with `.obsidian/` and `Home.md`, when missing) and removes `.crew/` (kept out of git through `info/exclude`). The Planner waits for both the interview and this stage.
+- With a base already in the vault the stage is done at once ("Usando a base existente"); a new project skips it; a failure shows in the stage and the task goes on without a base.
+- A repo from `~/.dev-crew/repos.toml` gets the resolved `standards_dir` saved there; a `crew.toml` repo is left as you wrote it.
+- `--fake-agents` writes a minimal fake base into `~/.dev-crew/fake-vaults/`, never into your real vaults.
 
 ## New project
 
