@@ -4,6 +4,9 @@
 ``skills.lock.json`` (upstream commit + sha256 per file). At runtime nothing is fetched: each agent's
 system prompt gets the dev-crew overrides (``prompts/_matt.md``) followed by the bodies of its skills,
 verbatim, so the method is in context on every job and the ``Skill`` tool stays disallowed.
+
+The user's own skills (``prompts/personal/``, D82) follow the same idea without a sync: a fixed copy plus
+``personal/skills.lock.json`` (sha256 per file). Their overrides live in the agent's own prompt.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from functools import cache
 from pathlib import Path
 
@@ -21,6 +25,8 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 VENDOR_DIR = PROMPTS_DIR / "matt"
 LOCK_FILE = VENDOR_DIR / "skills.lock.json"
 OVERRIDES_FILE = PROMPTS_DIR / "_matt.md"
+PERSONAL_DIR = PROMPTS_DIR / "personal"
+PERSONAL_LOCK = PERSONAL_DIR / "skills.lock.json"
 
 # vendored path (under VENDOR_DIR) -> path in the upstream repo
 FILES: dict[str, str] = {
@@ -40,11 +46,17 @@ _TDD = ("tdd/SKILL.md", "tdd/tests.md", "tdd/mocking.md")
 # D66: which vendored files each agent reads, in order
 MANIFEST: dict[str, tuple[str, ...]] = {
     "interviewer": ("grilling/SKILL.md", "domain-modeling/SKILL.md"),
-    "standards": (),  # TODO(standards): runs the `project-standards` skill, not a Matt Pocock one (D82)
+    "standards": (),  # D82: runs the user's `project-standards` skill (PERSONAL_MANIFEST), no Matt Pocock one
     "planner": ("to-tickets/SKILL.md", "codebase-design/SKILL.md"),
     "developer": _TDD,
     "tester": _TDD,
     "reviewer": ("code-review/SKILL.md", "codebase-design/SKILL.md"),
+}
+
+
+# D82: the user's own skills (under PERSONAL_DIR) each agent reads, in order
+PERSONAL_MANIFEST: dict[str, tuple[str, ...]] = {
+    "standards": ("project-standards/SKILL.md", "project-standards/FORMATS.md"),
 }
 
 
@@ -72,13 +84,16 @@ def strip_frontmatter(text: str) -> str:
 @cache
 def skills_text(agent: str) -> str:
     """Overrides + the agent's skill bodies, or ``""`` for an agent without skills."""
+    parts: list[str] = []
     files = MANIFEST.get(agent)
-    if not files:
-        return ""
-    parts = [_text(OVERRIDES_FILE).strip()]
-    for rel in files:
-        body = strip_frontmatter(_text(VENDOR_DIR / rel)).strip()
-        parts.append(f"### mattpocock/skills · {rel}\n\n{body}")
+    if files:
+        parts.append(_text(OVERRIDES_FILE).strip())
+        for rel in files:
+            body = strip_frontmatter(_text(VENDOR_DIR / rel)).strip()
+            parts.append(f"### mattpocock/skills · {rel}\n\n{body}")
+    for rel in PERSONAL_MANIFEST.get(agent, ()):
+        body = strip_frontmatter(_text(PERSONAL_DIR / rel)).strip()
+        parts.append(f"### skill pessoal · {rel}\n\n{body}")
     return "\n\n".join(parts)
 
 
@@ -87,16 +102,24 @@ def read_lock(lock_file: Path = LOCK_FILE) -> dict[str, object]:
     return data
 
 
-def verify(vendor_dir: Path = VENDOR_DIR, lock_file: Path = LOCK_FILE) -> list[str]:
+def verify(
+    vendor_dir: Path = VENDOR_DIR, lock_file: Path = LOCK_FILE, expected: Iterable[str] = FILES
+) -> list[str]:
     """Vendored files that are missing or differ from the lock (empty = all good)."""
     hashes = read_lock(lock_file)["files"]
     assert isinstance(hashes, dict)
-    problems = [rel for rel in FILES if rel not in hashes]
+    problems = [rel for rel in expected if rel not in hashes]
     for rel, expected in hashes.items():
         path = vendor_dir / rel
         if not path.is_file() or _sha256(_text(path)) != expected:
             problems.append(rel)
     return sorted(problems)
+
+
+def verify_personal() -> list[str]:
+    """The user's skills: files missing or edited without updating ``personal/skills.lock.json``."""
+    expected = {rel for files in PERSONAL_MANIFEST.values() for rel in files}
+    return verify(PERSONAL_DIR, PERSONAL_LOCK, expected)
 
 
 def _git(*args: str, cwd: Path | None = None) -> str:

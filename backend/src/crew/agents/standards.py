@@ -29,8 +29,8 @@ RETIRED = ("superseded", "deprecated")
 Meta = dict[str, str | list[str]]
 
 
-def dir_for(repo: str, repo_paths: dict[str, Path], overrides: dict[str, Path]) -> Path | None:
-    """The repo's folder in the base, resolved now (D82): a base created earlier in this task counts.
+def vault_for(repo: str, repo_paths: dict[str, Path], overrides: dict[str, Path]) -> vaults.VaultInfo | None:
+    """The repo's vault, resolved now (D82): a base created earlier in this task counts.
 
     A repo registered after the worker started (added from the UI) is read from the registry.
     """
@@ -42,10 +42,16 @@ def dir_for(repo: str, repo_paths: dict[str, Path], overrides: dict[str, Path]) 
         if found is None:
             return None
         path, override = found.path, found.standards_dir
-    if override is not None:
-        return override
-    assert path is not None
-    return vaults.resolve(path).standards_dir
+    if path is None:
+        assert override is not None
+        return vaults.from_override(override, repo)
+    return vaults.resolve(path, override)
+
+
+def dir_for(repo: str, repo_paths: dict[str, Path], overrides: dict[str, Path]) -> Path | None:
+    """The repo's folder in the base (``None``: unknown repo)."""
+    info = vault_for(repo, repo_paths, overrides)
+    return info.standards_dir if info is not None else None
 
 
 def has_base(dir: Path) -> bool:

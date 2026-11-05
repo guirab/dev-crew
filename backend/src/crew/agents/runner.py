@@ -308,9 +308,14 @@ class SdkRunner:
         try:
             await _START_GATE.wait(self._start_gap_s)
             await client.connect()
+            vault = None
+            if job.agent == "standards":  # its job rules name the layout and <REPO> (D82)
+                vault = standards.vault_for(
+                    job.repo.name, self.settings.repo_paths, self.settings.standards_dirs
+                )
             await self._turn(
                 client,
-                build_prompt(job, spec, resumed=resumed),
+                build_prompt(job, spec, resumed=resumed, vault=vault),
                 workspace,
                 throttle,
                 state,

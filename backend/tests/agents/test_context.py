@@ -280,3 +280,30 @@ def test_lane_prompt_only_shows_its_epic() -> None:
     assert "épicos dos quais este depende (E1, E2)" in prompt
     assert "Outros épicos do plano (não mexa no que é deles): E1 (título E1), E2 (título E2)." in prompt
     assert "Você trabalha no épico E3" in prompt
+
+
+def test_standards_rules_name_the_layout_the_repo_and_the_folders() -> None:
+    """D82: the worktree folder is not <REPO>; the rules say where to read and where to write."""
+    from pathlib import Path
+
+    from crew.vaults import VaultInfo
+
+    job = make_job("standards", workspace=POSIX_WS)
+    ws = VaultInfo(
+        vault=Path("/v/PC-REMOTE"),
+        layout="workspace",
+        project="PC-REMOTE",
+        repo="api",
+        standards_dir=Path("/v/PC-REMOTE/standards/api"),
+        exists=True,
+    )
+    prompt = build_prompt(job, SPECS["standards"], resumed=False, vault=ws)
+    assert "`<REPO>` = `api` · `<PROJECT>` = `PC-REMOTE` · layout workspace" in prompt
+    assert "`.crew/standards-out/api/`" in prompt and "`.crew/vault/`." in prompt
+    assert f"Worktree (seu diretório de trabalho): {POSIX_WS}" in prompt
+    single = build_prompt(job, SPECS["standards"], resumed=False, vault=None)
+    assert "`<REPO>` = `sample-repo`" in single and "layout single-repo" in single
+    new = VaultInfo(Path("/v/x-vault"), "single", "x", "x", Path("/v/x-vault/standards"), exists=False)
+    assert "(vazia: o vault ainda não existe)" in build_prompt(
+        job, SPECS["standards"], resumed=False, vault=new
+    )

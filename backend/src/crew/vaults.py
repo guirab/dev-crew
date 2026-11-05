@@ -102,7 +102,7 @@ def _linked(folder: Path) -> Path | None:
     return target if target.is_absolute() else folder / target
 
 
-def _from_override(dir: Path, repo: str) -> VaultInfo:
+def from_override(dir: Path, repo: str) -> VaultInfo:
     """``standards_dir`` from the config: ``.../standards`` (single) or ``.../standards/<REPO>``."""
     workspace = dir.name.lower() != STANDARDS and dir.parent.name.lower() == STANDARDS
     root = dir.parent if workspace else dir
@@ -128,7 +128,7 @@ def resolve(
     """The vault of the code repo at ``repo``. ``links=False`` skips ``.obsidian-vault`` (sandboxed runs)."""
     name = repo.name
     if standards_dir is not None:
-        return _from_override(standards_dir, name)
+        return from_override(standards_dir, name)
     workspace = is_workspace(repo, home)
     project = repo.parent.name if workspace else name
     vault: Path | None = None
