@@ -34,6 +34,7 @@ from ..contracts import (
     TestResult,
     TokenUsage,
 )
+from ..workspace import vault_io
 from .pathjail import PathJail
 from .progress import ProgressLine, ProgressSink
 from .runner import RunOutcome
@@ -314,12 +315,15 @@ class ScriptedRunner:
 
     # ---------------------------------------------------------------- standards
     async def _standards(self, job: AgentJob, steps: _Steps) -> StandardsResult:
-        # TODO(standards): write the base into the worktree's temporary folder, like the real agent
+        # writes like the real agent; with --fake-agents the base goes to CREW_HOME/fake-vaults (D82)
         await steps.step("Lendo o repo e as notas do vault", 0.8)
+        files = (
+            vault_io.write_fake_base(Path(job.workspace_path), job.repo.name) if job.workspace_path else []
+        )
         return StandardsResult(
             summary=f"Base de padrões criada para {job.repo.name}.",
-            files=["Conventions.md", "Glossary.md"],
-            decisions=["Idioma dos docs: pt-BR (README do repo em português)."],
+            files=files,
+            decisions=["Idioma da base: inglês (FORMATS.md)."],
         )
 
     # ---------------------------------------------------------------- planner

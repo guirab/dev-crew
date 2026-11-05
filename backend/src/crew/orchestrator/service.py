@@ -21,7 +21,8 @@ import structlog
 from nats.aio.msg import Msg
 from pydantic import BaseModel, ValidationError
 
-from .. import folders, projects, sandbox
+from .. import folders, projects, sandbox, vaults
+from ..agents import standards as standards_base
 from ..bus import Bus
 from ..bus import subjects as s
 from ..config import CrewConfig, RepoCfg
@@ -29,6 +30,7 @@ from ..contracts import (
     AccountUsage,
     AddRepo,
     AgentFailedEvt,
+    AgentJob,
     AgentProgress,
     AgentResultEvt,
     CommandAdapter,
@@ -36,11 +38,12 @@ from ..contracts import (
     CreateProject,
     Envelope,
     Plan,
+    StandardsResult,
     StartTask,
 )
 from ..estimate import agent_costs, estimate_plan, ratios
 from ..usage import UsageReader
-from ..workspace import git
+from ..workspace import git, vault_io
 from ..workspace.manager import Workspace, WorkspaceManager, run_host_setup
 from . import machine
 from .effects import (
@@ -72,6 +75,7 @@ from .events import (
     Event,
     ReportBuilt,
     SetupFinished,
+    StandardsBase,
     StartParams,
     WorkspaceFailed,
     WorkspaceReady,
@@ -109,6 +113,7 @@ class OrchestratorService:
         *,
         clock: Clock = _utcnow,
         usage: UsageReader | None = None,
+        vault_root: Path | None = None,
     ) -> None:
         self.bus = bus
         self.cfg = cfg
@@ -116,6 +121,8 @@ class OrchestratorService:
         self.workspace = workspace
         self.clock = clock
         self.usage = usage  # None: no account usage (tests); the estimate then has no percentages
+        # D82: set (fake agents) = every vault lives here, never the user's real ones
+        self.vault_root = vault_root
         self.state: TaskState | None = None
         self._inbox: asyncio.Queue[_Item] = asyncio.Queue()
         self._bg: set[asyncio.Task[None]] = set()
@@ -378,12 +385,16 @@ class OrchestratorService:
                 limits=Limits(
                     max_test_attempts=lim.max_test_attempts, max_review_rounds=lim.max_review_rounds
                 ),
+                standards=self._standards_base(self.cfg.repo(cmd.repo)),
             )
             return dataclasses.replace(event, start=params)
         return event
 
     async def _enrich(self, event: Event) -> Event:
-        """Async data the machine needs but cannot fetch: the cost estimate of a fresh plan."""
+        """Async data the machine needs but cannot fetch: the cost estimate of a fresh plan, and what the
+        standards job wrote once it is in the vault (D82)."""
+        if isinstance(event, AgentResult | AgentFailed) and event.evt.agent == "standards":
+            return await self._finish_standards(event)
         if isinstance(event, AgentResult) and isinstance(event.evt.output, Plan):
             try:
                 usage_now = await self._sample_usage()
@@ -464,6 +475,8 @@ class OrchestratorService:
         job = effect.job
         await asyncio.to_thread(self.store.record_job, job)
         try:
+            if job.agent == "standards":
+                await self._stage_standards(job)
             await self.bus.publish_job(job)
         except Exception as e:  # NATS down: surface as a failed job so the user can retry from the UI
             log.exception("dispatch_failed", job_id=str(job.job_id))
@@ -490,6 +503,8 @@ class OrchestratorService:
         for job in await asyncio.to_thread(self.store.jobs, effect.task_id):
             if job.status == "dispatched":
                 await asyncio.to_thread(self.store.finish_job, job.job_id, "cancelled")
+        if self.state is not None and self.state.task_id == effect.task_id and self.state.workspace_path:
+            await asyncio.to_thread(vault_io.cleanup, Path(self.state.workspace_path))
         log.info("jobs_cancelled", task_id=effect.task_id, agent=effect.agent)
 
     async def _sample_quietly(self) -> None:
@@ -497,6 +512,83 @@ class OrchestratorService:
             await self._sample_usage()
         except Exception:
             log.warning("usage_sample_failed", exc_info=True)
+
+    # ----------------------------------------------------------------- standards base (D82)
+
+    def _vault(self, repo: RepoCfg) -> vaults.VaultInfo:
+        if self.vault_root is not None:  # fake agents: a sandboxed vaults root, no link file, no override
+            return vaults.resolve(repo.path, roots=[self.vault_root], links=False)
+        return vaults.resolve(repo.path, repo.standards_dir)
+
+    def _standards_base(self, repo: RepoCfg) -> StandardsBase | None:
+        """Does the repo already have a base? ``None`` for a new project (the machine skips the stage)."""
+        if repo.new_project:
+            return None
+        try:
+            info = self._vault(repo)
+            exists = standards_base.has_base(info.standards_dir)
+        except Exception:  # never block a task on the vault: the stage just stays idle
+            log.exception("standards_check_failed", repo=repo.name)
+            return None
+        return StandardsBase(dir=str(info.standards_dir), exists=exists)
+
+    async def _stage_standards(self, job: AgentJob) -> None:
+        """Before the job: the vault copy (read-only for the agent) and the output folder in the worktree."""
+        if not job.workspace_path:
+            raise RuntimeError("job de padrões sem worktree")
+        ws = Path(job.workspace_path)
+        info = self._vault(self.cfg.repo(job.repo.name))
+        try:
+            await vault_io.exclude_crew_dir(ws)
+        except Exception as e:  # .crew/ is removed before the Developer starts: never fail on it
+            log.warning("crew_dir_exclude_failed", path=str(ws), error=str(e))
+        copied = await asyncio.to_thread(vault_io.stage, ws, info.vault)
+        log.info("vault_staged", task_id=job.task_id, vault=str(info.vault), files=copied)
+
+    async def _finish_standards(self, event: AgentResult | AgentFailed) -> Event:
+        """After the job: the base goes to the vault and ``.crew/`` is removed, whatever happened.
+
+        A retryable failure keeps ``.crew/`` (the bus redelivers the job); a stale event changes nothing.
+        """
+        state = self.state
+        if isinstance(event, AgentFailed) and event.evt.retryable:
+            return event
+        if state is None or state.standards_job_id != event.evt.job_id or not state.workspace_path:
+            return event
+        ws = Path(state.workspace_path)
+        try:
+            if not isinstance(event, AgentResult) or not isinstance(event.evt.output, StandardsResult):
+                return event
+            out = event.evt.output
+            try:
+                repo = self.cfg.repo(state.repo.name)
+                info = self._vault(repo)
+                files = await asyncio.to_thread(vault_io.publish, ws, info)
+                await self._pin_standards_dir(repo, info)
+                out = out.model_copy(update={"files": files})
+            except Exception as e:  # no file in the vault: the machine shows the stage as an error
+                log.warning("standards_publish_failed", task_id=state.task_id, error=str(e))
+                out = out.model_copy(update={"files": [], "notes": f"falha ao gravar a base no vault: {e}"})
+            return dataclasses.replace(event, evt=event.evt.model_copy(update={"output": out}))
+        finally:
+            await asyncio.to_thread(vault_io.cleanup, ws)
+
+    async def _pin_standards_dir(self, repo: RepoCfg, info: vaults.VaultInfo) -> None:
+        """Save the resolved ``standards_dir`` of a repo from the registry (``repos.toml``).
+
+        A ``crew.toml`` repo is left alone: that file is the user's, and a registry entry with the same name
+        would be ignored anyway (crew.toml wins). The convention still finds its vault on every job.
+        """
+        if repo.standards_dir is not None or self.vault_root is not None:
+            return
+        registered = await asyncio.to_thread(projects.load_registered)
+        if not any(r.name == repo.name and r.path == repo.path for r in registered):
+            log.info("standards_dir_not_pinned", repo=repo.name, reason="not_in_registry")
+            return
+        pinned = repo.model_copy(update={"standards_dir": info.standards_dir})
+        await asyncio.to_thread(projects.register, pinned)
+        self.cfg.repos[:] = [pinned if r.name == repo.name else r for r in self.cfg.repos]
+        log.info("standards_dir_pinned", repo=repo.name, standards_dir=str(info.standards_dir))
 
     # ----------------------------------------------------------------- background effects
 

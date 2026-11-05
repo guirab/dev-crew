@@ -4,6 +4,8 @@ Same wire behaviour as a real worker: consume ``crew.job.<agent>`` through ``job
 ``progress`` and ``result`` events, honour ``crew.ctl.<task>.cancel``. The scenario mirrors the mockup:
 
 - interviewer: 3 questions (with recommendation), then the consolidated spec;
+- standards: a minimal base in ``.crew/standards-out/`` (the orchestrator sends it to
+  ``CREW_HOME/fake-vaults`` with ``--fake-agents``, never to a real vault: D82);
 - planner: a 4-step plan;
 - developer: writes real files in the worktree (so the final report has a diff);
 - tester: first run fails (``escalate``: the first 3 fail), then passes;
@@ -42,6 +44,7 @@ from ..contracts import (
     TestFailure,
     TestResult,
 )
+from ..workspace import vault_io
 
 log = structlog.get_logger(__name__)
 
@@ -170,10 +173,15 @@ class FakeCrew:
     # ------------------------------------------------------------------ agents
 
     async def _standards(self, job: AgentJob) -> AgentOutput:
-        # TODO(standards): never dispatched yet; the orchestrator does not start the stage
+        # writes like the real agent: the orchestrator copies it to CREW_HOME/fake-vaults (D82)
         await self._say(job, "Lendo o repo e as notas do vault")
+        files = (
+            vault_io.write_fake_base(Path(job.workspace_path), job.repo.name) if job.workspace_path else []
+        )
         summary = f"Base de padrões criada para {job.repo.name}."
-        return StandardsResult(summary=summary, files=["Conventions.md"])
+        return StandardsResult(
+            summary=summary, files=files, decisions=["Idioma da base: inglês (FORMATS.md)."]
+        )
 
     async def _interviewer(self, job: AgentJob) -> AgentOutput:
         await self._say(job, "Lendo a descrição e o repo")
