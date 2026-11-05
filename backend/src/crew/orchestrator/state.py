@@ -37,6 +37,7 @@ from ..contracts import (
     Stages,
     StageStatus,
     StageView,
+    StandardsResult,
     TaskPhase,
     TaskSpec,
     TaskSummary,
@@ -215,6 +216,11 @@ class TaskState(BaseModel):
     interview_round: int = 0
     decisions: list[str] = Field(default_factory=list)
 
+    # standards stage (D82): its job runs beside the main pipeline (own slot, not current_job_id)
+    standards: StandardsResult | None = None
+    standards_dir: str | None = None  # the repo's folder in the vault's base (None: not checked)
+    standards_job_id: UUID | None = None
+
     plan: Plan | None = None
     estimate: Estimate | None = None
     dev_rounds: list[DevResult] = Field(default_factory=list)
@@ -325,6 +331,7 @@ class TaskState(BaseModel):
                 max_review_rounds=self.limits.max_review_rounds,
             ),
             interview=interview,
+            standards=self.standards,
             plan=self.plan,
             dev_rounds=list(self.dev_rounds),
             test_runs=list(self.test_runs),

@@ -18,12 +18,21 @@ from .state import Limits
 
 
 @dataclass(frozen=True)
+class StandardsBase:
+    """The repo's standards base in its vault (D82), checked by the service when the task starts."""
+
+    dir: str  # the repo's folder in the base, where it is or will be written
+    exists: bool
+
+
+@dataclass(frozen=True)
 class StartParams:
     """Data the service resolves from config for a ``start_task`` (``None`` = unknown repo)."""
 
     task_id: str
     repo: RepoContext
     limits: Limits
+    standards: StandardsBase | None = None  # None: not checked, the stage stays idle
 
 
 @dataclass(frozen=True)

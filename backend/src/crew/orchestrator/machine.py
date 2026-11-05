@@ -50,6 +50,7 @@ from ..contracts import (
     RunEpics,
     StageKey,
     StageStatus,
+    StandardsResult,
     StartTask,
     TaskPhase,
     TaskSpec,
@@ -85,6 +86,7 @@ from .events import (
     Event,
     ReportBuilt,
     SetupFinished,
+    StandardsBase,
     StartParams,
     WorkspaceFailed,
     WorkspaceReady,
@@ -157,7 +159,11 @@ def decide(state: TaskState | None, event: Event) -> tuple[TaskState | None, lis
 
 
 def recovery_effects(state: TaskState) -> list[Effect]:
-    """Effects to re-issue after a restart for non-agent steps that were in flight."""
+    """Effects to re-issue after a restart for non-agent steps that were in flight.
+
+    Agent jobs, the standards one included (D82), are not re-issued: they are durable in ``CREW_JOBS`` and
+    redelivered until acked, and their ids (``current_job_id``, ``standards_job_id``) survive in the state.
+    """
     if state.terminal:
         return []
     effects: list[Effect] = []
@@ -462,6 +468,7 @@ def _start(
         started_at=at,
     )
     _set(s, "manual", "done", title, at)
+    _standards_at_start(s, params.standards, at)
     return _commit(s, CreateWorkspace(s.task_id, repo.name))
 
 
@@ -568,8 +575,10 @@ def _cancel(s: TaskState, at: datetime) -> tuple[TaskState | None, list[Effect]]
     s.current_job_id = None
     s.current_agent = None
     s.inflight = None
-    # a split plan may have several agents queued: cancel all of them
-    return _commit(s, CancelJobs(s.task_id, None if s.split else agent))
+    beside = s.standards_job_id is not None
+    s.standards_job_id = None
+    # a split plan (or the standards job beside the interview) may have several agents queued: cancel all
+    return _commit(s, CancelJobs(s.task_id, None if s.split or beside else agent))
 
 
 # ---------------------------------------------------------------- escalation actions
@@ -1081,6 +1090,89 @@ def _retry_lane_io(s: TaskState, lane: LaneState, at: datetime) -> list[Effect]:
     return _pump_merges(s)
 
 
+# ============================================================ standards stage (D82)
+#
+# The standards job runs beside the interview, in its own slot (``standards_job_id``): the main pipeline
+# keeps its single ``current_job_id``. The Planner starts when the last of the two ends, in any order. The
+# stage never escalates: a failure is ``error`` with the reason and the task goes on without a base.
+
+WAITING_STANDARDS: Final = "Aguardando a análise de padrões"
+
+
+def _standards_at_start(s: TaskState, base: StandardsBase | None, at: datetime) -> None:
+    if s.repo.new_project:
+        _set(s, "standards", "skipped", "Projeto novo: a base de padrões fica para depois", at)
+        return
+    if base is None:  # not checked (no vault info): the stage stays idle
+        return
+    s.standards_dir = base.dir
+    if base.exists:
+        s.standards = StandardsResult(status="existing", summary=f"Usando a base existente ({base.dir})")
+        _set(s, "standards", "done", s.standards.summary, at)
+        s.edges["ma-st"] = "on"
+    else:
+        _log(s, "standards", "Sem base de padrões no vault: roda junto com a entrevista", at)
+
+
+def _dispatch_standards(s: TaskState, at: datetime) -> list[Effect]:
+    """The worktree is ready: start the standards job when the base is missing."""
+    if s.standards_dir is None or s.standards is not None or s.stages["standards"].status != "idle":
+        return []
+    s.job_seq += 1
+    s.attempts["standards"] = s.attempts.get("standards", 0) + 1
+    job = _make_job(s, s, "standards", None)
+    s.standards_job_id = job.job_id
+    s.edges["ma-st"] = "active"
+    _set(s, "standards", "active", "Lendo o repo e as notas do vault", at)
+    return [DispatchJob(job)]
+
+
+def _start_planner(s: TaskState, at: datetime) -> list[Effect]:
+    """The spec is closed: the Planner starts now, or when the standards job ends."""
+    if s.standards_job_id is not None:
+        _settle_edge(s)
+        s.phase = "planning"  # the planning step is underway: it waits for its second input
+        _set(s, "planner", "idle", WAITING_STANDARDS, at)
+        return []
+    if s.stages["standards"].status in ("done", "error"):
+        s.edges["st-pl"] = "on"
+    return _advance(s, at, "planner", edge="iv-pl")
+
+
+def _on_standards_event(
+    state: TaskState, ev: AgentResult | AgentFailed | AgentProgressed
+) -> tuple[TaskState | None, list[Effect]]:
+    s = _copy(state)
+    match ev:
+        case AgentProgressed():
+            _log(s, "standards", ev.evt.text, ev.at)
+            return s, []
+        case AgentFailed():
+            if ev.evt.retryable:  # the bus redelivers, like any job
+                _log(s, "standards", f"Tentando de novo: {ev.evt.error}"[:160], ev.at)
+                return s, []
+            reason = ev.evt.limit.message if ev.evt.limit is not None else ev.evt.error
+            _set(s, "standards", "error", f"Falhou: {reason} — seguindo sem base"[:160], ev.at)
+        case AgentResult():
+            evt = ev.evt
+            s.cost_usd += evt.cost_usd
+            s.tokens += sum(u.input_tokens + u.output_tokens for u in evt.usage)
+            out = evt.output
+            if not isinstance(out, StandardsResult):
+                got = type(out).__name__
+                _set(s, "standards", "error", f"Saída inesperada ({got}) — seguindo sem base", ev.at)
+            elif not out.files:  # nothing reached the vault (the service checks what the agent wrote)
+                reason = out.notes or "nenhum arquivo da base foi gravado"
+                _set(s, "standards", "error", f"Falhou: {reason} — seguindo sem base"[:160], ev.at)
+            else:
+                s.standards = out.model_copy(update={"status": "created"})
+                _set(s, "standards", "done", f"Base criada · {len(out.files)} arquivos", ev.at)
+    s.standards_job_id = None
+    s.edges["ma-st"] = "on"
+    waiting = s.phase == "planning" and s.current_job_id is None
+    return _commit(s, *(_start_planner(s, ev.at) if waiting else []))
+
+
 # ============================================================ new project (D58)
 
 
@@ -1191,7 +1283,7 @@ def _on_io_event(
             s.workspace_path = ev.path
             s.branch = ev.branch
             effects = _advance(s, ev.at, "interviewer", edge="ma-iv", now="Preparando a primeira pergunta")
-            return _commit(s, *effects)
+            return _commit(s, *effects, *_dispatch_standards(s, ev.at))
         case ReportBuilt():
             if s.boot != "build_report" or (s.review is None and not s.split):
                 return _stale(state, ev.task_id, "ReportBuilt")
@@ -1270,6 +1362,14 @@ def _pipe_of(state: TaskState | None, ev: AgentResult | AgentFailed | AgentProgr
 def _on_agent_event(
     state: TaskState | None, ev: AgentResult | AgentFailed | AgentProgressed
 ) -> tuple[TaskState | None, list[Effect]]:
+    if (
+        state is not None
+        and not state.terminal
+        and state.task_id == ev.task_id
+        and state.standards_job_id is not None
+        and state.standards_job_id == ev.evt.job_id
+    ):
+        return _on_standards_event(state, ev)
     found = _pipe_of(state, ev)
     if found is None:
         if isinstance(ev, AgentProgressed):
@@ -1326,9 +1426,8 @@ def _on_result(s: TaskState, p: Pipe, ev: AgentResult) -> tuple[TaskState | None
             if not isinstance(out, InterviewResult) or lane is not None:
                 return _bad_output(s, p, ev, "InterviewResult", pending)
             return _interviewer_result(s, out, ev.at, pending)
-        case "standards":
-            # TODO(standards): store the StandardsResult and start the Planner once the interview is done
-            return _bad_output(s, p, ev, "nenhum job de padrões (etapa ainda não ligada)", pending)
+        case "standards":  # its job has its own slot (_on_standards_event): never the pipe's
+            return _bad_output(s, p, ev, "o resultado do job desta etapa", pending)
         case "planner":
             if not isinstance(out, Plan) or lane is not None:
                 return _bad_output(s, p, ev, "Plan", pending)
@@ -1368,8 +1467,7 @@ def _interviewer_result(
         )
         s.pending_questions = []
         _set(s, "interviewer", "done", f"Spec fechada · {len(s.decisions)} decisões", at)
-        effects = _advance(s, at, "planner", edge="iv-pl")
-        return _commit(s, *effects)
+        return _commit(s, *_start_planner(s, at))
     _fail_job(s, at, "interviewer", f"resultado incompleto (kind={out.kind})", pending)
     return _commit(s)
 
