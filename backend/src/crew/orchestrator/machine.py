@@ -45,6 +45,7 @@ from ..contracts import (
     LogLine,
     Plan,
     ResumeAfterLimit,
+    ReviewComment,
     ReviewResult,
     RunEpics,
     StageKey,
@@ -1438,6 +1439,17 @@ def _developer_result(
     return _commit(s, *effects)
 
 
+def _rereview_feedback(p: Pipe) -> Feedback | None:
+    """From the 2nd review round on: the Reviewer's last comments plus the Developer's notes.
+
+    ``review_round > 0`` skips a review left over from before a replan (which resets the counter).
+    """
+    if p.review_round == 0 or p.review is None or p.review.verdict != "changes_requested":
+        return None
+    notes = p.dev_rounds[-1].notes if p.dev_rounds else None
+    return Feedback(kind="review_comments", review=p.review, text=notes)
+
+
 def _tester_result(
     s: TaskState, p: Pipe, res: TestResult, at: datetime
 ) -> tuple[TaskState | None, list[Effect]]:
@@ -1450,7 +1462,7 @@ def _tester_result(
         if lane is not None and lane.kind != "review":
             # D68: a ticket is done when its tests pass; the Reviewer runs once, on the whole task
             return _commit(s, *_lane_approved(s, lane, at))
-        effects = _advance(s, at, "reviewer", edge="ts-rv", p=p)
+        effects = _advance(s, at, "reviewer", edge="ts-rv", feedback=_rereview_feedback(p), p=p)
         return _commit(s, *effects)
 
     p.test_attempt += 1
@@ -1488,7 +1500,14 @@ def _reviewer_result(
     lane = _lane(p)
 
     if approved:
-        earlier = [c.model_copy(update={"resolved": True}) for r in p.reviews for c in r.comments]
+        # a resumed Reviewer re-lists its earlier comments (as resolved): keep one copy of each
+        seen = {(c.file, c.line, c.text) for c in res.comments}
+        earlier: list[ReviewComment] = []
+        for r in p.reviews:
+            for c in r.comments:
+                if (c.file, c.line, c.text) not in seen:
+                    seen.add((c.file, c.line, c.text))
+                    earlier.append(c.model_copy(update={"resolved": True}))
         p.reviews.append(res)
         fallback = _epic_commit_fallback(lane) if lane is not None else _fallback_commit_message(s)
         p.review = res.model_copy(

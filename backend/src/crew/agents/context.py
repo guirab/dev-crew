@@ -130,6 +130,8 @@ def feedback_section(feedback: Feedback) -> str:
             where = f"{c.file}:{c.line}" if c.line else c.file
             state = " [resolvido]" if c.resolved else ""
             lines.append(f"- [{c.severity}] {where}: {c.text}{state}")
+        if feedback.text:
+            lines += ["Notas do Developer:", feedback.text.strip()]
     elif feedback.kind == "human_instruction":
         lines += ["Instrução do usuário:", (feedback.text or "").strip()]
     elif feedback.kind == "plan_adjust":

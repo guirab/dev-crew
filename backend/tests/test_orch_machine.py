@@ -345,6 +345,32 @@ def test_review_changes_requested_loops_to_developer() -> None:
     assert d.job.agent == "tester", "after any dev round: tester, even for review fixes"
 
 
+def test_second_review_round_gets_previous_review_and_developer_notes() -> None:
+    d = Driver(limits=Limits(max_review_rounds=5))
+    d.to_testing()
+    d.result(pass_run())
+    assert d.job.agent == "reviewer" and d.job.feedback is None, "1st round: nothing to recall"
+    d.result(review_changes(), session="s-rev")
+    d.result(dev().model_copy(update={"notes": "Falso positivo: a query já usa bind params."}))
+    d.result(pass_run())
+    job = d.job
+    assert job.agent == "reviewer" and job.resume_session_id == "s-rev"
+    assert job.feedback == c.Feedback(
+        kind="review_comments", review=review_changes(), text="Falso positivo: a query já usa bind params."
+    )
+
+
+def test_approval_keeps_one_copy_of_relisted_comments() -> None:
+    d = Driver()
+    d.to_reviewing()
+    d.result(review_changes())
+    d.result(dev())
+    d.result(pass_run())
+    relisted = [x.model_copy(update={"resolved": True}) for x in review_changes().comments]
+    d.result(c.ReviewResult(verdict="approved", comments=relisted, commit_message="feat: x"))
+    assert d.s.review is not None and d.s.review.comments == relisted
+
+
 def test_review_approved_builds_final_report() -> None:
     d = Driver()
     d.to_reviewing()
@@ -485,6 +511,17 @@ def test_replan_clears_counters_keeps_history_and_calls_planner() -> None:
     assert d.s.phase == "awaiting_approval", "a replan needs a new approval"
     d.command(c.ApprovePlan())
     assert d.job.agent == "developer" and d.s.dev_round == 4
+
+
+def test_reviewer_after_replan_does_not_get_the_old_review() -> None:
+    d = Driver()
+    d.to_review_escalation()
+    d.command(c.EscalationAction(action="replan"))
+    d.result(plan())
+    d.command(c.ApprovePlan())
+    d.result(dev())
+    d.result(pass_run())
+    assert d.job.agent == "reviewer" and d.job.feedback is None
 
 
 def test_replan_not_available_before_spec_closes() -> None:
