@@ -209,6 +209,17 @@ def test_review_feedback_keeps_every_comment_whole() -> None:
     text = feedback_section(Feedback(kind="review_comments", review=review))
     assert "- [major] shop/report.py:42: Query montada com f-string." in text
     assert "- [minor] web/Feature.tsx: Converter datas para UTC. [resolvido]" in text
+    assert "Notas do Developer" not in text
+
+
+def test_review_feedback_carries_the_developer_notes() -> None:
+    review = ReviewResult(
+        verdict="changes_requested",
+        comments=[ReviewComment(severity="major", file="a.py", line=3, text="Falta validar.")],
+    )
+    fb = Feedback(kind="review_comments", review=review, text="  Falso positivo: validado em api.py:10.  ")
+    text = feedback_section(fb)
+    assert text.endswith("Notas do Developer:\nFalso positivo: validado em api.py:10.")
 
 
 @pytest.mark.parametrize(

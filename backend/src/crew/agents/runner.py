@@ -38,7 +38,7 @@ from claude_agent_sdk.types import RateLimitInfo, SystemPromptPreset
 from ..bus import FatalJobError, RetryableJobError, UsageLimitJobError
 from ..contracts import AgentJob, AgentOutput, TokenUsage, UsageLimit, UsageLimitKind
 from ..gitbash import find_git_bash
-from . import guards
+from . import guards, standards
 from .context import FOLLOW_UP, build_prompt, has_new_information, system_prompt_text
 from .progress import ProgressLine, ProgressSink, ProgressThrottle, map_message
 from .runtool import RUN_FULL_NAME, effective_tools, make_run_tool
@@ -151,7 +151,9 @@ def build_options(
     prompt: SystemPromptPreset = {
         "type": "preset",
         "preset": "claude_code",
-        "append": system_prompt_text(spec.name),
+        "append": system_prompt_text(
+            spec.name, standards.load(settings.standards_dirs.get(job.repo.name), job.agent)
+        ),
     }
     tools = effective_tools(spec, job)
     mcp_tools = [submit.sdk_tool]

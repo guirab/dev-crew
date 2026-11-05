@@ -144,6 +144,7 @@ def agent_factories(
                 fake=opts.fake_agents,
                 fake_speed=opts.fake_speed,
                 fake_escalate=opts.fake_escalate,
+                standards_dirs={r.name: r.standards_dir for r in cfg.repos if r.standards_dir},
             )
             await runtime.run_agent(bus, agent, settings=settings, stop=stop)
 

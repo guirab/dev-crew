@@ -1,9 +1,10 @@
 """Projects created by dev-crew from scratch (D58) and existing repositories added from the UI.
 
-They live in ``~/.dev-crew/repos.toml`` (managed here, never hand-edited) and are merged with the
-``[[repos]]`` of ``crew.toml`` when the stack starts; a name in ``crew.toml`` wins. A new project starts
-with empty commands: the Planner decides the stack and its commands (``Plan.project_setup``), saved here
-once the plan is approved. An added repository is not new: it carries the commands the user typed.
+They live in ``~/.dev-crew/repos.toml`` (managed here, never hand-edited except ``standards_dir``) and are
+merged with the ``[[repos]]`` of ``crew.toml`` when the stack starts; a name in ``crew.toml`` wins. A new
+project starts with empty commands: the Planner decides the stack and its commands
+(``Plan.project_setup``), saved here once the plan is approved. An added repository is not new: it
+carries the commands the user typed.
 """
 
 from __future__ import annotations
@@ -129,11 +130,17 @@ def _toml_value(value: object) -> str:
 
 
 def dump_registry(repos: list[RepoCfg]) -> str:
-    lines = ["# Projetos criados pelo dev-crew (D58). Gerido pelo dev-crew: não edite à mão.", ""]
+    lines = [
+        "# Projetos criados pelo dev-crew (D58). Gerido pelo dev-crew: não edite à mão,",
+        "# exceto standards_dir (pasta do repo na base de padrões do vault), que é preservado.",
+        "",
+    ]
     for repo in repos:
         lines.append("[[repos]]")
         data = repo.model_dump(mode="json")
         data["path"] = repo.path.as_posix()
+        if repo.standards_dir is not None:
+            data["standards_dir"] = repo.standards_dir.as_posix()
         for key, value in data.items():
             if value is None:
                 continue

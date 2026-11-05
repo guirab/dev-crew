@@ -125,3 +125,20 @@ def test_configure_logging_is_idempotent(tmp_path: Path) -> None:
 
 def test_crew_config_is_default_constructible() -> None:
     assert CrewConfig().repos == []
+
+
+def test_standards_dir_expands_home_and_survives_the_registry(tmp_path: Path) -> None:
+    from crew import projects
+
+    def repo(standards_dir: str) -> dict[str, object]:
+        return {"repos": [{"name": "r", "path": "/r", "test_cmd": "t", "standards_dir": standards_dir}]}
+
+    cfg = parse_config(repo("~/v/standards"))
+    assert cfg.repos[0].standards_dir == Path.home() / "v" / "standards"
+    assert parse_config(repo("")).repos[0].standards_dir is None
+
+    reg = tmp_path / "repos.toml"
+    projects.save_registered(cfg.repos, reg)
+    assert projects.load_registered(reg) == cfg.repos
+    plain = projects.new_repo("p", tmp_path / "p")
+    assert "standards_dir =" not in projects.dump_registry([plain])

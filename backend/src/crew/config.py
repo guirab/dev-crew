@@ -94,11 +94,17 @@ class RepoCfg(_Section):
     sandbox_image: str | None = None  # Docker image: agent commands run in a per-task container
     deps_dirs: list[str] = Field(default_factory=list)  # kept in Docker volumes, e.g. node_modules
     new_project: bool = False  # created by dev-crew, commands still undecided (D58): the Planner sets them
+    standards_dir: Path | None = None  # this repo's folder in the vault's standards base (project-standards)
 
-    @field_validator("path")
+    @field_validator("standards_dir", mode="before")
     @classmethod
-    def _expand(cls, v: Path) -> Path:
-        return v.expanduser()
+    def _empty_dir_is_none(cls, v: object) -> object:
+        return v or None
+
+    @field_validator("path", "standards_dir")
+    @classmethod
+    def _expand(cls, v: Path | None) -> Path | None:
+        return v.expanduser() if v is not None else None
 
     @field_validator("lint_cmd", "setup_cmd", "sandbox_image")
     @classmethod
