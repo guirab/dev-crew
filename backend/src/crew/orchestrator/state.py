@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..contracts import (
     AgentName,
@@ -199,6 +199,12 @@ class TaskState(BaseModel):
     stages: dict[StageKey, StageState] = Field(default_factory=_blank_stages)
     edges: dict[EdgeKey, EdgeStatus] = Field(default_factory=dict)
     active_edge: EdgeKey | None = None
+
+    @field_validator("stages")
+    @classmethod
+    def _every_stage(cls, v: dict[StageKey, StageState]) -> dict[StageKey, StageState]:
+        # a task saved before a stage existed (``standards``, D82) still loads, in STAGES order
+        return {k: v.get(k) or StageState() for k in STAGES}
 
     dev_round: int = 0
     test_attempt: int = 0

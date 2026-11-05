@@ -76,7 +76,7 @@ export interface AdjustPlan {
  * via the `definition` "AgentProgress".
  */
 export interface AgentProgress {
-  agent: "interviewer" | "planner" | "developer" | "tester" | "reviewer";
+  agent: "interviewer" | "standards" | "planner" | "developer" | "tester" | "reviewer";
   job_id: string;
   kind: "status" | "tool" | "text";
   text: string;
@@ -205,9 +205,12 @@ export interface TaskView {
   edges: {
     [k: string]: "on" | "active";
   };
-  active_edge: ("ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv") | null;
+  active_edge:
+    | ("ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv" | "ma-st" | "st-pl")
+    | null;
   counters: Counters;
   interview: InterviewView | null;
+  standards: StandardsResult | null;
   plan: Plan | null;
   dev_rounds: DevResult[];
   test_runs: TestResult[];
@@ -229,6 +232,7 @@ export interface TaskView {
 export interface Stages {
   manual: StageView;
   interviewer: StageView;
+  standards: StageView;
   planner: StageView;
   approval: StageView;
   developer: StageView;
@@ -293,6 +297,23 @@ export interface InterviewQuestion {
   recommendation: string;
   options: string[];
   rationale: string | null;
+}
+/**
+ * The project standards base (D82): written by the agent, or found already in the vault.
+ *
+ * The agent always submits ``created``; the orchestrator builds ``existing`` itself, without a job.
+ * A new project (D58) has no result: its stage is ``skipped``.
+ *
+ * This interface was referenced by `CrewContracts`'s JSON-Schema
+ * via the `definition` "StandardsResult".
+ */
+export interface StandardsResult {
+  type: "standards";
+  status: "created" | "existing";
+  summary: string;
+  files: string[];
+  decisions: string[];
+  notes: string | null;
 }
 /**
  * This interface was referenced by `CrewContracts`'s JSON-Schema
@@ -512,7 +533,9 @@ export interface EpicView {
   edges: {
     [k: string]: "on" | "active";
   };
-  active_edge: ("ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv") | null;
+  active_edge:
+    | ("ma-iv" | "iv-pl" | "pl-ap" | "ap-dv" | "dv-ts" | "ts-rv" | "rv-dn" | "ts-dv" | "rv-dv" | "ma-st" | "st-pl")
+    | null;
   counters: Counters;
   dev_rounds: DevResult[];
   test_runs: TestResult[];

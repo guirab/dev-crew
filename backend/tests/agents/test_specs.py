@@ -71,7 +71,7 @@ def test_permission_modes_never_bypass() -> None:
 
 def test_submit_names_are_unique_and_prefixed() -> None:
     names = [s.submit_name for s in SPECS.values()]
-    assert len(set(names)) == 5
+    assert len(set(names)) == len(SPECS)
     assert all(n.startswith("submit_") for n in names)
 
 

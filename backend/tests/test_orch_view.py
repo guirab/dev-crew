@@ -174,3 +174,15 @@ def test_view_final_report_fields() -> None:
 def test_view_header_for_manual_task() -> None:
     m = seq_interviewing().s.to_view()
     assert m.title == "Exportar pedidos em CSV" and m.interview is not None
+
+
+def test_a_task_saved_before_the_standards_stage_still_loads() -> None:
+    from crew.orchestrator.state import TaskState
+
+    d = seq_interviewing()
+    assert d.s is not None
+    raw = json.loads(d.s.model_dump_json())
+    del raw["stages"]["standards"]  # D82: rows written before the stage existed
+    view = TaskState.model_validate(raw).to_view()
+    assert view.stages.standards.status == "idle"
+    assert list(view.stages.model_dump()) == list(c.STAGES)

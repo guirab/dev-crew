@@ -15,6 +15,11 @@
       "now": "Aguardando sua resposta — expanda pra responder",
       "logs": []
     },
+    "standards": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
     "planner": {
       "status": "idle",
       "now": null,
@@ -98,6 +103,7 @@
       "Fora de escopo: Export XLSX/PDF fica pra depois."
     ]
   },
+  "standards": null,
   "plan": null,
   "dev_rounds": [],
   "test_runs": [],

@@ -48,6 +48,7 @@ type Listener = (msg: WsMessage) => void
 const STAGE_KEYS: readonly StageKey[] = [
   'manual',
   'interviewer',
+  'standards',
   'planner',
   'approval',
   'developer',
@@ -131,6 +132,7 @@ function perStage<T>(make: (key: StageKey) => T): Record<StageKey, T> {
   return {
     manual: make('manual'),
     interviewer: make('interviewer'),
+    standards: make('standards'),
     planner: make('planner'),
     approval: make('approval'),
     developer: make('developer'),
@@ -215,6 +217,8 @@ export class ScenarioBackend implements MockBackend {
       stages: {
         manual: stage('manual'),
         interviewer: stage('interviewer'),
+        // TODO(standards): the mock scenario never runs the standards stage (always idle)
+        standards: stage('standards'),
         planner: stage('planner'),
         approval: stage('approval'),
         developer: stage('developer'),
@@ -238,6 +242,7 @@ export class ScenarioBackend implements MockBackend {
             decisions: s.interview.decisions,
           }
         : null,
+      standards: null,
       plan: s.plan,
       dev_rounds: s.rounds,
       test_runs: s.runs,

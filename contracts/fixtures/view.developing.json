@@ -20,6 +20,11 @@
         }
       ]
     },
+    "standards": {
+      "status": "idle",
+      "now": null,
+      "logs": []
+    },
     "planner": {
       "status": "done",
       "now": "Plano pronto · 4 passos, 3 arquivos",
@@ -103,6 +108,7 @@
       "Fora de escopo: Exportar o relatório fica pra depois."
     ]
   },
+  "standards": null,
   "plan": {
     "type": "plan",
     "summary": "Adicionar filtro start_date/end_date no relatório de vendas, com validação e testes.",

@@ -15,6 +15,19 @@ Formato:
 
 ---
 
+## 2026-11-05 · D82 · Etapa Padrões (agente `standards`) — ✅ aplicado (exceção ao congelamento, como D38/D39)
+
+- O quê: etapa nova entre a Entrevista e o Plano. Em repositório existente sem base de padrões no vault (`<vault>/standards/...`, D80), o agente `standards` roda a skill `project-standards` em paralelo com a entrevista, sem perguntar nada ao usuário; o Planner espera as duas. Com base, a etapa conclui na hora ("Usando a base existente (<caminho>)"). Projeto novo (D58): `skipped`. Falha do agente: etapa em `error` com o motivo em `now`, e a tarefa segue sem base.
+- Por quê: Planner, Developer, Tester e Reviewer já leem a base (D80), mas ela só existe se o usuário rodou a skill à mão.
+- Campos:
+  - `AgentName`/`AGENTS` e `EventSource` ganham `standards` (depois de `interviewer`). O subject `crew.job.standards` sai de `job_subject(agent)` e cabe em `crew.job.>`: `bus/subjects.py` e o stream `CREW_JOBS` não mudam; `crew streams init` cria o consumer `standards` (rodar de novo num NATS já existente).
+  - `StageKey`/`STAGES` e `Stages` ganham `standards`, entre `interviewer` e `planner`. `TaskState` antigo do SQLite carrega com a etapa em `idle`.
+  - `EdgeKey`/`EDGES` ganham `ma-st` (início → padrões) e `st-pl` (padrões → planner), em paralelo a `ma-iv` e `iv-pl`.
+  - Resultado novo `StandardsResult` (`type = "standards"`) em `AgentOutput`: `status` (`created` | `existing`), `summary` (pt-BR, 1-2 frases), `files` (caminhos relativos a `standards/`), `decisions` (pergunta que a skill faria + resposta do dev-crew com evidência, uma linha cada), `notes`. O agente sempre envia `created` (o finalizer força); `existing` o orquestrador monta sem job; `skipped` é só o status da etapa.
+  - `TaskView.standards: StandardsResult | None`: o resultado do agente ou a base existente, pro nó mostrar arquivos e decisões.
+  - Sem fase nova (`TaskPhase` igual), sem comando novo, `Escalation.stage` igual (a etapa não escala).
+- Proposta (código): fluxo no orquestrador, worker (cópia do vault no worktree, gravação no vault) e nó na UI, marcados `TODO(standards)`.
+
 ## 2026-10-16 · UI v6 · Texto do limite de tentativas na fixture `view.escalated.json` — pendente
 - O quê: `contracts/fixtures/view.escalated.json` (`stages.tester.now`) ainda diz "Limite 3/3 atingido — expanda pra decidir", texto da UI antiga (não há mais o que expandir). O orquestrador, o cenário mock e `backend/scripts/make_fixtures.py` já dizem "Limite N/N atingido — sua vez de decidir".
 - Por quê: o modo `?fixture=escalated` mostra o texto velho; `make_fixtures.py` e a fixture estão fora de sincronia.

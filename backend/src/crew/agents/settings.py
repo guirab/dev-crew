@@ -12,6 +12,7 @@ from ..contracts import AgentName
 
 DEFAULT_MODELS: dict[AgentName, str] = {
     "interviewer": "claude-sonnet-5-5",
+    "standards": "claude-opus-5-5",
     "planner": "claude-opus-5-5",
     "developer": "claude-sonnet-5-5",
     "tester": "claude-sonnet-5-5",

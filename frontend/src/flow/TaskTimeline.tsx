@@ -36,6 +36,7 @@ function liveStages(stages: Stages, progress: Partial<Record<StageKey, LogLine[]
   return {
     manual: live('manual'),
     interviewer: live('interviewer'),
+    standards: live('standards'),
     planner: live('planner'),
     approval: live('approval'),
     developer: live('developer'),

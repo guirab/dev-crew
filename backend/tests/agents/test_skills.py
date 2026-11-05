@@ -20,13 +20,18 @@ def test_vendored_files_match_the_lock() -> None:
 
 
 def test_manifest_only_points_at_vendored_skill_files() -> None:
-    for files in skills.MANIFEST.values():
+    for agent, files in skills.MANIFEST.items():
+        if agent == "standards":  # D82: runs the project-standards skill, no Matt Pocock skill
+            continue
         assert files and all(rel in skills.FILES and rel != "LICENSE" for rel in files)
 
 
 @pytest.mark.parametrize("agent", AGENTS)
 def test_every_agent_prompt_ends_with_its_skills(agent: str) -> None:
     text = system_prompt_text(agent)
+    if not skills.MANIFEST[agent]:
+        assert "Método: skills do Matt Pocock" not in text
+        return
     assert text.index("# Papel:") < text.index("Método: skills do Matt Pocock")
     for rel in skills.MANIFEST[agent]:
         assert f"mattpocock/skills · {rel}" in text

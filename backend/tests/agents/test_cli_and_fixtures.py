@@ -44,6 +44,7 @@ def test_job_fixtures_match_their_generator() -> None:
     script = load_script()
     expected = {
         "interviewer": script.make_job(1, "interviewer", spec=script.VAGUE_SPEC),
+        "standards": script.make_job(6, "standards"),
         "planner": script.make_job(2, "planner"),
         "developer": script.make_job(3, "developer", plan=script.PLAN),
         "tester": script.make_job(4, "tester", plan=script.PLAN),

@@ -17,6 +17,7 @@ from ..contracts import (
     InterviewResult,
     Plan,
     ReviewResult,
+    StandardsResult,
     TestResult,
 )
 
@@ -98,6 +99,10 @@ def check_interview(r: InterviewResult) -> str | None:
     return None
 
 
+def check_standards(r: StandardsResult) -> str | None:
+    return None if r.summary.strip() else "summary não pode ser vazio."
+
+
 def check_plan(r: Plan) -> str | None:
     return None if r.acceptance_criteria else "acceptance_criteria não pode ser vazio."
 
@@ -148,6 +153,11 @@ def finalize_interview(r: InterviewResult, job: AgentJob) -> InterviewResult:
     return r.model_copy(update={"spec": spec})
 
 
+def finalize_standards(r: StandardsResult, job: AgentJob) -> StandardsResult:
+    # ``existing`` is the orchestrator's call (base already in the vault), never the agent's
+    return r if r.status == "created" else r.model_copy(update={"status": "created"})
+
+
 def finalize_dev(r: DevResult, job: AgentJob) -> DevResult:
     return r.model_copy(update={"round": job.attempt})
 
@@ -172,6 +182,21 @@ SPECS: dict[AgentName, AgentSpec[Any]] = {
         default_model="claude-sonnet-5-5",
         check=check_interview,
         finalize=finalize_interview,
+    ),
+    # TODO(standards): read-only stub; the agent must write only to a temporary folder of the worktree
+    "standards": AgentSpec(
+        name="standards",
+        output=StandardsResult,
+        submit_name="submit_standards",
+        tools=(*_READ, "Bash"),
+        bash="readonly",
+        write="none",
+        max_turns=None,
+        resume_across_rounds=False,
+        permission_mode="default",
+        default_model="claude-opus-5-5",
+        check=check_standards,
+        finalize=finalize_standards,
     ),
     "planner": AgentSpec(
         name="planner",

@@ -4,13 +4,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-AgentName = Literal["interviewer", "planner", "developer", "tester", "reviewer"]
-AGENTS: tuple[AgentName, ...] = ("interviewer", "planner", "developer", "tester", "reviewer")
+AgentName = Literal["interviewer", "standards", "planner", "developer", "tester", "reviewer"]
+AGENTS: tuple[AgentName, ...] = ("interviewer", "standards", "planner", "developer", "tester", "reviewer")
 
-StageKey = Literal["manual", "interviewer", "planner", "approval", "developer", "tester", "reviewer", "done"]
+StageKey = Literal[
+    "manual", "interviewer", "standards", "planner", "approval", "developer", "tester", "reviewer", "done"
+]
 STAGES: tuple[StageKey, ...] = (
     "manual",
     "interviewer",
+    "standards",  # D82: runs alongside the interview; the Planner waits for both
     "planner",
     "approval",
     "developer",
@@ -21,7 +24,9 @@ STAGES: tuple[StageKey, ...] = (
 
 StageStatus = Literal["idle", "pick", "active", "waiting", "done", "error", "skipped"]
 
-EdgeKey = Literal["ma-iv", "iv-pl", "pl-ap", "ap-dv", "dv-ts", "ts-rv", "rv-dn", "ts-dv", "rv-dv"]
+EdgeKey = Literal[
+    "ma-iv", "iv-pl", "pl-ap", "ap-dv", "dv-ts", "ts-rv", "rv-dn", "ts-dv", "rv-dv", "ma-st", "st-pl"
+]
 EDGES: tuple[EdgeKey, ...] = (
     "ma-iv",
     "iv-pl",
@@ -32,6 +37,8 @@ EDGES: tuple[EdgeKey, ...] = (
     "rv-dn",
     "ts-dv",
     "rv-dv",
+    "ma-st",  # D82: start -> standards (parallel to ma-iv)
+    "st-pl",  # D82: standards -> planner (parallel to iv-pl)
 )
 
 EdgeStatus = Literal["on", "active"]
@@ -54,7 +61,9 @@ TaskPhase = Literal[
 TERMINAL_PHASES: frozenset[TaskPhase] = frozenset({"done", "cancelled", "failed"})
 
 FileChange = Literal["A", "M", "D"]
-EventSource = Literal["interviewer", "planner", "developer", "tester", "reviewer", "orchestrator", "gateway"]
+EventSource = Literal[
+    "interviewer", "standards", "planner", "developer", "tester", "reviewer", "orchestrator", "gateway"
+]
 
 
 class Contract(BaseModel):

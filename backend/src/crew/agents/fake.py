@@ -28,6 +28,7 @@ from ..contracts import (
     ProjectSetup,
     ReviewComment,
     ReviewResult,
+    StandardsResult,
     TaskSpec,
     TestFailure,
     TestResult,
@@ -41,9 +42,17 @@ from .specs import COMMIT_SUBJECT_MAX, SPECS
 
 Sleep = Callable[[float], Awaitable[None]]
 
-FAKE_COSTS = {"interviewer": 0.01, "planner": 0.05, "developer": 0.12, "tester": 0.04, "reviewer": 0.06}
+FAKE_COSTS = {
+    "interviewer": 0.01,
+    "standards": 0.03,
+    "planner": 0.05,
+    "developer": 0.12,
+    "tester": 0.04,
+    "reviewer": 0.06,
+}
 FAKE_TOKENS = {
     "interviewer": 4_000,
+    "standards": 15_000,
     "planner": 20_000,
     "developer": 60_000,
     "tester": 25_000,
@@ -269,6 +278,8 @@ class ScriptedRunner:
         match job.agent:
             case "interviewer":
                 output = await self._interviewer(job, steps)
+            case "standards":
+                output = await self._standards(job, steps)
             case "planner":
                 output = await self._planner(job, steps)
             case "developer":
@@ -300,6 +311,16 @@ class ScriptedRunner:
             return InterviewResult(kind="question", questions=list(questions))
         await steps.step("Consolidando a spec", 0.6)
         return InterviewResult(kind="done", spec=_consolidate(job.spec, job))
+
+    # ---------------------------------------------------------------- standards
+    async def _standards(self, job: AgentJob, steps: _Steps) -> StandardsResult:
+        # TODO(standards): write the base into the worktree's temporary folder, like the real agent
+        await steps.step("Lendo o repo e as notas do vault", 0.8)
+        return StandardsResult(
+            summary=f"Base de padrões criada para {job.repo.name}.",
+            files=["Conventions.md", "Glossary.md"],
+            decisions=["Idioma dos docs: pt-BR (README do repo em português)."],
+        )
 
     # ---------------------------------------------------------------- planner
     async def _planner(self, job: AgentJob, steps: _Steps) -> Plan:

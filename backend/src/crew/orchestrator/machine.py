@@ -1326,6 +1326,9 @@ def _on_result(s: TaskState, p: Pipe, ev: AgentResult) -> tuple[TaskState | None
             if not isinstance(out, InterviewResult) or lane is not None:
                 return _bad_output(s, p, ev, "InterviewResult", pending)
             return _interviewer_result(s, out, ev.at, pending)
+        case "standards":
+            # TODO(standards): store the StandardsResult and start the Planner once the interview is done
+            return _bad_output(s, p, ev, "nenhum job de padrões (etapa ainda não ligada)", pending)
         case "planner":
             if not isinstance(out, Plan) or lane is not None:
                 return _bad_output(s, p, ev, "Plan", pending)

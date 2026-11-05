@@ -40,6 +40,7 @@ _TDD = ("tdd/SKILL.md", "tdd/tests.md", "tdd/mocking.md")
 # D66: which vendored files each agent reads, in order
 MANIFEST: dict[str, tuple[str, ...]] = {
     "interviewer": ("grilling/SKILL.md", "domain-modeling/SKILL.md"),
+    "standards": (),  # TODO(standards): runs the `project-standards` skill, not a Matt Pocock one (D82)
     "planner": ("to-tickets/SKILL.md", "codebase-design/SKILL.md"),
     "developer": _TDD,
     "tester": _TDD,

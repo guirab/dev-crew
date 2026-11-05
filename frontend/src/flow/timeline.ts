@@ -235,6 +235,7 @@ function resultNode(view: TaskView): TimelineNode {
 export function timelineNodes(view: TaskView): TimelineNode[] {
   const nodes: TimelineNode[] = []
   if (view.stages.approval.status !== 'done') nodes.push(taskNode(view))
+  // TODO(standards): nó "Padrões" (stages.standards + view.standards) entre a Entrevista e o Plano
   nodes.push(interviewNode(view), planNode(view))
   nodes.push(isSplit(view) ? epicsExecution(view) : singleExecution(view))
   if (view.phase === 'awaiting_selection') {

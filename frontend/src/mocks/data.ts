@@ -130,6 +130,8 @@ function pastView(task: TaskSummary): TaskView {
     stages: {
       manual: stage('done'),
       interviewer: stage('skipped'),
+      // TODO(standards): the past task view has no standards stage yet
+      standards: stage('idle'),
       planner: stage('done'),
       approval: stage('done'),
       developer: stage(ok ? 'done' : 'error'),
@@ -147,6 +149,7 @@ function pastView(task: TaskSummary): TaskView {
       max_review_rounds: 2,
     },
     interview: null,
+    standards: null,
     plan: null,
     dev_rounds: [],
     test_runs: [],

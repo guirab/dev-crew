@@ -37,6 +37,7 @@ from ..contracts import (
     PlanFile,
     ReviewComment,
     ReviewResult,
+    StandardsResult,
     TaskSpec,
     TestFailure,
     TestResult,
@@ -130,6 +131,7 @@ class FakeCrew:
     def _handler(self, agent: AgentName) -> JobHandler:
         script: dict[AgentName, Callable[[AgentJob], Awaitable[AgentOutput]]] = {
             "interviewer": self._interviewer,
+            "standards": self._standards,
             "planner": self._planner,
             "developer": self._developer,
             "tester": self._tester,
@@ -166,6 +168,12 @@ class FakeCrew:
             raise _Cancelled
 
     # ------------------------------------------------------------------ agents
+
+    async def _standards(self, job: AgentJob) -> AgentOutput:
+        # TODO(standards): never dispatched yet; the orchestrator does not start the stage
+        await self._say(job, "Lendo o repo e as notas do vault")
+        summary = f"Base de padrões criada para {job.repo.name}."
+        return StandardsResult(summary=summary, files=["Conventions.md"])
 
     async def _interviewer(self, job: AgentJob) -> AgentOutput:
         await self._say(job, "Lendo a descrição e o repo")
