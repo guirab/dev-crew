@@ -36,7 +36,7 @@ name = "sample-repo"
 path = "C:/Users/guilh/Documents/dev-crew/fixtures/sample-repo"
 base_branch = "main"
 test_cmd = "python -m pytest -q"
-lint_cmd = ""
+lint_cmd = ""                    # can chain the typecheck: "npm run lint && npm run typecheck" (the Tester's ok comes from the exit code, D70)
 test_globs = ["tests/**", "**/test_*.py"]
 # Optional:
 # setup_cmd = "npm install"     # run by dev-crew (never by the agents) before the 1st agent and again when the Developer changes a manifest; if it fails, the task fails. Prefer `npm install` over `npm ci` (the lockfile gets out of date)

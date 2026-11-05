@@ -75,7 +75,7 @@ cd frontend && npm run build
 
 Config:
 
-- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`.
+- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`. `lint_cmd` runs in `bash -lc`, so it can chain the typecheck (`lint_cmd = "npm run lint && npm run typecheck"`): the Tester's `ok` comes from the exit code (D70).
 - `.env.example` → `backend/.env`. Leave `ANTHROPIC_API_KEY` empty: if it is set, the agents bill the API instead of the subscription.
 
 Health check (config, git, Git Bash, CLI, login, NATS, Docker, repos):
