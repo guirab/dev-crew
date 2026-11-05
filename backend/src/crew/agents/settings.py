@@ -29,8 +29,10 @@ class AgentRuntimeSettings(BaseModel):
     """Playback speed of the scripted runner, like the mockup: 2.0 is twice as fast, 1000 is instant."""
     fake_escalate: bool = False
     max_turns: int | None = None
+    repo_paths: dict[str, Path] = {}
+    """Repo name -> its folder (``RepoCfg.path``): the vault is resolved from it on every job (D82)."""
     standards_dirs: dict[str, Path] = {}
-    """Repo name -> its folder in the vault's standards base (``RepoCfg.standards_dir``), read per job."""
+    """Repo name -> its folder in the standards base, when the config pins it (``RepoCfg.standards_dir``)."""
 
 
 def _truthy(value: str | None) -> bool:
