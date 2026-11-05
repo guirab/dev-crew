@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -27,6 +28,8 @@ class AgentRuntimeSettings(BaseModel):
     """Playback speed of the scripted runner, like the mockup: 2.0 is twice as fast, 1000 is instant."""
     fake_escalate: bool = False
     max_turns: int | None = None
+    standards_dirs: dict[str, Path] = {}
+    """Repo name -> its folder in the vault's standards base (``RepoCfg.standards_dir``), read per job."""
 
 
 def _truthy(value: str | None) -> bool:

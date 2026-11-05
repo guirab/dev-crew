@@ -42,4 +42,5 @@ test_globs = ["tests/**", "**/test_*.py"]
 # setup_cmd = "npm install"     # run by dev-crew (never by the agents) before the 1st agent and again when the Developer changes a manifest; if it fails, the task fails. Prefer `npm install` over `npm ci` (the lockfile gets out of date)
 # sandbox_image = "node:22"     # agent commands run in one container per task (no network, sees only the worktree)
 # deps_dirs = ["node_modules"]  # with sandbox: kept in Docker volumes, outside the worktree
+# standards_dir = "C:/Users/me/Documents/Vaults/my-vault/standards"  # project-standards base: the worker appends it to the agents' system prompt. Workspace project: <vault>/standards/<REPO>. Also accepted (and kept) in ~/.dev-crew/repos.toml
 # Projects created by the "Novo projeto" card live in ~/.dev-crew/repos.toml (no need to repeat them here).

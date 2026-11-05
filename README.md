@@ -75,7 +75,7 @@ cd frontend && npm run build
 
 Config:
 
-- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`. `lint_cmd` runs in `bash -lc`, so it can chain the typecheck (`lint_cmd = "npm run lint && npm run typecheck"`): the Tester's `ok` comes from the exit code (D70).
+- `crew.toml.example` → `~/.dev-crew/crew.toml` (lookup order: `CREW_CONFIG` > `./crew.toml` > `~/.dev-crew/crew.toml`). Register your repos under `[[repos]]` with `test_cmd`, `lint_cmd` and, optionally, `setup_cmd`, `sandbox_image` and `deps_dirs`. `lint_cmd` runs in `bash -lc`, so it can chain the typecheck (`lint_cmd = "npm run lint && npm run typecheck"`): the Tester's `ok` comes from the exit code (D70). `standards_dir` points to the repo's folder in the vault's standards base (skill `project-standards`: `<vault>/standards`, or `<vault>/standards/<REPO>` in a workspace); the worker reads it on every job and appends it to the Planner, Developer and Reviewer system prompts (the Tester gets only the testing sections of `Conventions.md`). It also works in `~/.dev-crew/repos.toml`, the only key you may edit there by hand.
 - `.env.example` → `backend/.env`. Leave `ANTHROPIC_API_KEY` empty: if it is set, the agents bill the API instead of the subscription.
 
 Health check (config, git, Git Bash, CLI, login, NATS, Docker, repos):
