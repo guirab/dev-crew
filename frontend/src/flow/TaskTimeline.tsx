@@ -9,6 +9,7 @@ import { EscalationPanel } from '../bodies/EscalationPanel'
 import { InterviewBody } from '../bodies/InterviewBody'
 import { PlannerBody } from '../bodies/PlannerBody'
 import { ReviewerBody } from '../bodies/ReviewerBody'
+import { StandardsBody } from '../bodies/StandardsBody'
 import { TesterBody } from '../bodies/TesterBody'
 import { DoneBody } from '../bodies/DoneBody'
 import { cx } from '../lib/cx'
@@ -100,6 +101,8 @@ function NodeBody({ node, view }: { node: TimelineNode; view: TaskView }) {
           <InterviewBody view={view} stage={stages.interviewer} />
         </>
       )
+    case 'standards':
+      return <StandardsBody view={view} stage={stages.standards} />
     case 'plan':
       return (
         <>

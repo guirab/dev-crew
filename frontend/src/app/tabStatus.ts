@@ -36,8 +36,13 @@ export function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text
 }
 
-function working(key: StageKey): { state: string; favicon: FaviconKind } {
-  return { state: `${STAGE_META[key].title} trabalhando`, favicon: 'working' }
+/** O agente da fase trabalhando; parado (ex.: entrevista concluída), os Padrões que ainda rodam (D82). */
+function working(key: StageKey, view?: TaskView): { state: string; favicon: FaviconKind } {
+  const who =
+    view && view.stages[key].status !== 'active' && view.stages.standards.status === 'active'
+      ? 'standards'
+      : key
+  return { state: `${STAGE_META[who].title} trabalhando`, favicon: 'working' }
 }
 
 /** Estado da tarefa em uma frase + o ícone que o representa (também usado pela faixa Agora). */
@@ -47,7 +52,7 @@ export function describe(view: TaskView): { state: string; favicon: FaviconKind 
     case 'interviewing':
       return view.stages.interviewer.status === 'waiting'
         ? { state: `${NEEDS_YOU}: responda a entrevista`, favicon: 'attention' }
-        : working('interviewer')
+        : working('interviewer', view)
     case 'awaiting_approval':
       return { state: `${NEEDS_YOU}: aprove o plano`, favicon: 'attention' }
     case 'escalated': {
@@ -83,6 +88,7 @@ export function describe(view: TaskView): { state: string; favicon: FaviconKind 
     case 'limited':
       return { state: `${NEEDS_YOU}: limite de uso atingido`, favicon: 'error' }
     case 'planning':
+      return working('planner', view)
     case 'developing':
     case 'testing':
     case 'reviewing':

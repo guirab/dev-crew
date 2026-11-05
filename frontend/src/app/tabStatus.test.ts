@@ -36,6 +36,19 @@ describe('tabStatus', () => {
     })
   })
 
+  it('Padrões rodando: sua vez na entrevista ganha; entrevista concluída mostra os Padrões', () => {
+    const run = (interviewer: 'waiting' | 'active' | 'done') => {
+      const base = view({ phase: 'interviewing', interviewer })
+      const standards = { status: 'active' as const, now: null, logs: [] }
+      return tabStatus({ ...base, stages: { ...base.stages, standards } }).title
+    }
+    expect(run('waiting')).toBe(
+      '● Precisa de você: responda a entrevista · Exportar CSV · Dev Crew',
+    )
+    expect(run('active')).toBe('Entrevistador trabalhando · Exportar CSV · Dev Crew')
+    expect(run('done')).toBe('Padrões trabalhando · Exportar CSV · Dev Crew')
+  })
+
   it('awaiting_approval pede aprovação', () => {
     expect(tabStatus(view({ phase: 'awaiting_approval' }))).toEqual({
       title: '● Precisa de você: aprove o plano · Exportar CSV · Dev Crew',

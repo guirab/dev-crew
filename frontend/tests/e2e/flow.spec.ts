@@ -178,6 +178,16 @@ test.describe('modo mock — fixtures estáticas e conexão', () => {
     await expect(node(page, 'execution')).toHaveAttribute('data-tone', 'err')
   })
 
+  test('?fixture=standards-existing e standards-error desenham o nó Padrões', async ({ page }) => {
+    await openFixture(page, 'standards-existing')
+    await expect(node(page, 'standards')).toHaveAttribute('data-tone', 'done')
+    await expect(node(page, 'standards')).toContainText('Usando a base existente')
+    await expect(node(page, 'interview')).toHaveAttribute('data-tone', 'you')
+    await openFixture(page, 'standards-error')
+    await expect(node(page, 'standards')).toHaveAttribute('data-tone', 'err')
+    await expect(body(page, 'standards')).toContainText('A tarefa segue sem a base de padrões.')
+  })
+
   test('fixture inexistente mostra o erro na tela (e lista as disponíveis)', async ({ page }) => {
     page.on('pageerror', () => undefined) // o erro também é relançado no console
     await page.goto('/?fixture=nao-existe')
