@@ -7,7 +7,8 @@ import { ScenarioBackend } from './scenario'
 
 /**
  * Liga o MSW (REST + WS). Query params:
- *  - `?fixture=<nome>`  snapshot estático de contracts/fixtures/view.<nome>.json (ou de `DEMO_VIEWS`)
+ *  - `?fixture=<nome>`  snapshot estático de contracts/fixtures/view.<nome>.json (ou de `DEMO_VIEWS`:
+ *                       epics, next-batch, limited, failed, standards-existing, standards-error)
  *  - `?escalate=1`      Tester falha sempre → escalada
  *  - `?speed=<n>`       multiplicador de velocidade do cenário (default 1)
  */

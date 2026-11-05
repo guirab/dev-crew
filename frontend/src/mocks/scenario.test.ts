@@ -49,6 +49,22 @@ describe('ScenarioBackend', () => {
     expect(backend.getView()).toBeNull()
   })
 
+  it('Padrões rodam junto com a entrevista e o plano espera os dois', async () => {
+    backend.handle(MANUAL)
+    expect(view(backend).stages.standards.status).toBe('active')
+    expect(view(backend).stages.interviewer.status).toBe('waiting')
+    backend.handle({ type: 'answer_interview', answers: [null, null] })
+    backend.handle({ type: 'answer_interview', answers: [null] })
+    expect(view(backend)).toMatchObject({ phase: 'interviewing', standards: null })
+    expect(view(backend).stages.planner.status).toBe('idle')
+    await settle()
+    const v = view(backend)
+    expect(v.stages.standards.status).toBe('done')
+    expect(v.standards).toMatchObject({ status: 'created' })
+    expect(v.standards?.decisions.length).toBeGreaterThan(0)
+    expect(v.phase).toBe('awaiting_approval')
+  })
+
   it('fluxo completo: plano → aprovação → dev → 1º teste falha → review pede mudanças → done', async () => {
     await toPlan(backend)
     expect(view(backend)).toMatchObject({ phase: 'awaiting_approval', active_edge: 'pl-ap' })

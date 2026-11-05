@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskView } from '../contracts/generated'
 import { epicLane, fixture } from '../test/fixtures'
-import { logSpan, opensByDefault, timelineNodes } from './timeline'
+import { failedStage, logSpan, opensByDefault, timelineNodes } from './timeline'
 
 const tones = (view: TaskView) =>
   Object.fromEntries(timelineNodes(view).map((node) => [node.key, node.tone]))
@@ -31,6 +31,7 @@ describe('timelineNodes', () => {
     expect(tones(fixture('interviewing'))).toEqual({
       task: 'done',
       interview: 'you',
+      standards: 'todo',
       plan: 'todo',
       execution: 'todo',
       review: 'todo',
@@ -183,6 +184,101 @@ describe('timelineNodes', () => {
       epics: [epicLane('E1', 'merged'), epicLane('E2', 'pending')],
     })
     expect(tones(view)).toMatchObject({ execution: 'done', next: 'you', review: 'todo' })
+  })
+})
+
+describe('nó Padrões', () => {
+  const at = (s: number) => new Date(Date.UTC(2026, 10, 5, 9, 0, s)).toISOString()
+  const created: TaskView['standards'] = {
+    type: 'standards',
+    status: 'created',
+    summary: 'Base criada.',
+    files: ['Conventions.md', 'Glossary.md'],
+    decisions: ['Idioma: pt-BR', 'Testes: pytest', 'Datas: UTC'],
+    notes: null,
+  }
+  const existing: TaskView['standards'] = {
+    ...created,
+    status: 'existing',
+    summary: 'Usando a base existente (standards/sample-repo)',
+    files: [],
+    decisions: [],
+  }
+
+  function withStandards(
+    status: TaskView['stages']['standards']['status'],
+    standards: TaskView['standards'] = null,
+    over: Partial<TaskView['stages']['standards']> = {},
+    base: TaskView = fixture('interviewing'),
+  ): TaskView {
+    return {
+      ...base,
+      standards,
+      stages: { ...base.stages, standards: { status, now: null, logs: [], ...over } },
+    }
+  }
+  const standardsOf = (view: TaskView) => timelineNodes(view).find((n) => n.key === 'standards')
+
+  it('fica entre a Entrevista e o Plano', () => {
+    const keys = timelineNodes(withStandards('active')).map((n) => n.key)
+    expect(keys.slice(1, 4)).toEqual(['interview', 'standards', 'plan'])
+  })
+
+  it('rodando junto com a entrevista esperando você: Entrevista na sua vez, Padrões trabalhando', () => {
+    const view = withStandards('active')
+    expect(tones(view)).toMatchObject({ interview: 'you', standards: 'run' })
+    const node = standardsOf(view)
+    expect(node).toMatchObject({ name: 'Padrões', summary: 'Analisando o repositório' })
+    // a ação mora na entrevista: só ela abre sozinha
+    expect(node && opensByDefault(node, view)).toBe(false)
+    expect(standardsOf(withStandards('active', null, { now: 'Read package.json' }))?.summary).toBe(
+      'Read package.json',
+    )
+  })
+
+  it('criada: arquivos e decisões no resumo, com a duração', () => {
+    const logs = [
+      { ts: at(0), text: 'Analisando o repositório' },
+      { ts: at(95), text: 'Base criada' },
+    ]
+    expect(standardsOf(withStandards('done', created, { logs }))).toMatchObject({
+      tone: 'done',
+      summary: '2 arquivos · 3 decisões',
+      meta: '1m 35s',
+    })
+  })
+
+  it('base existente: o caminho no resumo, sem duração nem custo', () => {
+    const logs = [
+      { ts: at(0), text: 'a' },
+      { ts: at(5), text: 'b' },
+    ]
+    expect(standardsOf(withStandards('done', existing, { logs }))).toMatchObject({
+      tone: 'done',
+      summary: 'Usando a base existente (standards/sample-repo)',
+      meta: '',
+    })
+  })
+
+  it('projeto novo: pulado, em cinza', () => {
+    expect(standardsOf(withStandards('skipped'))).toMatchObject({
+      tone: 'todo',
+      summary: 'Pulado: projeto novo',
+    })
+  })
+
+  it('erro: fica vermelho com a tarefa viva (não vira volta do loop) e abre com o motivo', () => {
+    const view = withStandards('error', null, { now: 'agente saiu sem resultado' })
+    const node = standardsOf(view)
+    expect(node).toMatchObject({ tone: 'err', summary: 'seguindo sem a base' })
+    expect(node && opensByDefault(node, view)).toBe(true)
+    expect(failedStage(view, 'standards')?.now).toBe('agente saiu sem resultado')
+    expect(tones(view).interview).toBe('you')
+  })
+
+  it('tarefa de antes da etapa (idle com o Planner já rodado) não mostra o nó', () => {
+    expect(standardsOf(withStandards('idle', null, {}, fixture('developing')))).toBeUndefined()
+    expect(standardsOf(withStandards('idle'))).toMatchObject({ tone: 'todo' })
   })
 })
 
