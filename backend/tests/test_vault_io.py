@@ -137,6 +137,24 @@ def test_publish_workspace_writes_the_repo_folder_and_extends_project_files(tmp_
     assert not (vault / "standards" / "Before You Develop.md").exists()
 
 
+def test_publish_backs_up_a_project_file_before_overwriting_it(tmp_path: Path) -> None:
+    ws, vault = tmp_path / "wt", tmp_path / "vault"
+    _write(vault / "standards" / "Glossary.md", "web terms\n")
+    _write(vault / "standards" / "Conventions.md", "same\n")
+    vault_io.stage(ws, vault)
+    out = ws / STANDARDS_OUT
+    _write(out / "Glossary.md", "api terms only\n")  # the agent dropped the web terms
+    _write(out / "Conventions.md", "same\n")  # unchanged: no backup
+    _write(out / "api" / "Before You Develop.md")  # new: no backup
+    vault_io.publish(ws, _info(vault, workspace=True))
+    backups = sorted(p.relative_to(vault).as_posix() for p in (vault / vault_io.BACKUP_DIR).rglob("*.md"))
+    assert len(backups) == 1 and backups[0].endswith("/standards/Glossary.md")
+    assert (vault / backups[0]).read_text("utf-8") == "web terms\n"
+    assert (vault / "standards" / "Glossary.md").read_text("utf-8") == "api terms only\n"
+    vault_io.stage(ws, vault)  # the backup never reaches the agent's vault copy
+    assert not any((ws / VAULT_COPY).rglob(f"{vault_io.BACKUP_DIR}*"))
+
+
 def test_publish_without_a_valid_file_fails_and_writes_nothing(tmp_path: Path) -> None:
     ws, vault = tmp_path / "wt", tmp_path / "vault"
     vault_io.stage(ws, vault)

@@ -2,14 +2,16 @@
 
 Before the job, the ``.md`` notes of the vault are copied to ``<worktree>/.crew/vault/`` (the agent cannot
 read outside the worktree) and ``<worktree>/.crew/standards-out/`` is created for its output. After it,
-the valid files of the output go to ``<vault>/standards/`` (the vault is created when missing) and
-``.crew/`` is removed. ``.crew/`` is in the repo's ``info/exclude``: it never shows up in a diff or commit.
+the valid files of the output go to ``<vault>/standards/`` (the vault is created when missing; a file
+that changes is first kept in ``<vault>/.dev-crew-backup/<timestamp>/``) and ``.crew/`` is removed.
+``.crew/`` is in the repo's ``info/exclude``: it never shows up in a diff or commit.
 """
 
 from __future__ import annotations
 
 import re
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -23,6 +25,7 @@ MAX_FILES = 500
 MAX_FILE_BYTES = 512 * 1024
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
 EXCLUDE_LINE = f"/{CREW_DIR}/"
+BACKUP_DIR = ".dev-crew-backup"  # hidden: Obsidian and the vault copy (``_vault_notes``) skip it
 
 BEFORE = "Before You Develop.md"
 _PROJECT_FILES = frozenset({"Glossary.md", "Conventions.md"})
@@ -165,10 +168,17 @@ def publish(worktree: Path, info: VaultInfo) -> list[str]:
     if not info.vault.is_dir():
         create_vault(info)
     out = worktree / STANDARDS_OUT
+    backup = info.vault / BACKUP_DIR / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     for rel in files:
         target = info.root / rel
+        if target.is_file() and target.read_bytes() != (out / rel).read_bytes():
+            # project-level files are rewritten by the agent: keep the old one in case it dropped content
+            kept = backup / target.relative_to(info.vault)
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(target, kept)
+            log.warning("standards_backup", file=str(target), backup=str(kept))
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(out / rel, target)  # project-level files are extended by the agent: overwrite
+        shutil.copyfile(out / rel, target)
     log.info("standards_published", root=str(info.root), files=len(files))
     return files
 
